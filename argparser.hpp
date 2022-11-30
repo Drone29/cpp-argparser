@@ -115,8 +115,8 @@ public:
 
     template <typename T = const char*, typename...args>
     void addPositional(const std::string &key,
-                       const std::string& help,
-                       std::any(*func)(args...) = nullptr){
+                        const std::string& help,
+                        std::any(*func)(args...) = nullptr){
 
         auto splitKey = parseKey(key, __func__);
         if(!splitKey.alias.empty()){
@@ -141,10 +141,10 @@ public:
     }
 
     template <typename T = const char *, typename...args> //class F = std::any(*)(const char*)
-        void addArgument(const std::string &key,
-                       const std::string& help,
-                       const std::vector<const char*>& opts,
-                       std::any(*func)(args...) = nullptr){
+    void addArgument(const std::string &key,
+                      const std::string& help,
+                      const std::vector<const char*>& opts,
+                      std::any(*func)(args...) = nullptr){
 
         auto splitKey = parseKey(key, __func__);
 
@@ -208,12 +208,17 @@ public:
 
     }
 
-    template <typename T>
+    template <typename T = std::any>
     T getValue(const std::string &key){
         parsedCheck(__func__);
         if(argMap.find(key) != argMap.end()){
             auto base_opt = argMap[key]->option;
             auto strType = getFuncTemplateType(__PRETTY_FUNCTION__);
+            ///if any
+            if(std::type_index(typeid(T)) == std::type_index(typeid(std::any))){
+                return base_opt->anyval;
+            }
+            ///otherwise check
             if(std::type_index(typeid(T)) != std::type_index(base_opt->anyval.type())){
                 throw std::runtime_error(std::string(__func__) + ": " + key + " cannot cast to " + strType);
             }
@@ -242,6 +247,7 @@ public:
 
         sanityCheck(alias, __func__);
         argMap[alias] = new ARG_DEFS(*argMap[key]);
+        ///.option just points to original object, so we need to free memory in smart way, see ~argParser()
         argMap[alias]->alias = key;
         argMap[key]->alias = alias;
     }
@@ -339,8 +345,10 @@ public:
                     }
 
                     ///Check if string null or next key
-                    if((pValue == nullptr)
-                       || (argMap.find(pValue) != argMap.end())){
+                    if(mandatory_opts
+                       && (pValue == nullptr
+                       || argMap.find(pValue) != argMap.end())
+                       ){
                         throw std::runtime_error("Error: no argument provided for " + std::string(pName));
                     }
 
@@ -414,6 +422,7 @@ private:
     };
 
     struct ARG_DEFS{
+        ///.option just points to original object, so we need to free memory in smart way, see ~argParser()
         ~ARG_DEFS() = default;
         std::string typeStr;
         std::vector<const char*> options;
