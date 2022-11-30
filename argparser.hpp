@@ -284,7 +284,7 @@ public:
                         opts_cnt++;
                     }
 
-                    if(mandatory_opts < opts_cnt){
+                    if(opts_cnt < mandatory_opts){
                         throw std::runtime_error(std::string(pName) + " requires "
                         + std::to_string(mandatory_opts) + " arguments, but " + std::to_string(opts_cnt) + " were provided");
                     }
@@ -454,7 +454,7 @@ private:
         }else if(type == std::type_index(typeid(float))){
             res = strtof(temp.c_str(), &tmp);
         }else if(type == std::type_index(typeid(double))){
-            res = (double)strtod(temp.c_str(), &tmp);
+            res = strtod(temp.c_str(), &tmp);
         }
 
         if(temp.c_str() == tmp || *tmp){
