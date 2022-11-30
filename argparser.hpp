@@ -32,7 +32,7 @@
 #define HELP_ADVANCED_OPT_BRACED "[" HELP_HIDDEN_OPT " | param]"
 /// help self-explanation
 #define HELP_GENERIC_MESSAGE \
-    "Show this message. " HELP_HIDDEN_OPT " to list advanced options"
+    "Show this message and exit. " HELP_HIDDEN_OPT " to list advanced options"
 /// delimiter for key aliases
 #define KEY_ALIAS_DELIMITER ","
 /// bool parsable strings
@@ -90,6 +90,7 @@ public:
                 {HELP_ADVANCED_OPT_BRACED},
                 std::string(HELP_GENERIC_MESSAGE)};
         argMap[HELP_NAME]->flag = true;
+        argMap[HELP_NAME]->final = true;
         setAlias(HELP_NAME, HELP_ALIAS);
         //Count max number of arguments
         max_args = MAX_ARGS;
@@ -123,6 +124,12 @@ public:
             throw std::runtime_error(key + " positional argument cannot have aliases");
         }
 
+        if(non_final_opt_arb_args){
+            throw std::runtime_error(std::string(__func__) + ": " + key
+                                 + " cannot add positional arg along with non-final option with arbitrary args");
+        }
+
+
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
 
@@ -144,7 +151,8 @@ public:
     void addArgument(const std::string &key,
                       const std::string& help,
                       const std::vector<const char*>& opts,
-                      std::any(*func)(args...) = nullptr){
+                      std::any(*func)(args...) = nullptr,
+                      bool final = false){
 
         auto splitKey = parseKey(key, __func__);
 
@@ -152,7 +160,7 @@ public:
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
 
         if(opts.size() > max_args){
-            throw std::runtime_error("Too many arguments for " + std::string(key)
+            throw std::runtime_error("Too many arguments for " + key
                                      + ", provided " + std::to_string(opts.size())
                                      + ", max " + std::to_string(max_args) + " allowed."
                                      + " Consider changing " + std::string(STRINGIFY_IMPL(UNPACK_ARGUMENTS)));
@@ -166,7 +174,7 @@ public:
             if(isOptMandatory(sopt)){
                 last_mandatory_arg = sopt;
                 if(!last_arbitrary_arg.empty()){
-                    throw std::runtime_error(std::string(key)
+                    throw std::runtime_error(key
                                              + ": arbitrary argument "
                                              + last_arbitrary_arg
                                              + " cannot be followed by mandatory argument "
@@ -178,12 +186,24 @@ public:
             }
         }
 
+        if(!last_arbitrary_arg.empty() && !final){
+            if(!posMap.empty()){
+                throw std::runtime_error(std::string(__func__) + ": " + key
+                                         + " cannot add non-final option with arbitrary args along with positional args");
+            }
+            non_final_opt_arb_args = true;
+        }
+
         bool flag = (splitKey.key[0] == '-');
         if(!splitKey.alias.empty()){
             bool match = (splitKey.alias[0] == '-');
             if(match != flag){
-                throw std::runtime_error(std::string(key) + ": cannot add alias " + splitKey.alias + ": different type");
+                throw std::runtime_error(key + ": cannot add alias " + splitKey.alias + ": different type");
             }
+        }
+
+        if(last_mandatory_arg.empty() && !flag){
+            throw std::runtime_error(std::string(__func__) + ": " + key + " should have at least 1 mandatory parameter");
         }
 
         auto x = new DerivedOption<T>();
@@ -195,6 +215,7 @@ public:
 
         auto option = new ARG_DEFS{strType, opts, common_help, adv_help, flag, nullptr, x};
         option->hidden = hidden;
+        option->final = final;
 
         argMap[splitKey.key] = option;
 
@@ -223,6 +244,13 @@ public:
                 throw std::runtime_error(std::string(__func__) + ": " + key + " cannot cast to " + strType);
             }
             return std::any_cast<T>(base_opt->anyval);
+        }
+        throw std::runtime_error(key + " not defined");
+    }
+
+    bool isSet(const std::string &key){
+        if(argMap.find(key) != argMap.end()){
+            return argMap[key]->set;
         }
         throw std::runtime_error(key + " not defined");
     }
@@ -266,13 +294,20 @@ public:
         binary_name = self_name.substr(self_name.find_last_of('/') + 1, self_name.length()-1);
         mandatory_option &= !allow_zero_options;
 
-        auto parseArgument = [this, &argv](const char *key, const char *value, int idx){
+        auto parseArgument = [this, &argv, &argc](const char *key, const char *value, int idx){
+            const char *argvCpy[MAX_ARGS+1] = {nullptr};
+            for(int i=0;i<argMap[key]->options.size();i++){
+                if(idx+i >= argc){
+                    break;
+                }
+                argvCpy[i] = argv[idx+i];
+            }
             auto action = *argMap[key]->option->action;
             if(action == nullptr){
                 auto val = argMap[key]->option->anyval;
                 argMap[key]->option->anyval = scan(value, val.type());
             }else{
-                argMap[key]->option->anyval = action(UNPACK_ARGUMENTS(argv, idx));
+                argMap[key]->option->anyval = action(UNPACK_ARGS(argvCpy));
             }
         };
 
@@ -373,6 +408,12 @@ public:
 
                     parseArgument(pName, pValue, i+1);
                     i += opts_cnt;
+                    ///return if final
+                    if(argMap[pName]->final){
+                        posMap.clear();
+                        break;
+                    }
+
                 }
 
                 argMap[pName]->set = true;
@@ -394,10 +435,10 @@ public:
         if(positional_cnt < posMap.size()){
             throw std::runtime_error("Not enough positional arguments provided");
         }
-        return option_cnt;
+        return 0;
     }
 
- //   auto operator [](const char *key) {return getArg(key);}
+    //auto operator [](const char *key) {return getArg(key);}
 
 private:
 
@@ -442,6 +483,8 @@ private:
         std::string alias;
         //Positional
         bool positional = false;
+        //Final
+        bool final = false;
     };
 
     struct KEY_ALIAS{
@@ -458,6 +501,7 @@ private:
     int option_cnt = 0;
     bool mandatory_option = false;
     int positional_cnt = 0;
+    bool non_final_opt_arb_args = false; //non-final option with arbitrary arguments flag
 
     static std::string getFuncTemplateType(const char *pretty_func, const char *specifier = "T"){
         std::string ref = std::string(specifier) + " = ";
@@ -557,7 +601,7 @@ private:
 
         //Check previous definition
         if(argMap.find(key) != argMap.end()){
-            throw std::runtime_error(std::string(key) + " already defined");
+            throw std::runtime_error(std::string(func) + ": " + std::string(key) + " already defined");
         }
 
     }
@@ -600,8 +644,8 @@ private:
     }
 
     static bool isOptMandatory(const std::string &sopt){
-        return (sopt.at(0) != '[')
-               && (sopt.at(sopt.length()-1) != ']');
+        return !sopt.empty() && (sopt.at(0) != '[')
+                                && (sopt.at(sopt.length() - 1) != ']');
     }
 
     static bool isHelpHidden(const std::string &help_msg){
@@ -771,7 +815,7 @@ private:
             sorted_usage(false, true);
         }
         if(opt_cnt){
-            std::cout << "Options:" << std::endl;
+            std::cout << "Options (mandatory):" << std::endl;
             sorted_usage(true, false);
             sorted_usage(false, false);
         }
