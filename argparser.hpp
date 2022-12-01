@@ -149,6 +149,10 @@ public:
             }catch(std::runtime_error &){
                 //do nothing
             }
+        }else{
+            if(sizeof...(args) > 1){
+                throw std::runtime_error(std::string(__func__) + " " + key + " too many arguments in function");
+            }
         }
 
         auto x = new DerivedOption<T>();
@@ -232,6 +236,10 @@ public:
                 throw std::runtime_error(std::string(__func__) + ": " + key + " no default parser for " + strType);
             }catch(std::runtime_error &){
                 //do nothing
+            }
+        }else{
+            if(sizeof...(args) != opts.size()){
+                throw std::runtime_error(std::string(__func__) + " " + key + " opts size != function arguments");
             }
         }
 
