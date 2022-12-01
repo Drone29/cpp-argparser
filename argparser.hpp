@@ -605,6 +605,8 @@ private:
         std::any res;
         if(type == std::type_index(typeid(int))){
             res = (int)strtol(temp.c_str(), &tmp, 0);
+        }if(type == std::type_index(typeid(short int))){
+            res = (short int)strtol(temp.c_str(), &tmp, 0);
         }else if(type == std::type_index(typeid(long))){
             res = strtol(temp.c_str(), &tmp, 0);
         }else if(type == std::type_index(typeid(long long))){
@@ -613,6 +615,10 @@ private:
             res = (unsigned int)strtoul(temp.c_str(), &tmp, 0);
         }else if(type == std::type_index(typeid(unsigned long))){
             res = strtoul(temp.c_str(), &tmp, 0);
+        }else if(type == std::type_index(typeid(unsigned char))){
+            res = (unsigned char)strtoul(temp.c_str(), &tmp, 0);
+        }else if(type == std::type_index(typeid(short unsigned int))){
+            res = (short unsigned int)strtoul(temp.c_str(), &tmp, 0);
         }else if(type == std::type_index(typeid(float))){
             res = strtof(temp.c_str(), &tmp);
         }else if(type == std::type_index(typeid(double))){
