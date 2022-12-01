@@ -6,9 +6,6 @@
 #define VALLAB_PRINTER_ARGPARSER_H
 
 #include <map>
-//#include <functional>
-//#include <utility>
-//#include <cstdarg>
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -17,6 +14,7 @@
 #include <any>
 #include <memory>
 #include <typeindex>
+#include <string_view>
 
 /// help key
 #define HELP_NAME "--help"
@@ -38,6 +36,9 @@
 /// bool parsable strings
 #define BOOL_POSITIVES "true", "1", "yes", "on"
 #define BOOL_NEGATIVES "false", "0", "no", "off"
+
+#define FUNC_ARG_SIGNATURE "const char*"
+
 /// cast to function pointer of type int (void*...)
 #define FCAST reinterpret_cast<int (*)(void *, ...)>
 /// list of arguments to unpack starting from x index (ONLY TRIVIAL TYPES)
@@ -59,6 +60,10 @@
 constexpr int countChars( const char* s, char c ){
     return *s == '\0' ? 0
                       : countChars( s + 1, c) + (*s == c);
+}
+
+constexpr bool strings_equal(char const * a, char const * b) {
+    return std::string_view(a)==b;
 }
 
 //Need 2 macros to first evaluate expression and then stringify
@@ -120,6 +125,9 @@ public:
                         std::any(*func)(args...) = nullptr){
 
         auto splitKey = parseKey(key, __func__);
+
+        static_assert(!std::is_same<args..., const char*>::value, "invalid arguments type");
+
         if(!splitKey.alias.empty()){
             throw std::runtime_error(key + " positional argument cannot have aliases");
         }
@@ -129,9 +137,19 @@ public:
                                  + " cannot add positional arg along with non-final option with arbitrary args");
         }
 
-
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
+
+        ///check if default parser for this type is present
+        if(func == nullptr){
+            try{
+                scan(nullptr, std::type_index(typeid(T)));
+            }catch(std::logic_error &e){
+                throw std::runtime_error(std::string(__func__) + ": " + key + " no default parser for " + strType);
+            }catch(std::runtime_error &){
+                //do nothing
+            }
+        }
 
         auto x = new DerivedOption<T>();
         x->action = reinterpret_cast<std::any (*)(const char *...)>(func);
@@ -147,7 +165,7 @@ public:
 
     }
 
-    template <typename T = const char *, typename...args> //class F = std::any(*)(const char*)
+    template <typename T = const char *, typename...args>
     void addArgument(const std::string &key,
                       const std::string& help,
                       const std::vector<const char*>& opts,
@@ -155,11 +173,11 @@ public:
                       bool final = false){
 
         auto splitKey = parseKey(key, __func__);
-
+        checkFuncSignature(__PRETTY_FUNCTION__, key, "args");
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
 
-        if(opts.size() > max_args){
+        if(opts.size() > max_args || sizeof...(args) > max_args){
             throw std::runtime_error("Too many arguments for " + key
                                      + ", provided " + std::to_string(opts.size())
                                      + ", max " + std::to_string(max_args) + " allowed."
@@ -204,6 +222,17 @@ public:
 
         if(last_mandatory_arg.empty() && !flag){
             throw std::runtime_error(std::string(__func__) + ": " + key + " should have at least 1 mandatory parameter");
+        }
+
+        ///check if default parser for this type is present
+        if(func == nullptr){
+            try{
+                scan(nullptr, std::type_index(typeid(T)));
+            }catch(std::logic_error &e){
+                throw std::runtime_error(std::string(__func__) + ": " + key + " no default parser for " + strType);
+            }catch(std::runtime_error &){
+                //do nothing
+            }
         }
 
         auto x = new DerivedOption<T>();
@@ -519,9 +548,30 @@ private:
         return y;
     }
 
+    static void checkFuncSignature(const char *pretty_func, const std::string &key = "", const char *specifier = "args"){
+        auto tmp = std::string(pretty_func);
+        std::string func_name = tmp.substr(tmp.find(' ')+1);
+        func_name = func_name.substr(0, func_name.find('('));
+        std::string p = getFuncTemplateType(pretty_func, specifier);
+        p = p.substr(p.find('{')+1);
+        p = p.substr(0, p.find('}'));
+        if(!p.empty()){
+            std::string ref = ", ";
+            size_t pos = 0;
+            do{
+                pos = p.find(ref);
+                auto tok = p.substr(0, pos);
+                if(!strings_equal(tok.c_str(), FUNC_ARG_SIGNATURE)){
+                    throw std::logic_error(func_name + ": " + key + " invalid function signature '" + tok + "', only '" + FUNC_ARG_SIGNATURE + "' allowed");
+                }
+                p = p.substr(pos + ref.length());
+            }while(pos != std::string::npos);
+        }
+    }
+
     static std::any scan(const char *arg, std::type_index type){
+
         std::string temp = (arg == nullptr) ? "" : std::string(arg);
-        /////////////////////////
         if(type == std::type_index(typeid(const char *))){
             return arg;
         }else if(type == std::type_index(typeid(std::string))){
@@ -567,6 +617,8 @@ private:
             res = strtof(temp.c_str(), &tmp);
         }else if(type == std::type_index(typeid(double))){
             res = strtod(temp.c_str(), &tmp);
+        }else{
+            throw std::logic_error(std::string(__func__) + ": value of unknown type " + temp);
         }
 
         if(temp.c_str() == tmp || *tmp){
