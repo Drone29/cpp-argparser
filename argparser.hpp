@@ -387,70 +387,62 @@ public:
             }
             else
             {
-                ///Check if already defined
-                if(argMap[pName]->set){
-                    throw std::runtime_error("Error: redefinition of " + std::string(pName)
-                                             + (argMap[pName]->alias.empty() ? "" : "(" + argMap[pName]->alias + ")"));
-                }
-                    ///Parse other types
-                else{
+                ///Parse other types
 
-                    int mandatory_opts = 0;
-                    for(auto & x: argMap[pName]->options){
-                        if(isOptMandatory(x)){
-                            mandatory_opts++;
-                        }
+                int mandatory_opts = 0;
+                for(auto & x: argMap[pName]->options){
+                    if(isOptMandatory(x)){
+                        mandatory_opts++;
                     }
+                }
 
-                    ///Parse bool with no arguments
-                    if(std::type_index(argMap[pName]->option->anyval.type()) == std::type_index(typeid(bool))
-                    &&
-                    (argMap[pName]->options.empty()
+                ///Parse bool with no arguments
+                if(std::type_index(argMap[pName]->option->anyval.type()) == std::type_index(typeid(bool))
+                   &&
+                   (argMap[pName]->options.empty()
                     //null, nex key or positional exist
                     || ((pValue == nullptr || argMap.find(pValue) != argMap.end() || !posMap.empty())
-                    && !mandatory_opts)
-                    )
-                    ){
-                        bool a = !std::any_cast<bool>(argMap[pName]->option->anyval);
-                        argMap[pName]->option->anyval = a;
-                        continue;
-                    }
+                        && !mandatory_opts)
+                   )
+                   ){
+                    bool a = !std::any_cast<bool>(argMap[pName]->option->anyval);
+                    argMap[pName]->option->anyval = a;
+                    continue;
+                }
 
-                    ///Check if string null or next key
-                    if(mandatory_opts
-                       && (pValue == nullptr
+                ///Check if string null or next key
+                if(mandatory_opts
+                   && (pValue == nullptr
                        || argMap.find(pValue) != argMap.end())
-                       ){
-                        throw std::runtime_error("Error: no argument provided for " + std::string(pName));
-                    }
+                        ){
+                    throw std::runtime_error("Error: no argument provided for " + std::string(pName));
+                }
 
-                    int opts_cnt = 0;
-                    int cnt = i+1;
+                int opts_cnt = 0;
+                int cnt = i+1;
 
-                    for(int j=0; j<argMap[pName]->options.size();j++){
-                        if(cnt >= argc){
-                            break;
-                        }
-                        if(argMap.find(argv[cnt]) != argMap.end()){
-                            break;
-                        }
-                        cnt++;
-                        opts_cnt++;
-                    }
-
-                    if(opts_cnt < mandatory_opts){
-                        throw std::runtime_error(std::string(pName) + " requires "
-                        + std::to_string(mandatory_opts) + " arguments, but " + std::to_string(opts_cnt) + " were provided");
-                    }
-
-                    parseArgument(pName, pValue, i+1);
-                    i += opts_cnt;
-                    ///return if final
-                    if(argMap[pName]->final){
-                        posMap.clear();
+                for(int j=0; j<argMap[pName]->options.size();j++){
+                    if(cnt >= argc){
                         break;
                     }
+                    if(argMap.find(argv[cnt]) != argMap.end()){
+                        break;
+                    }
+                    cnt++;
+                    opts_cnt++;
+                }
 
+                if(opts_cnt < mandatory_opts){
+                    throw std::runtime_error(std::string(pName) + " requires "
+                                             + std::to_string(mandatory_opts) + " arguments, but " + std::to_string(opts_cnt) + " were provided");
+                }
+
+                parseArgument(pName, pValue, i+1);
+                i += opts_cnt;
+                ///return if final
+                if(argMap[pName]->final){
+                    posMap.clear();
+                    break;
                 }
 
                 argMap[pName]->set = true;
