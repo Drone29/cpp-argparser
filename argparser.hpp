@@ -421,6 +421,7 @@ public:
             }
 
             if(argMap.find(pName) == argMap.end()){
+                ///Try parsing positional args
                 int pos_idx = i;
                 if(!posMap.empty()){
                     for(auto &x : posMap){
@@ -462,8 +463,13 @@ public:
                         && !mandatory_opts)
                    )
                    ){
-                    bool a = !std::any_cast<bool>(argMap[pName]->option->anyval);
-                    argMap[pName]->option->anyval = a;
+                    auto action = *argMap[pName]->option->action;
+                    if(action != nullptr){
+                        argMap[pName]->option->anyval = action(nullptr);
+                    }else{
+                        bool a = !std::any_cast<bool>(argMap[pName]->option->anyval);
+                        argMap[pName]->option->anyval = a;
+                    }
                     continue;
                 }
 
