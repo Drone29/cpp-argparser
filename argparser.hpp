@@ -86,16 +86,81 @@ constexpr bool strings_equal(char const * a, char const * b) {
 /// non-enum help type
 #define ARG_TYPE_HELP "HELP"
 
+class BaseOption{
+public:
+    virtual ~BaseOption() {}
+    std::any anyval;
+    std::any(*action)(const char*...) = nullptr;
+};
+
+template <typename T>
+class DerivedOption : public BaseOption{
+public:
+    ~DerivedOption() override = default;
+    DerivedOption() {
+        anyval = value;
+    }
+    T value;
+};
+
+struct ARG_DEFS{
+    ///.option just points to original object, so we need to free memory in smart way, see ~argParser()
+    ~ARG_DEFS() {
+        delete option;
+    }
+    friend class argParser;
+
+    ARG_DEFS &help(std::string hlp){
+        m_help = std::move(hlp);
+        return *this;
+    }
+    ARG_DEFS &advanced_help(std::string hlp){
+        m_advanced_help = std::move(hlp);
+        return *this;
+    }
+    ARG_DEFS &hidden(){
+        m_hidden = true;
+        return *this;
+    }
+    ARG_DEFS &final(){
+        m_final = true;
+        return *this;
+    }
+private:
+    std::string m_help;
+    std::string m_advanced_help;
+    //hidden option
+    bool m_hidden = false;
+    //Final
+    bool m_final = false;
+    //default value string
+    const char* m_default_val = nullptr;
+    //list of options
+    std::vector<const char*> m_options;
+
+    std::string typeStr;
+    ///Option/flag
+    BaseOption* option = nullptr;
+    //in use
+    bool set = false;
+    //alias
+    std::string m_alias;
+    //Positional
+    bool positional = false;
+    //Flag
+    bool flag = false;
+};
+
 class argParser
 {
 public:
     argParser(){
-        argMap[HELP_NAME] = new ARG_DEFS{
-                ARG_TYPE_HELP,
-                {HELP_ADVANCED_OPT_BRACED},
-                std::string(HELP_GENERIC_MESSAGE)};
+        argMap[HELP_NAME] = new ARG_DEFS();
+        argMap[HELP_NAME]->typeStr = ARG_TYPE_HELP;
+        argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
+        argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
         argMap[HELP_NAME]->flag = true;
-        argMap[HELP_NAME]->final = true;
+        argMap[HELP_NAME]->m_final = true;
         setAlias(HELP_NAME, HELP_ALIAS);
         //Count max number of arguments
         max_args = MAX_ARGS;
@@ -103,42 +168,32 @@ public:
     ~argParser(){
         std::vector<std::string> aliases;
         for (auto &x : argMap){
-            bool nodelete = false;
-            aliases.push_back(x.second->alias);
-            for(auto &y : aliases){
-                if(y == x.first){
-                    nodelete = true;
-                    break;
-                }
-            }
-            if(!nodelete){
-                delete x.second->option;
-            }
             delete x.second;
         }
         argMap.clear();
     }
 
-    template <typename T = const char*, typename...args>
-    void addPositional(const std::string &key,
-                        const std::string& help,
+    template <typename T, typename...args>
+    ARG_DEFS &addPositional(const std::string &key,
                         std::any(*func)(args...) = nullptr){
 
         auto splitKey = parseKey(key, __func__);
-
-        static_assert(!std::is_same<args..., const char*>::value, "invalid arguments type");
-
-        if(!splitKey.alias.empty()){
-            throw std::runtime_error(key + " positional argument cannot have aliases");
+        if(splitKey.alias.empty()){
+            throw std::runtime_error(std::string(__func__) + ": " + key + " positional argument cannot have aliases");
         }
 
-        if(non_final_opt_arb_args){
-            throw std::runtime_error(std::string(__func__) + ": " + key
-                                 + " cannot add positional arg along with non-final option with arbitrary args");
+        for(auto &x : argMap){
+            for(auto &y : x.second->m_options){
+                if(!isOptMandatory(y) && !x.second->m_final){
+                    throw std::runtime_error(std::string(__func__) + ": " + key
+                    + " cannot add positional argument: conflict with non-final arg " + x.first + " with arbitraty option " + y);
+                }
+            }
         }
 
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
+        checkFuncSignature(__PRETTY_FUNCTION__, key, "args");
 
         ///check if default parser for this type is present
         if(func == nullptr){
@@ -158,23 +213,22 @@ public:
         auto x = new DerivedOption<T>();
         x->action = reinterpret_cast<std::any (*)(const char *...)>(func);
 
-        auto common_help = retrieveHelpText(help);
-        auto adv_help = retrieveAdvancedHelp(help);
-
-        auto option = new ARG_DEFS{strType, {}, common_help, adv_help, false, nullptr, x};
+        auto option = new ARG_DEFS();
+        option->typeStr = strType;
+        option->m_options = {};
+        option->option = x;
         option->positional = true;
 
         argMap[splitKey.key] = option;
         posMap.emplace_back(splitKey.key);
 
+        return *option;
     }
 
-    template <typename T = const char *, typename...args>
-    void addArgument(const std::string &key,
-                      const std::string& help,
+    template <typename T, typename...args>
+    ARG_DEFS &addArgument(const std::string &key,
                       const std::vector<const char*>& opts,
-                      std::any(*func)(args...) = nullptr,
-                      bool final = false){
+                      std::any(*func)(args...) = nullptr){
 
         auto splitKey = parseKey(key, __func__);
         checkFuncSignature(__PRETTY_FUNCTION__, key, "args");
@@ -208,12 +262,12 @@ public:
             }
         }
 
-        if(!last_arbitrary_arg.empty() && !final){
+        bool final = false;
+
+        if(!last_arbitrary_arg.empty()){
             if(!posMap.empty()){
-                throw std::runtime_error(std::string(__func__) + ": " + key
-                                         + " cannot add non-final option with arbitrary args along with positional args");
+                final = true;
             }
-            non_final_opt_arb_args = true;
         }
 
         bool flag = (splitKey.key[0] == '-');
@@ -246,13 +300,12 @@ public:
         auto x = new DerivedOption<T>();
         x->action = reinterpret_cast<std::any (*)(const char *...)>(func); //reinterpret_cast<std::any (*)(const char *...)>(func)
 
-        auto common_help = retrieveHelpText(help);
-        auto adv_help = retrieveAdvancedHelp(help);
-        auto hidden = isHelpHidden(help);
-
-        auto option = new ARG_DEFS{strType, opts, common_help, adv_help, flag, nullptr, x};
-        option->hidden = hidden;
-        option->final = final;
+        auto option = new ARG_DEFS();
+        option->typeStr = strType;
+        option->option = x;
+        option->m_options = opts;
+        option->flag = flag;
+        option->m_final = final;
 
         argMap[splitKey.key] = option;
 
@@ -264,18 +317,15 @@ public:
         if(!flag)
             mandatory_option = true;
 
+        return *option;
     }
 
-    template <typename T = std::any>
+    template <typename T>
     T getValue(const std::string &key){
         parsedCheck(__func__);
         if(argMap.find(key) != argMap.end()){
             auto base_opt = argMap[key]->option;
             auto strType = getFuncTemplateType(__PRETTY_FUNCTION__);
-            ///if any
-            if(std::type_index(typeid(T)) == std::type_index(typeid(std::any))){
-                return base_opt->anyval;
-            }
             ///otherwise check
             if(std::type_index(typeid(T)) != std::type_index(base_opt->anyval.type())){
                 throw std::runtime_error(std::string(__func__) + ": " + key + " cannot cast to " + strType);
@@ -295,7 +345,7 @@ public:
     ///Set advanced help
     void setAdvancedHelp(const std::string &key, const std::string& help){
         auto arg = getArg(key);
-        arg->advanced_help += help;
+        arg->m_advanced_help += help;
     }
 
     ///Set alias for option
@@ -303,18 +353,15 @@ public:
         if(argMap.find(key) == argMap.end()){
             throw std::runtime_error(std::string(__func__) + ": " + key + " not defined");
         }
-        if(!argMap[key]->alias.empty()){
-            throw std::runtime_error(std::string(__func__) + ": " + key + " alias already defined: " + argMap[key]->alias);
+        if(!argMap[key]->m_alias.empty()){
+            throw std::runtime_error(std::string(__func__) + ": " + key + " alias already defined: " + argMap[key]->m_alias);
         }
         if(argMap[key]->positional){
             throw std::runtime_error(std::string(__func__) + ": " + key + " positional argument cannot have alias");
         }
 
         sanityCheck(alias, __func__);
-        argMap[alias] = new ARG_DEFS(*argMap[key]);
-        ///.option just points to original object, so we need to free memory in smart way, see ~argParser()
-        argMap[alias]->alias = key;
-        argMap[key]->alias = alias;
+        argMap[key]->m_alias = alias;
     }
 
     /// Self exec name
@@ -333,7 +380,7 @@ public:
 
         auto parseArgument = [this, &argv, &argc](const char *key, const char *value, int idx){
             const char *argvCpy[MAX_ARGS+1] = {nullptr};
-            for(int i=0;i<argMap[key]->options.size();i++){
+            for(int i=0;i<argMap[key]->m_options.size(); i++){
                 if(idx+i >= argc){
                     break;
                 }
@@ -363,6 +410,16 @@ public:
                 pValue = s2.c_str();
             }
 
+            ///Find alias
+            if(argMap.find(pName) == argMap.end()){
+                for(auto &x : argMap){
+                    if(x.second->m_alias == pName){
+                        pName = x.first.c_str();
+                        break;
+                    }
+                }
+            }
+
             if(argMap.find(pName) == argMap.end()){
                 int pos_idx = i;
                 if(!posMap.empty()){
@@ -390,7 +447,7 @@ public:
                 ///Parse other types
 
                 int mandatory_opts = 0;
-                for(auto & x: argMap[pName]->options){
+                for(auto & x: argMap[pName]->m_options){
                     if(isOptMandatory(x)){
                         mandatory_opts++;
                     }
@@ -399,7 +456,7 @@ public:
                 ///Parse bool with no arguments
                 if(std::type_index(argMap[pName]->option->anyval.type()) == std::type_index(typeid(bool))
                    &&
-                   (argMap[pName]->options.empty()
+                   (argMap[pName]->m_options.empty()
                     //null, nex key or positional exist
                     || ((pValue == nullptr || argMap.find(pValue) != argMap.end() || !posMap.empty())
                         && !mandatory_opts)
@@ -421,7 +478,7 @@ public:
                 int opts_cnt = 0;
                 int cnt = i+1;
 
-                for(int j=0; j<argMap[pName]->options.size();j++){
+                for(int j=0; j<argMap[pName]->m_options.size(); j++){
                     if(cnt >= argc){
                         break;
                     }
@@ -440,15 +497,15 @@ public:
                 parseArgument(pName, pValue, i+1);
                 i += opts_cnt;
                 ///return if final
-                if(argMap[pName]->final){
+                if(argMap[pName]->m_final){
                     posMap.clear();
                     break;
                 }
 
                 argMap[pName]->set = true;
                 //copy to alias
-                if(!argMap[pName]->alias.empty()){
-                    *argMap[argMap[pName]->alias] = *argMap[pName];
+                if(!argMap[pName]->m_alias.empty()){
+                    *argMap[argMap[pName]->m_alias] = *argMap[pName];
                 }
                 //count mandatory options
                 if(!argMap[pName]->flag){
@@ -471,51 +528,6 @@ public:
 
 private:
 
-    class BaseOption{
-    public:
-        virtual ~BaseOption() {}
-        std::any anyval;
-        std::any(*action)(const char*...) = nullptr;
-    };
-
-    template <typename T>
-    class DerivedOption : public BaseOption{
-    public:
-        ~DerivedOption() override = default;
-        DerivedOption(T val) : value{val}{
-            anyval = value;
-        }
-        DerivedOption() {
-            anyval = value;
-        }
-        T value;
-    };
-
-    struct ARG_DEFS{
-        ///.option just points to original object, so we need to free memory in smart way, see ~argParser()
-        ~ARG_DEFS() = default;
-        std::string typeStr;
-        std::vector<const char*> options;
-        std::string help;
-        std::string advanced_help;
-        //Flag
-        bool flag = false;
-        //default value string
-        const char* default_val = nullptr;
-        ///Option/flag
-        BaseOption* option = nullptr;
-        //in use
-        bool set = false;
-        //hidden option
-        bool hidden = false;
-        //alias
-        std::string alias;
-        //Positional
-        bool positional = false;
-        //Final
-        bool final = false;
-    };
-
     struct KEY_ALIAS{
         std::string key;
         std::string alias;
@@ -530,7 +542,6 @@ private:
     int option_cnt = 0;
     bool mandatory_option = false;
     int positional_cnt = 0;
-    bool non_final_opt_arb_args = false; //non-final option with arbitrary arguments flag
 
     static std::string getFuncTemplateType(const char *pretty_func, const char *specifier = "T"){
         std::string ref = std::string(specifier) + " = ";
@@ -706,53 +717,6 @@ private:
                                 && (sopt.at(sopt.length() - 1) != ']');
     }
 
-    static bool isHelpHidden(const std::string &help_msg){
-        bool res = false;
-        auto control = help_msg.find(HELP_HIDDEN_KEY);
-        if(control != std::string::npos){
-            res = true;
-        }
-        return res;
-    }
-
-    static std::string retrieveHelpText(const std::string &help_msg){
-        std::string res;
-        auto control = help_msg.find(HELP_HIDDEN_KEY);
-        if(control != std::string::npos){
-            res = help_msg.substr(control + 1);
-        }
-        else{
-            res = help_msg;
-        }
-        //remove advanced help
-        control = res.find(HELP_ADVANCED_KEY_START);
-        if(control != std::string::npos){
-            res = res.substr(0, control);
-            control = help_msg.find(HELP_ADVANCED_KEY_END);
-            if(control != std::string::npos){
-                res += help_msg.substr(control + 1);
-            }
-        }
-
-        return res;
-    }
-
-    static std::string retrieveAdvancedHelp(const std::string &help_msg){
-        std::string res;
-        auto control = help_msg.find(HELP_ADVANCED_KEY_START);
-        if(control != std::string::npos){
-            res = help_msg.substr(control + 1);
-            control = res.find(HELP_ADVANCED_KEY_END);
-            if(control != std::string::npos){
-                res = res.substr(0, control);
-            }
-        }
-        else{
-            res = "";
-        }
-        return res;
-    }
-
     ///These are voids in case funcType is changed later
     static void dummyFunc(void*...){
         std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
@@ -763,18 +727,12 @@ private:
         bool advanced = false;
 
         auto printParam = [](auto j, const std::string& alias){
-            std::string alias_str = alias.empty() ? "\t" : (alias + KEY_ALIAS_DELIMITER + " ");
+            std::string alias_str = "\t" + (alias.empty() ? "" : (alias + KEY_ALIAS_DELIMITER + " "));
             std::cout <<  alias_str + j.first;
-            for(auto x : j.second->options){
+            for(auto x : j.second->m_options){
                 std::string opt = std::string(x);
-//                if(!j.second->flag){
                     if(isOptMandatory(opt))
                         opt = "<" + opt + ">";
-//                }
-//                else{
-//                    opt = opt.substr(opt.find('[')+1, opt.find(']')-1);
-//                    opt = "<" + opt + ">";
-//                }
 
                 std::cout << " " + opt;
             }
@@ -788,7 +746,7 @@ private:
                     return;
                 }
                 //skip hidden
-                if(j.second->hidden && !advanced){
+                if(j.second->m_hidden && !advanced){
                     return;
                 }
                 //skip positional
@@ -798,24 +756,20 @@ private:
 
                 printParam(j, alias);
 
-                std::string def_val = (j.second->default_val == nullptr) ? ""
-                                                                        : ( " (default " + std::string(j.second->default_val) + ")");
+                std::string def_val = (j.second->m_default_val == nullptr) ? ""
+                                                                           : (" (default " + std::string(j.second->m_default_val) + ")");
 
-                std::cout <<" : " + j.second->help + def_val << std::endl;
+                std::cout << " : " + j.second->m_help + def_val << std::endl;
                 j.second->set = true; //help_set
             };
 
             for (auto & j : argMap)
             {
                 if((j.second->flag == flag)
-                   && (j.second->options.empty() == empty))
+                   && (j.second->m_options.empty() == empty))
                 {
                     //find alias
-                    std::string alias = j.second->alias;
-                    if(!alias.empty()){
-                        argMap[alias]->set = true; //help_set
-                    }
-
+                    std::string alias = j.second->m_alias;
                     print_usage(j, alias);
                 }
 
@@ -830,10 +784,10 @@ private:
                 //param advanced help
                 auto j = argMap.find(param);
                 if(j != argMap.end()){
-                    printParam(*j, j->second->alias);
+                    printParam(*j, j->second->m_alias);
                     std::cout << ":" << std::endl;
                     std::cout << "Type: " + j->second->typeStr << std::endl;
-                    std::cout << j->second->advanced_help << std::endl;
+                    std::cout << j->second->m_advanced_help << std::endl;
                 }else{
                     std::cout << "Unknown parameter " + std::string(param) << std::endl;
                 }
@@ -863,7 +817,7 @@ private:
         if(!posMap.empty()){
             std::cout << "Positional arguments:" << std::endl;
             for(auto &x : posMap){
-                std::cout << "\t" + x + " : " + argMap[x]->help << std::endl;
+                std::cout << "\t" + x + " : " + argMap[x]->m_help << std::endl;
             }
         }
 
