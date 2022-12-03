@@ -21,11 +21,6 @@
 #define HELP_ALIAS "-h"
 /// advanced help option (show hidden)
 #define HELP_HIDDEN_OPT "-a"
-/// insert this into .help field in addOption/addFunction to add a hidden option
-#define HELP_HIDDEN_KEY '\f'
-/// brace some text in .help in {} to add per-key advanced help
-#define HELP_ADVANCED_KEY_START '{'
-#define HELP_ADVANCED_KEY_END '}'
 /// braced help option
 #define HELP_ADVANCED_OPT_BRACED "[" HELP_HIDDEN_OPT " | param]"
 /// help self-explanation
@@ -39,8 +34,6 @@
 
 #define FUNC_ARG_SIGNATURE "const char*"
 
-/// cast to function pointer of type int (void*...)
-#define FCAST reinterpret_cast<int (*)(void *, ...)>
 /// list of arguments to unpack starting from x index (ONLY TRIVIAL TYPES)
 #define UNPACK_ARGUMENTS(arg,x) \
 (arg)[(x)],                                 \
@@ -104,7 +97,7 @@ public:
 };
 
 struct ARG_DEFS{
-    ///.option just points to original object, so we need to free memory in smart way, see ~argParser()
+
     ~ARG_DEFS() {
         delete option;
     }
@@ -263,7 +256,6 @@ public:
         }
 
         bool final = false;
-
         if(!last_arbitrary_arg.empty()){
             if(!posMap.empty()){
                 final = true;
@@ -284,6 +276,13 @@ public:
 
         ///check if default parser for this type is present
         if(func == nullptr){
+            if(opts.empty() && typeid(T) != typeid(bool)){
+                throw std::runtime_error(std::string(__func__) + ": " + key + " no function provided for non-bool arg with implicit option");
+            }
+            if(opts.size() > 1){
+                throw std::runtime_error(std::string(__func__) + ": " + key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
+            }
+
             try{
                 scan(nullptr, std::type_index(typeid(T)));
             }catch(std::logic_error &e){
@@ -455,20 +454,21 @@ public:
                 }
 
                 ///Parse bool with no arguments
-                if(std::type_index(argMap[pName]->option->anyval.type()) == std::type_index(typeid(bool))
-                   &&
-                   (argMap[pName]->m_options.empty()
+                   if(argMap[pName]->m_options.empty()
                     //null, nex key or positional exist
                     || ((pValue == nullptr || argMap.find(pValue) != argMap.end() || !posMap.empty())
-                        && !mandatory_opts)
-                   )
-                   ){
+                    //no mandatory options
+                    && !mandatory_opts)){
+
                     auto action = *argMap[pName]->option->action;
                     if(action != nullptr){
                         argMap[pName]->option->anyval = action(nullptr);
-                    }else{
-                        bool a = !std::any_cast<bool>(argMap[pName]->option->anyval);
-                        argMap[pName]->option->anyval = a;
+                    }
+                    else{
+                        if(argMap[pName]->option->anyval.type() == typeid(bool)){
+                            bool a = !std::any_cast<bool>(argMap[pName]->option->anyval);
+                            argMap[pName]->option->anyval = a;
+                        }
                     }
                     continue;
                 }
@@ -714,7 +714,10 @@ private:
             skey = skey.substr(0, split);
         }
         sanityCheck(skey, func);
-
+        //key is always longer
+        if(alias.length() > skey.length()){
+            std::swap(skey, alias);
+        }
         return {skey, alias};
     }
 
