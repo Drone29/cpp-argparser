@@ -326,11 +326,11 @@ public:
         if(argMap.find(key) != argMap.end()){
             auto base_opt = argMap[key]->option;
             auto strType = getFuncTemplateType(__PRETTY_FUNCTION__);
-            ///otherwise check
-            if(std::type_index(typeid(T)) != std::type_index(base_opt->anyval.type())){
+            try{
+                return std::any_cast<T>(base_opt->anyval);
+            }catch(const std::bad_any_cast& e){
                 throw std::runtime_error(std::string(__func__) + ": " + key + " cannot cast to " + strType);
             }
-            return std::any_cast<T>(base_opt->anyval);
         }
         throw std::runtime_error(key + " not defined");
     }
