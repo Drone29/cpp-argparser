@@ -79,6 +79,18 @@ constexpr bool strings_equal(char const * a, char const * b) {
 /// non-enum help type
 #define ARG_TYPE_HELP "HELP"
 
+template <typename ...>
+struct are_same : std::true_type {};
+
+template <typename S, typename T, typename ... Ts>
+struct are_same <S, T, Ts...> : std::false_type {};
+
+template <typename T, typename ... Ts>
+struct are_same <T, T, Ts...> : are_same<T, Ts...> {};
+
+template <typename ... Ts>
+inline constexpr bool are_same_v = are_same<Ts...>::value;
+
 class BaseOption{
 public:
     virtual ~BaseOption() {}
@@ -186,7 +198,8 @@ public:
 
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
-        checkFuncSignature(__PRETTY_FUNCTION__, key, "args");
+        //check if args are const char*
+        static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
 
         ///check if default parser for this type is present
         if(func == nullptr){
@@ -198,9 +211,7 @@ public:
                 //do nothing
             }
         }else{
-            if(sizeof...(args) > 1){
-                throw std::invalid_argument(std::string(__func__) + " " + key + " too many arguments in function");
-            }
+            static_assert(sizeof...(args) > 1, " too many arguments in function");
         }
 
         auto x = new DerivedOption<T>();
@@ -224,7 +235,8 @@ public:
                       std::any(*func)(args...) = nullptr){
 
         auto splitKey = parseKey(key, __func__);
-        checkFuncSignature(__PRETTY_FUNCTION__, key, "args");
+        //check if args are const char*
+        static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
 
@@ -322,10 +334,22 @@ public:
     template <typename T>
     T getValue(const std::string &key){
         parsedCheck(__func__);
-        if(argMap.find(key) != argMap.end()){
-            auto base_opt = argMap[key]->option;
-            auto strType = getFuncTemplateType(__PRETTY_FUNCTION__);
+
+        std::string skey = key;
+        auto strType = getFuncTemplateType(__PRETTY_FUNCTION__);
+        //find alias
+        if(argMap.find(skey) == argMap.end()){
+            for(auto &x : argMap){
+                if(x.second->m_alias == skey){
+                    skey = x.first;
+                    break;
+                }
+            }
+        }
+
+        if(argMap.find(skey) != argMap.end()){
             try{
+                auto base_opt = argMap[skey]->option;
                 return std::any_cast<T>(base_opt->anyval);
             }catch(const std::bad_any_cast& e){
                 throw std::runtime_error(std::string(__func__) + ": " + key + " cannot cast to " + strType);
@@ -563,27 +587,6 @@ private:
             y = "";
         }
         return y;
-    }
-
-    static void checkFuncSignature(const char *pretty_func, const std::string &key = "", const char *specifier = "args"){
-        auto tmp = std::string(pretty_func);
-        std::string func_name = tmp.substr(tmp.find(' ')+1);
-        func_name = func_name.substr(0, func_name.find('('));
-        std::string p = getFuncTemplateType(pretty_func, specifier);
-        p = p.substr(p.find('{')+1);
-        p = p.substr(0, p.find('}'));
-        if(!p.empty()){
-            std::string ref = ", ";
-            size_t pos = 0;
-            do{
-                pos = p.find(ref);
-                auto tok = p.substr(0, pos);
-                if (!strings_equal(tok.c_str(), FUNC_ARG_SIGNATURE)){
-                    throw std::invalid_argument(func_name + ": " + key + " invalid function signature '" + tok + "', only '" + FUNC_ARG_SIGNATURE + "' allowed");
-                }
-                p = p.substr(pos + ref.length());
-            }while(pos != std::string::npos);
-        }
     }
 
     static std::any scan(const char *arg, std::type_index type){
