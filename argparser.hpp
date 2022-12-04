@@ -172,13 +172,13 @@ public:
 
         auto splitKey = parseKey(key, __func__);
         if(splitKey.alias.empty()){
-            throw std::runtime_error(std::string(__func__) + ": " + key + " positional argument cannot have aliases");
+            throw std::logic_error(std::string(__func__) + ": " + key + " positional argument cannot have aliases");
         }
 
         for(auto &x : argMap){
             for(auto &y : x.second->m_options){
                 if(!isOptMandatory(y) && !x.second->m_final){
-                    throw std::runtime_error(std::string(__func__) + ": " + key
+                    throw std::invalid_argument(std::string(__func__) + ": " + key
                     + " cannot add positional argument: conflict with non-final arg " + x.first + " with arbitraty option " + y);
                 }
             }
@@ -193,13 +193,13 @@ public:
             try{
                 scan(nullptr, std::type_index(typeid(T)));
             }catch(std::logic_error &e){
-                throw std::runtime_error(std::string(__func__) + ": " + key + " no default parser for " + strType);
+                throw std::invalid_argument(std::string(__func__) + ": " + key + " no default parser for " + strType);
             }catch(std::runtime_error &){
                 //do nothing
             }
         }else{
             if(sizeof...(args) > 1){
-                throw std::runtime_error(std::string(__func__) + " " + key + " too many arguments in function");
+                throw std::invalid_argument(std::string(__func__) + " " + key + " too many arguments in function");
             }
         }
 
@@ -229,7 +229,7 @@ public:
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
 
         if(opts.size() > max_args || sizeof...(args) > max_args){
-            throw std::runtime_error("Too many arguments for " + key
+            throw std::invalid_argument("Too many arguments for " + key
                                      + ", provided " + std::to_string(opts.size())
                                      + ", max " + std::to_string(max_args) + " allowed."
                                      + " Consider changing " + std::string(STRINGIFY_IMPL(UNPACK_ARGUMENTS)));
@@ -243,7 +243,7 @@ public:
             if(isOptMandatory(sopt)){
                 last_mandatory_arg = sopt;
                 if(!last_arbitrary_arg.empty()){
-                    throw std::runtime_error(key
+                    throw std::invalid_argument(key
                                              + ": arbitrary argument "
                                              + last_arbitrary_arg
                                              + " cannot be followed by mandatory argument "
@@ -265,34 +265,34 @@ public:
         bool flag = (splitKey.key[0] == '-');
         if(!splitKey.alias.empty()){
             bool match = (splitKey.alias[0] == '-');
-            if(match != flag){
-                throw std::runtime_error(key + ": cannot add alias " + splitKey.alias + ": different type");
+            if (match != flag){
+                throw std::invalid_argument(key + ": cannot add alias " + splitKey.alias + ": different type");
             }
         }
 
         if(last_mandatory_arg.empty() && !flag){
-            throw std::runtime_error(std::string(__func__) + ": " + key + " should have at least 1 mandatory parameter");
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " should have at least 1 mandatory parameter");
         }
 
         ///check if default parser for this type is present
         if(func == nullptr){
             if(opts.empty() && typeid(T) != typeid(bool)){
-                throw std::runtime_error(std::string(__func__) + ": " + key + " no function provided for non-bool arg with implicit option");
+                throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for non-bool arg with implicit option");
             }
             if(opts.size() > 1){
-                throw std::runtime_error(std::string(__func__) + ": " + key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
+                throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
             }
 
             try{
                 scan(nullptr, std::type_index(typeid(T)));
             }catch(std::logic_error &e){
-                throw std::runtime_error(std::string(__func__) + ": " + key + " no default parser for " + strType);
+                throw std::invalid_argument(std::string(__func__) + ": " + key + " no default parser for " + strType);
             }catch(std::runtime_error &){
                 //do nothing
             }
         }else{
             if(sizeof...(args) != opts.size()){
-                throw std::runtime_error(std::string(__func__) + " " + key + " opts size != function arguments");
+                throw std::invalid_argument(std::string(__func__) + " " + key + " opts size != function arguments");
             }
         }
 
@@ -578,8 +578,8 @@ private:
             do{
                 pos = p.find(ref);
                 auto tok = p.substr(0, pos);
-                if(!strings_equal(tok.c_str(), FUNC_ARG_SIGNATURE)){
-                    throw std::logic_error(func_name + ": " + key + " invalid function signature '" + tok + "', only '" + FUNC_ARG_SIGNATURE + "' allowed");
+                if (!strings_equal(tok.c_str(), FUNC_ARG_SIGNATURE)){
+                    throw std::invalid_argument(func_name + ": " + key + " invalid function signature '" + tok + "', only '" + FUNC_ARG_SIGNATURE + "' allowed");
                 }
                 p = p.substr(pos + ref.length());
             }while(pos != std::string::npos);
