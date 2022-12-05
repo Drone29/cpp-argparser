@@ -93,18 +93,37 @@ inline constexpr bool are_same_v = are_same<Ts...>::value;
 
 class BaseOption{
 public:
-    virtual ~BaseOption() {}
+    virtual ~BaseOption() {};
+    virtual std::any action (const std::vector<const char*> &args) {return {};}
     std::any anyval;
-    std::any(*action)(const char*...) = nullptr;
+    bool has_action = false;
 };
 
 template <typename T>
 class DerivedOption : public BaseOption{
 public:
     ~DerivedOption() override = default;
-    DerivedOption() {
+    template <typename...args>
+    DerivedOption(T(*func)(args...) = nullptr) {
+        //check if args are const char*
+        static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
+        t_action = reinterpret_cast<T (*)(const char *...)>(func);
+        has_action = func != nullptr;
         anyval = value;
     }
+
+    std::any action(const std::vector<const char*> &args) override{
+        const char *argvCpy[MAX_ARGS+1] = {nullptr};
+        for(int i=0; i<args.size();i++){
+            argvCpy[i] = args[i];
+        }
+        if(t_action != nullptr)
+            value = t_action(UNPACK_ARGS(argvCpy));
+        anyval = std::any(value);
+        return anyval;
+    }
+private:
+    T(*t_action)(const char*...) = nullptr;
     T value;
 };
 
@@ -180,7 +199,7 @@ public:
 
     template <typename T, typename...args>
     ARG_DEFS &addPositional(const std::string &key,
-                        std::any(*func)(args...) = nullptr){
+                        T(*func)(args...) = nullptr){
 
         auto splitKey = parseKey(key, __func__);
         if(splitKey.alias.empty()){
@@ -198,8 +217,6 @@ public:
 
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
-        //check if args are const char*
-        static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
 
         ///check if default parser for this type is present
         if(func == nullptr){
@@ -214,8 +231,7 @@ public:
             static_assert(sizeof...(args) > 1, " too many arguments in function");
         }
 
-        auto x = new DerivedOption<T>();
-        x->action = reinterpret_cast<std::any (*)(const char *...)>(func);
+        auto x = new DerivedOption<T>(func);
 
         auto option = new ARG_DEFS();
         option->typeStr = strType;
@@ -232,11 +248,9 @@ public:
     template <typename T, typename...args>
     ARG_DEFS &addArgument(const std::string &key,
                       const std::vector<const char*>& opts,
-                      std::any(*func)(args...) = nullptr){
+                      T(*func)(args...) = nullptr){
 
         auto splitKey = parseKey(key, __func__);
-        //check if args are const char*
-        static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
 
@@ -308,8 +322,7 @@ public:
             }
         }
 
-        auto x = new DerivedOption<T>();
-        x->action = reinterpret_cast<std::any (*)(const char *...)>(func); //reinterpret_cast<std::any (*)(const char *...)>(func)
+        auto x = new DerivedOption<T>(func);
 
         auto option = new ARG_DEFS();
         option->typeStr = strType;
@@ -402,19 +415,19 @@ public:
         mandatory_option &= !allow_zero_options;
 
         auto parseArgument = [this, &argv, &argc](const char *key, const char *value, int idx){
-            const char *argvCpy[MAX_ARGS+1] = {nullptr};
+            std::vector<const char*> argvCpy;
             for(int i=0;i<argMap[key]->m_options.size(); i++){
                 if(idx+i >= argc){
                     break;
                 }
-                argvCpy[i] = argv[idx+i];
+                argvCpy.push_back(argv[idx+i]);
             }
-            auto action = *argMap[key]->option->action;
-            if(action == nullptr){
+
+            if(!argMap[key]->option->has_action){
                 auto val = argMap[key]->option->anyval;
                 argMap[key]->option->anyval = scan(value, val.type());
             }else{
-                argMap[key]->option->anyval = action(UNPACK_ARGS(argvCpy));
+                argMap[key]->option->action(argvCpy);
             }
         };
 
@@ -484,9 +497,10 @@ public:
                     //no mandatory options
                     && !mandatory_opts)){
 
-                    auto action = *argMap[pName]->option->action;
-                    if(action != nullptr){
-                        argMap[pName]->option->anyval = action(nullptr);
+                    //auto action = *argMap[pName]->option->action;
+                    if(argMap[pName]->option->has_action){
+                        //argMap[pName]->option->anyval = action(nullptr);
+                        argMap[pName]->option->action({});
                     }
                     else{
                         if(argMap[pName]->option->anyval.type() == typeid(bool)){
@@ -533,10 +547,6 @@ public:
                 }
 
                 argMap[pName]->set = true;
-                //copy to alias
-                if(!argMap[pName]->m_alias.empty()){
-                    *argMap[argMap[pName]->m_alias] = *argMap[pName];
-                }
                 //count mandatory options
                 if(!argMap[pName]->flag){
                     option_cnt++;
