@@ -94,7 +94,7 @@ inline constexpr bool are_same_v = are_same<Ts...>::value;
 class BaseOption{
 public:
     virtual ~BaseOption() {};
-    virtual std::any action (const std::vector<const char*> &args) {return {};}
+    virtual std::any action (const std::vector<const char*> &args) = 0;
     std::any anyval;
     bool has_action = false;
 };
@@ -103,6 +103,7 @@ template <typename T>
 class DerivedOption : public BaseOption{
 public:
     ~DerivedOption() override = default;
+
     template <typename...args>
     DerivedOption(T(*func)(args...) = nullptr) {
         //check if args are const char*
@@ -300,7 +301,6 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + key + " should have at least 1 mandatory parameter");
         }
 
-        ///check if default parser for this type is present
         if(func == nullptr){
             if(opts.empty() && typeid(T) != typeid(bool)){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for non-bool arg with implicit option");
@@ -309,6 +309,7 @@ public:
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
             }
 
+            ///check if default parser for this type is present
             try{
                 scan(nullptr, std::type_index(typeid(T)));
             }catch(std::logic_error &e){
@@ -381,7 +382,7 @@ public:
     ///Set advanced help
     void setAdvancedHelp(const std::string &key, const std::string& help){
         auto arg = getArg(key);
-        arg->m_advanced_help += help;
+        arg->m_advanced_help = help;
     }
 
     ///Set alias for option
@@ -423,11 +424,11 @@ public:
                 argvCpy.push_back(argv[idx+i]);
             }
 
-            if(!argMap[key]->option->has_action){
+            if(argMap[key]->option->has_action){
+                argMap[key]->option->action(argvCpy);
+            }else{
                 auto val = argMap[key]->option->anyval;
                 argMap[key]->option->anyval = scan(value, val.type());
-            }else{
-                argMap[key]->option->action(argvCpy);
             }
         };
 
@@ -490,33 +491,24 @@ public:
                     }
                 }
 
-                ///Parse bool with no arguments
-                   if(argMap[pName]->m_options.empty()
-                    //null, nex key or positional exist
-                    || ((pValue == nullptr || argMap.find(pValue) != argMap.end() || !posMap.empty())
-                    //no mandatory options
-                    && !mandatory_opts)){
-
-                    //auto action = *argMap[pName]->option->action;
-                    if(argMap[pName]->option->has_action){
-                        //argMap[pName]->option->anyval = action(nullptr);
-                        argMap[pName]->option->action({});
-                    }
-                    else{
-                        if(argMap[pName]->option->anyval.type() == typeid(bool)){
-                            bool a = !std::any_cast<bool>(argMap[pName]->option->anyval);
-                            argMap[pName]->option->anyval = a;
-                        }
-                    }
-                    continue;
-                }
-
                 ///Check if string null or next key
                 if(mandatory_opts
                    && (pValue == nullptr
-                       || argMap.find(pValue) != argMap.end())
-                        ){
+                       || argMap.find(pValue) != argMap.end())){
                     throw std::runtime_error("Error: no argument provided for " + std::string(pName));
+                }
+
+                ///Parse arg with implicit option
+                if(argMap[pName]->m_options.empty()){
+                    if(argMap[pName]->option->has_action){
+                        argMap[pName]->option->action({});
+                    }
+                    ///bool
+                    else if(argMap[pName]->option->anyval.type() == typeid(bool)){
+                        bool a = !std::any_cast<bool>(argMap[pName]->option->anyval);
+                        argMap[pName]->option->anyval = a;
+                    }
+                    continue;
                 }
 
                 int opts_cnt = 0;
@@ -602,6 +594,7 @@ private:
     static std::any scan(const char *arg, std::type_index type){
 
         std::string temp = (arg == nullptr) ? "" : std::string(arg);
+
         if(type == std::type_index(typeid(const char *))){
             return arg;
         }else if(type == std::type_index(typeid(std::string))){
