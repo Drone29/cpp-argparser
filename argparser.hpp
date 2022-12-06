@@ -95,6 +95,8 @@ class BaseOption{
 public:
     virtual ~BaseOption() {};
     virtual std::any action (const std::vector<const char*> &args) = 0;
+    virtual std::any increment() = 0;
+    virtual void set() = 0;
     std::any anyval;
     bool has_action = false;
 };
@@ -120,14 +122,27 @@ public:
         }
         if(t_action != nullptr)
             value = t_action(UNPACK_ARGS(argvCpy));
-        anyval = std::any(value);
+        anyval = value;
         return anyval;
     }
+
+    std::any increment() override {
+        if(std::is_arithmetic<T>::value)
+            value += 1;
+        anyval = value;
+        return anyval;
+    }
+
+    void set() override {
+        value = std::any_cast<T>(anyval);
+    }
+
 private:
     T(*t_action)(const char*...) = nullptr;
-    T value;
+    T value{};
 };
 
+//todo: default
 struct ARG_DEFS{
 
     ~ARG_DEFS() {
@@ -149,6 +164,16 @@ struct ARG_DEFS{
     }
     ARG_DEFS &final(){
         m_final = true;
+        return *this;
+    }
+    ARG_DEFS &default_value(std::any val){
+        if (val.type() != option->anyval.type()){
+            throw std::logic_error(std::string(__func__) + "(" + typeStr + "): cannot add default value of different type");
+        }
+        if(!positional){
+            option->anyval = std::move(val);
+            option->set();
+        }
         return *this;
     }
 private:
@@ -302,8 +327,8 @@ public:
         }
 
         if(func == nullptr){
-            if(opts.empty() && typeid(T) != typeid(bool)){
-                throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for non-bool arg with implicit option");
+            if(opts.empty() && !std::is_arithmetic<T>::value){ //typeid(T) != typeid(bool)
+                throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for non-arithmetic arg with implicit option");
             }
             if(opts.size() > 1){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
@@ -497,16 +522,14 @@ public:
                        || argMap.find(pValue) != argMap.end())){
                     throw std::runtime_error("Error: no argument provided for " + std::string(pName));
                 }
-
+                //todo: implicit
                 ///Parse arg with implicit option
                 if(argMap[pName]->m_options.empty()){
                     if(argMap[pName]->option->has_action){
                         argMap[pName]->option->action({});
                     }
-                    ///bool
-                    else if(argMap[pName]->option->anyval.type() == typeid(bool)){
-                        bool a = !std::any_cast<bool>(argMap[pName]->option->anyval);
-                        argMap[pName]->option->anyval = a;
+                    else{
+                        argMap[pName]->option->increment();
                     }
                     continue;
                 }
@@ -628,7 +651,7 @@ private:
         std::any res;
         if(type == std::type_index(typeid(int))){
             res = (int)strtol(temp.c_str(), &tmp, 0);
-        }if(type == std::type_index(typeid(short int))){
+        }else if(type == std::type_index(typeid(short int))){
             res = (short int)strtol(temp.c_str(), &tmp, 0);
         }else if(type == std::type_index(typeid(long))){
             res = strtol(temp.c_str(), &tmp, 0);
