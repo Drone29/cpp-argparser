@@ -215,6 +215,8 @@ private:
     bool positional = false;
     //Flag
     bool flag = false;
+    //Implicit
+    bool implicit = false;
 };
 
 class argParser
@@ -342,8 +344,10 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + key + " should have at least 1 mandatory parameter");
         }
 
+        bool implicit = opts.empty();
+
         if(func == nullptr){
-            if(opts.empty() && !std::is_arithmetic<T>::value){ //typeid(T) != typeid(bool)
+            if(implicit && !std::is_arithmetic<T>::value){ //typeid(T) != typeid(bool)
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for non-arithmetic arg with implicit option");
             }
             if(opts.size() > 1){
@@ -372,6 +376,7 @@ public:
         option->m_options = opts;
         option->flag = flag;
         option->m_final = final;
+        option->implicit = implicit;
 
         argMap[splitKey.key] = option;
 
@@ -534,7 +539,7 @@ public:
                 }
                 //todo: implicit
                 ///Parse arg with implicit option
-                if(argMap[pName]->m_options.empty()){
+                if(argMap[pName]->implicit){
                     if(argMap[pName]->option->has_action){
                         argMap[pName]->option->action({});
                     }

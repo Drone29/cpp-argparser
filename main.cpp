@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
 
     parser->parseArgs(argc, argv);
 
-    auto b = parser->getValue<char>("-i");
+    auto b = parser->getValue<const char*>("-s");
 
     delete parser;
 
