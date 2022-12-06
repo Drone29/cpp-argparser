@@ -137,16 +137,17 @@ public:
 
     std::string get_str_val() override{
         std::string res;
-        if constexpr (std::is_arithmetic<T>::value){
-            res = std::to_string(value);
-        }
-        else if constexpr (std::is_convertible<T, std::string>::value){
-            try{
-                res = std::string(value);
-            }catch(...){
-                res = "";   //if null passed, set empty
+        try{
+            if constexpr (std::is_arithmetic<T>::value){
+                res = std::to_string(value);
             }
+            else if constexpr (std::is_convertible<T, std::string>::value){
+                res = std::string(value);
+            }
+        }catch(...){
+            res = ""; //if null or other exception, set empty
         }
+
         return res;
     }
 
