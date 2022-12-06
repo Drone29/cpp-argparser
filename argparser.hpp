@@ -127,8 +127,9 @@ public:
     }
 
     std::any increment() override {
-        if(std::is_arithmetic<T>::value)
-            value += 1;
+        if constexpr (std::is_arithmetic<T>::value){
+            value++;
+        }
         anyval = value;
         return anyval;
     }
@@ -651,6 +652,8 @@ private:
         std::any res;
         if(type == std::type_index(typeid(int))){
             res = (int)strtol(temp.c_str(), &tmp, 0);
+        }else if(type == std::type_index(typeid(char))){
+            res = (char)strtol(temp.c_str(), &tmp, 0);
         }else if(type == std::type_index(typeid(short int))){
             res = (short int)strtol(temp.c_str(), &tmp, 0);
         }else if(type == std::type_index(typeid(long))){
