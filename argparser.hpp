@@ -184,8 +184,6 @@ private:
     bool m_hidden = false;
     //Final
     bool m_final = false;
-    //default value string
-    const char* m_default_val = nullptr;
     //list of options
     std::vector<const char*> m_options;
 
@@ -797,10 +795,7 @@ private:
 
                 printParam(j, alias);
 
-                std::string def_val = (j.second->m_default_val == nullptr) ? ""
-                                                                           : (" (default " + std::string(j.second->m_default_val) + ")");
-
-                std::cout << " : " + j.second->m_help + def_val << std::endl;
+                std::cout << " : " + j.second->m_help << std::endl;
                 j.second->set = true; //help_set
             };
 
