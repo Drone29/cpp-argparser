@@ -365,7 +365,7 @@ public:
             if(opts.size() > 1){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
             }
-            if(last_mandatory_arg.empty()){
+            if(!opts.empty() && last_mandatory_arg.empty()){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for arg with arbitrary options");
             }
 
