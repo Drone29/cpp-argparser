@@ -356,7 +356,7 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + key + " should have at least 1 mandatory parameter");
         }
 
-        bool implicit = opts.empty() || (opts.size() == 1 && last_mandatory_arg.empty());
+        bool implicit = opts.empty();
 
         if(func == nullptr){
             if(implicit && !std::is_arithmetic<T>::value){ //typeid(T) != typeid(bool)
@@ -364,6 +364,9 @@ public:
             }
             if(opts.size() > 1){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
+            }
+            if(last_mandatory_arg.empty()){
+                throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for arg with arbitrary options");
             }
 
             ///check if default parser for this type is present
