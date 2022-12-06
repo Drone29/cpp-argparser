@@ -129,7 +129,7 @@ public:
 
     std::any increment() override {
         if constexpr (std::is_arithmetic<T>::value){
-            value++;
+            value+=1;
         }
         anyval = value;
         return anyval;
@@ -202,7 +202,7 @@ private:
     //Final
     bool m_final = false;
     //list of options
-    std::vector<const char*> m_options;
+    std::vector<std::string> m_options;
 
     std::string typeStr;
     ///Option/flag
@@ -289,9 +289,18 @@ public:
         return *option;
     }
 
+    /**
+     *
+     * @tparam T function return type
+     * @tparam args function arguments (const char*)
+     * @param key argument key ("-f" adds arbitrary argument, "f" adds mandatory argument)
+     * @param opts list of options ({"foo"} - mandatory, {"[foo]"} = arbitrary). {} or {"[foo]"} treated as implicit argument
+     * @param func function pointer or nullptr
+     * @return
+     */
     template <typename T, typename...args>
     ARG_DEFS &addArgument(const std::string &key,
-                      const std::vector<const char*>& opts,
+                      const std::vector<std::string>& opts = {},
                       T(*func)(args...) = nullptr){
 
         auto splitKey = parseKey(key, __func__);
@@ -310,6 +319,9 @@ public:
         std::string last_mandatory_arg;
         for(auto & opt : opts){
             std::string sopt = opt;
+            if(sopt.empty()){
+                throw std::invalid_argument(key + " argument name cannot be empty");
+            }
             if(isOptMandatory(sopt)){
                 last_mandatory_arg = sopt;
                 if(!last_arbitrary_arg.empty()){
@@ -344,7 +356,7 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + key + " should have at least 1 mandatory parameter");
         }
 
-        bool implicit = opts.empty();
+        bool implicit = opts.empty() || (opts.size() == 1 && last_mandatory_arg.empty());
 
         if(func == nullptr){
             if(implicit && !std::is_arithmetic<T>::value){ //typeid(T) != typeid(bool)
@@ -362,10 +374,8 @@ public:
             }catch(std::runtime_error &){
                 //do nothing
             }
-        }else{
-            if(sizeof...(args) != opts.size()){
+        }else if(sizeof...(args) != opts.size()){
                 throw std::invalid_argument(std::string(__func__) + " " + key + " opts size != function arguments");
-            }
         }
 
         auto x = new DerivedOption<T>(func);
@@ -394,28 +404,14 @@ public:
     template <typename T>
     T getValue(const std::string &key){
         parsedCheck(__func__);
-
-        std::string skey = key;
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__);
-        //find alias
-        if(argMap.find(skey) == argMap.end()){
-            for(auto &x : argMap){
-                if(x.second->m_alias == skey){
-                    skey = x.first;
-                    break;
-                }
-            }
+        auto r = getArg(key);
+        try{
+            auto base_opt = r.option;
+            return std::any_cast<T>(base_opt->anyval);
+        }catch(const std::bad_any_cast& e){
+            throw std::runtime_error(std::string(__func__) + ": " + key + " cannot cast to " + strType);
         }
-
-        if(argMap.find(skey) != argMap.end()){
-            try{
-                auto base_opt = argMap[skey]->option;
-                return std::any_cast<T>(base_opt->anyval);
-            }catch(const std::bad_any_cast& e){
-                throw std::runtime_error(std::string(__func__) + ": " + key + " cannot cast to " + strType);
-            }
-        }
-        throw std::runtime_error(key + " not defined");
     }
 
     bool isSet(const std::string &key){
@@ -594,7 +590,7 @@ public:
         return 0;
     }
 
-    //auto operator [](const char *key) {return getArg(key);}
+    auto operator [](const char *key) const {return getArg(key);}
 
 private:
 
@@ -612,6 +608,24 @@ private:
     int option_cnt = 0;
     bool mandatory_option = false;
     int positional_cnt = 0;
+
+    ARG_DEFS &getArg(const std::string &key) const {
+        std::string skey = key;
+        if(argMap.find(skey) == argMap.end()){
+            for(auto &x : argMap){
+                if(x.second->m_alias == skey){
+                    skey = x.first;
+                    break;
+                }
+            }
+        }
+
+        if(argMap.find(skey) != argMap.end()){
+            return *argMap.find(skey)->second;
+        }
+
+        throw std::runtime_error(key + " not defined");
+    }
 
     static std::string getFuncTemplateType(const char *pretty_func, const char *specifier = "T"){
         std::string ref = std::string(specifier) + " = ";

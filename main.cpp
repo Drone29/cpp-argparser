@@ -5,14 +5,14 @@ int main(int argc, char *argv[]) {
 
     auto parser = new argParser();
 
-    parser->addArgument<char>("-i, --int", {})
+    parser->addArgument<char>("-i, --int")
             .help("int option");
-    parser->addArgument<const char*>("-s, --ss", {"string"})
-    .help("help message");
+    parser->addArgument<std::string>("-s, --ss", {"string"})
+            .help("help message");
 
     parser->parseArgs(argc, argv);
 
-    auto b = parser->getValue<const char*>("-s");
+    auto x = parser->getValue<std::string>("-s");
 
     delete parser;
 
