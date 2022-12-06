@@ -1,13 +1,19 @@
 #include <iostream>
 #include "argparser.hpp"
 
+std::string test(const char* a){
+    if(a == nullptr){
+        a = "34";
+    }
+    return std::string(a);
+}
+
 int main(int argc, char *argv[]) {
 
     argParser parser;
 
-    parser.addArgument<std::string>("-s, --ss", {"string"})
+    parser.addArgument<std::string>("-s, --ss", {"[string]"}, test)
             .help("help message");
-    parser["-s"].default_value(std::string("default string"));
 
     parser.parseArgs(argc, argv);
 

@@ -14,7 +14,6 @@
 #include <any>
 #include <memory>
 #include <typeindex>
-#include <string_view>
 
 /// help key
 #define HELP_NAME "--help"
@@ -31,8 +30,6 @@
 /// bool parsable strings
 #define BOOL_POSITIVES "true", "1", "yes", "on"
 #define BOOL_NEGATIVES "false", "0", "no", "off"
-
-#define FUNC_ARG_SIGNATURE "const char*"
 
 /// list of arguments to unpack starting from x index (ONLY TRIVIAL TYPES)
 #define UNPACK_ARGUMENTS(arg,x) \
@@ -53,10 +50,6 @@
 constexpr int countChars( const char* s, char c ){
     return *s == '\0' ? 0
                       : countChars( s + 1, c) + (*s == c);
-}
-
-constexpr bool strings_equal(char const * a, char const * b) {
-    return std::string_view(a)==b;
 }
 
 //Need 2 macros to first evaluate expression and then stringify
@@ -294,7 +287,7 @@ public:
      * @tparam T function return type
      * @tparam args function arguments (const char*)
      * @param key argument key ("-f" adds arbitrary argument, "f" adds mandatory argument)
-     * @param opts list of options ({"foo"} - mandatory, {"[foo]"} = arbitrary). {} or {"[foo]"} treated as implicit argument
+     * @param opts list of options ({"foo"} - mandatory, {"[foo]"} = arbitrary). {} treated as implicit argument
      * @param func function pointer or nullptr
      * @return
      */
