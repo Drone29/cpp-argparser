@@ -160,7 +160,7 @@ private:
     T value{};
 };
 
-//todo: default
+
 struct ARG_DEFS{
 
     ~ARG_DEFS() {
@@ -418,12 +418,6 @@ public:
             return argMap[key]->set;
         }
         throw std::runtime_error(key + " not defined");
-    }
-
-    ///Set advanced help
-    void setAdvancedHelp(const std::string &key, const std::string& help){
-        auto arg = getArg(key);
-        arg->m_advanced_help = help;
     }
 
     ///Set alias for option
@@ -726,14 +720,12 @@ private:
             throw std::runtime_error(std::string(func) + ": " + std::string(key) + " already defined");
         }
 
-    }
-
-    ARG_DEFS *getArg(const std::string &key) {
-        if(argMap.find(key) != argMap.end()){
-            auto y = argMap[key];
-            return y;
+        for(auto &x : argMap){
+            if(x.second->m_alias == key){
+                throw std::runtime_error(std::string(func) + ": " + std::string(key) + " already defined");
+            }
         }
-        throw std::runtime_error(key + " not defined");
+
     }
 
     KEY_ALIAS parseKey(const std::string &key, const char* func = nullptr){
@@ -839,10 +831,21 @@ private:
             else{
                 //param advanced help
                 auto j = argMap.find(param);
+                //seek alias
+                if(j == argMap.end()){
+                    for(auto &x : argMap){
+                        if(x.second->m_alias == param){
+                            j = argMap.find(x.first);
+                            break;
+                        }
+                    }
+                }
+
                 if(j != argMap.end()){
                     printParam(*j, j->second->m_alias);
                     std::cout << ":" << std::endl;
                     std::cout << "Type: " + j->second->typeStr << std::endl;
+                    std::cout << j->second->m_help << std::endl;
                     std::cout << j->second->m_advanced_help << std::endl;
                 }else{
                     std::cout << "Unknown parameter " + std::string(param) << std::endl;
