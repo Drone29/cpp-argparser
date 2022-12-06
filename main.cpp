@@ -3,18 +3,16 @@
 
 int main(int argc, char *argv[]) {
 
-    auto parser = new argParser();
+    argParser parser;
 
-    parser->addArgument<char>("-i, --int")
-            .help("int option");
-    parser->addArgument<std::string>("-s, --ss", {"string"})
+    parser.addArgument<std::string>("-s, --ss", {"string"})
             .help("help message");
+    parser["-s"].default_value(std::string("default string"));
 
-    parser->parseArgs(argc, argv);
+    parser.parseArgs(argc, argv);
 
-    auto x = parser->getValue<std::string>("-s");
+    auto x = parser.getValue<std::string>("-s");
 
-    delete parser;
 
     return 0;
 }

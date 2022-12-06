@@ -365,7 +365,7 @@ public:
             if(opts.size() > 1){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
             }
-            if(!opts.empty() && last_mandatory_arg.empty()){
+            if(!implicit && last_mandatory_arg.empty()){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for arg with arbitrary options");
             }
 
@@ -408,7 +408,7 @@ public:
     T getValue(const std::string &key){
         parsedCheck(__func__);
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__);
-        auto r = getArg(key);
+        auto &r = getArg(key);
         try{
             auto base_opt = r.option;
             return std::any_cast<T>(base_opt->anyval);
@@ -593,7 +593,7 @@ public:
         return 0;
     }
 
-    auto operator [](const char *key) const {return getArg(key);}
+    ARG_DEFS &operator [](const char *key) {return getArg(key);}
 
 private:
 
@@ -612,7 +612,7 @@ private:
     bool mandatory_option = false;
     int positional_cnt = 0;
 
-    ARG_DEFS &getArg(const std::string &key) const {
+    [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
         std::string skey = key;
         if(argMap.find(skey) == argMap.end()){
             for(auto &x : argMap){
