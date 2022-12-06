@@ -9,6 +9,8 @@ int main(int argc, char *argv[]) {
 
     parser->addArgument<char>("-i, --int", {})
             .help("int option");
+    parser->addArgument<const char*>("-s", {"string"})
+    .help("help message");
 
     parser->parseArgs(argc, argv);
 
