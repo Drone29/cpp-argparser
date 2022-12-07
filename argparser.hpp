@@ -166,15 +166,15 @@ struct ARG_DEFS{
         m_hidden = true;
         return *this;
     }
-    ARG_DEFS &final(){
-        m_final = true;
+    ARG_DEFS &non_repeatable(){
+        m_non_repeatable = true;
         return *this;
     }
     ARG_DEFS &default_value(std::any val){
         if (val.type() != option->anyval.type()){
             throw std::logic_error(std::string(__func__) + "(" + typeStr + "): cannot add default value of different type");
         }
-        if(!positional){
+        if(!positional && arbitrary){
             option->anyval = std::move(val);
             option->set();
         }
@@ -185,8 +185,6 @@ private:
     std::string m_advanced_help;
     //hidden option
     bool m_hidden = false;
-    //Final
-    bool m_final = false;
     //list of options
     std::vector<std::string> m_options;
 
@@ -200,9 +198,11 @@ private:
     //Positional
     bool positional = false;
     //Flag
-    bool flag = false;
+    bool arbitrary = false;
     //Implicit
     bool implicit = false;
+    //Non-repeatable
+    bool m_non_repeatable = false;
 };
 
 class argParser
@@ -213,8 +213,7 @@ public:
         argMap[HELP_NAME]->typeStr = ARG_TYPE_HELP;
         argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
         argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
-        argMap[HELP_NAME]->flag = true;
-        argMap[HELP_NAME]->m_final = true;
+        argMap[HELP_NAME]->arbitrary = true;
         setAlias(HELP_NAME, HELP_ALIAS);
         //Count max number of arguments
         max_args = MAX_ARGS;
@@ -232,18 +231,11 @@ public:
                         T(*func)(args...) = nullptr){
 
         auto splitKey = parseKey(key, __func__);
-        if(splitKey.alias.empty()){
+        if(!splitKey.alias.empty()){
             throw std::logic_error(std::string(__func__) + ": " + key + " positional argument cannot have aliases");
         }
 
-        for(auto &x : argMap){
-            for(auto &y : x.second->m_options){
-                if(!isOptMandatory(y) && !x.second->m_final){
-                    throw std::invalid_argument(std::string(__func__) + ": " + key
-                    + " cannot add positional argument: conflict with non-final arg " + x.first + " with arbitraty option " + y);
-                }
-            }
-        }
+        static_assert(sizeof...(args) <= 1, " too many arguments in function");
 
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
@@ -257,8 +249,6 @@ public:
             }catch(std::runtime_error &){
                 //do nothing
             }
-        }else{
-            static_assert(sizeof...(args) > 1, " too many arguments in function");
         }
 
         auto x = new DerivedOption<T>(func);
@@ -318,13 +308,6 @@ public:
             }
         }
 
-        bool final = false;
-        if(!last_arbitrary_arg.empty()){
-            if(!posMap.empty()){
-                final = true;
-            }
-        }
-
         bool flag = (splitKey.key[0] == '-');
         if(!splitKey.alias.empty()){
             bool match = (splitKey.alias[0] == '-');
@@ -368,8 +351,7 @@ public:
         option->typeStr = strType;
         option->option = x;
         option->m_options = opts;
-        option->flag = flag;
-        option->m_final = final;
+        option->arbitrary = flag;
         option->implicit = implicit;
 
         argMap[splitKey.key] = option;
@@ -456,16 +438,16 @@ public:
             const char *pName = argv[i];
             const char *pValue = argv[i+1];
 
-            std::string s = pName;
-            std::string s2 = (pValue == nullptr) ? "" : pValue;
+//            std::string s = pName;
+//            std::string s2 = (pValue == nullptr) ? "" : pValue;
 
-            auto c = s.find('=');
-            if(c != std::string::npos){
-                s2 = s.substr(c+1);
-                s = s.substr(0, c);
-                pName = s.c_str();
-                pValue = s2.c_str();
-            }
+//            auto c = s.find('=');
+//            if(c != std::string::npos){
+//                s2 = s.substr(c+1);
+//                s = s.substr(0, c);
+//                pName = s.c_str();
+//                pValue = s2.c_str();
+//            }
 
             ///Find alias
             if(argMap.find(pName) == argMap.end()){
@@ -504,6 +486,7 @@ public:
             {
                 ///Parse other types
 
+                ///Count mandatory options
                 int mandatory_opts = 0;
                 for(auto & x: argMap[pName]->m_options){
                     if(isOptMandatory(x)){
@@ -515,7 +498,13 @@ public:
                 if(mandatory_opts
                    && (pValue == nullptr
                        || argMap.find(pValue) != argMap.end())){
-                    throw std::runtime_error("Error: no argument provided for " + std::string(pName));
+                    throw std::runtime_error("Error: no value provided for " + std::string(pName));
+                }
+
+                ///If non-repeatable and occurred again, throw error
+                if(argMap[pName]->set
+                && argMap[pName]->m_non_repeatable){
+                    throw std::runtime_error("Error: " + std::string(pName) + " already defined");
                 }
 
                 ///Parse arg with implicit option
@@ -537,7 +526,8 @@ public:
                         break;
                     }
                     if(argMap.find(argv[cnt]) != argMap.end()){
-                        break;
+                        //todo: handle arbitrary args
+                        throw std::runtime_error(std::string(pName) + " value conflicts with " + argv[cnt]);
                     }
                     cnt++;
                     opts_cnt++;
@@ -550,15 +540,10 @@ public:
 
                 parseArgument(pName, pValue, i+1);
                 i += opts_cnt;
-                ///return if final
-                if(argMap[pName]->m_final){
-                    posMap.clear();
-                    break;
-                }
 
                 argMap[pName]->set = true;
                 //count mandatory options
-                if(!argMap[pName]->flag){
+                if(!argMap[pName]->arbitrary){
                     option_cnt++;
                 }
             }
@@ -714,10 +699,6 @@ private:
             throw std::runtime_error(std::string(func) +": Key cannot be empty!");
         }
 
-        if(std::string(key) == std::string(HELP_HIDDEN_OPT)){
-            throw std::runtime_error(std::string(func) + ": " + HELP_HIDDEN_OPT + " key is reserved");
-        }
-
         //Check previous definition
         if(argMap.find(key) != argMap.end()){
             throw std::runtime_error(std::string(func) + ": " + std::string(key) + " already defined");
@@ -789,7 +770,7 @@ private:
             }
         };
 
-        auto sorted_usage = [this, &advanced, &printParam](bool empty, bool flag){
+        auto sorted_usage = [this, &advanced, &printParam](bool flag, bool hidden){
 
             auto print_usage = [&advanced, &printParam](auto j, const std::string& alias = ""){
                 //skip already printed
@@ -808,7 +789,9 @@ private:
                 printParam(j, alias);
 
                 std::string def_val = (j.second->option == nullptr) ? "" : j.second->option->get_str_val();
-                def_val = def_val.empty() ? "" : " (default " + def_val + ")";
+                def_val = j.second->arbitrary ?
+                        (def_val.empty() ? "" : " (default " + def_val + ")")
+                        : ""; //only arbitrary options can have default value
 
                 std::cout << " : " + j.second->m_help + def_val << std::endl;
                 j.second->set = true; //help_set
@@ -816,8 +799,8 @@ private:
 
             for (auto & j : argMap)
             {
-                if((j.second->flag == flag)
-                   && (j.second->m_options.empty() == empty))
+                if((j.second->arbitrary == flag)
+                   && (j.second->m_hidden == hidden))
                 {
                     //find alias
                     std::string alias = j.second->m_alias;
@@ -864,7 +847,7 @@ private:
 
         int flag_cnt = 0, opt_cnt = 0;
         for(auto &x : argMap){
-            if(x.second->flag){
+            if(x.second->arbitrary){
                 flag_cnt++;
             }else if(!x.second->positional){
                 opt_cnt++;
@@ -885,13 +868,20 @@ private:
 
         if(flag_cnt){
             std::cout << "Flags (arbitrary):" << std::endl;
-            sorted_usage(true, true);
-            sorted_usage(false, true);
+            sorted_usage(true, false);
+            if(advanced){
+                //show hidden
+                sorted_usage(true, true);
+            }
         }
         if(opt_cnt){
             std::cout << "Options (mandatory):" << std::endl;
-            sorted_usage(true, false);
             sorted_usage(false, false);
+            if(advanced){
+                //show hidden
+                sorted_usage(false, true);
+            }
+
         }
     }
 };
