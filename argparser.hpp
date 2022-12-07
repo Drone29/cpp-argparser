@@ -367,8 +367,11 @@ public:
             setAlias(splitKey.key, splitKey.alias);
         }
 
-        if(!flag)
+        if(!flag){
             mandatory_option = true;
+            mandatory_opts++;
+        }
+
 
         return *option;
     }
@@ -518,14 +521,16 @@ public:
 
                 int opts_cnt = 0;
                 int cnt = i+1;
+                bool arbitrary_values = false;
 
                 for(int j=0; j<argMap[pName]->m_options.size(); j++){
                     if(cnt >= argc){
                         break;
                     }
-                    if(argMap.find(argv[cnt]) != argMap.end()){
-                        //todo: handle arbitrary args
-                        throw std::runtime_error(std::string(pName) + " value conflicts with arg " + argv[cnt]);
+                    if(argMap.find(argv[cnt]) != argMap.end()
+                    && argMap[pName]->mandatory_opts != argMap[pName]->m_options.size()){
+                        arbitrary_values = true;
+                        break;
                     }
                     cnt++;
                     opts_cnt++;
@@ -536,19 +541,30 @@ public:
                                              + std::to_string(argMap[pName]->mandatory_opts) + " arguments, but " + std::to_string(opts_cnt) + " were provided");
                 }
 
-                parseArgument(pName, pValue, i+1);
+                if(arbitrary_values){
+                    std::vector<const char*> vec = {argv + i + 1, argv + cnt};
+                    ///parse arg with partial arbitrary values list
+                    if(argMap[pName]->option->has_action){
+                        argMap[pName]->option->action(vec);
+                    }else{
+                        throw std::runtime_error(std::string(pName) + " arbitrary value conflicts with arg " + argv[cnt]);
+                    }
+                }else{
+                    parseArgument(pName, pValue, i+1);
+                }
+
                 i += opts_cnt;
 
                 argMap[pName]->set = true;
                 //count mandatory options
                 if(!argMap[pName]->arbitrary){
-                    option_cnt++;
+                    parsed_mnd_opts++;
                 }
             }
         }
         args_parsed = true;
         //error if no option was set
-        if(!option_cnt && mandatory_option){
+        if(parsed_mnd_opts != mandatory_opts && mandatory_option){
             throw std::runtime_error("No option specified");
         }
         if(positional_cnt < posMap.size()){
@@ -572,9 +588,10 @@ private:
     std::string binary_name;
     bool args_parsed = false;
     int max_args = 0;
-    int option_cnt = 0;
+    int parsed_mnd_opts = 0;
     bool mandatory_option = false;
     int positional_cnt = 0;
+    int mandatory_opts = 0;
 
     [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
         std::string skey = key;

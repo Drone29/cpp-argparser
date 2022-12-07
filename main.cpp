@@ -37,8 +37,8 @@ int main(int argc, char *argv[]) {
             .hidden()
             .help("hidden int argument with mandatory value (can be viewed with --help -a)");
 
-    parser.addArgument<std::vector<const char*>>("-a, --array", {"a1", "a2"},
-            *([](const char* a1, const char* a2) -> auto{ return std::vector<const char*>{a1, a2}; }))
+    parser.addArgument<std::vector<const char*>>("-a, --array", {"a1", "[a2]"},
+            *([](const char* a1, const char* a2) -> auto{ return std::vector<const char*>{a1, a2==nullptr?"null":a2}; }))
             .help("arbitrary argument with 2 string values and lambda converter");
 
     parser.addArgument<int>("m", {"m_value"})
@@ -58,6 +58,7 @@ int main(int argc, char *argv[]) {
     auto p = parser.getValue<std::string>("-p");
     auto m = parser.getValue<int>("m");
     auto pos = parser.getValue<int>("pos");
+    auto a = parser.getValue<std::vector<const char*>>("-a");
 
 
     return 0;
