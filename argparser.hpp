@@ -204,7 +204,7 @@ private:
     //Non-repeatable
     bool m_non_repeatable = false;
     //Mandatory opts
-    int mandatory_opts = 0;
+    int mandatory_vals = 0;
 };
 
 class argParser
@@ -290,7 +290,7 @@ public:
         ///Check for invalid sequence order of arguments
         std::string last_arbitrary_arg;
         std::string last_mandatory_arg;
-        int mandatory_opts = 0;
+        int mnd_vals = 0;
 
         for(auto & opt : opts){
             std::string sopt = opt;
@@ -298,7 +298,7 @@ public:
                 throw std::invalid_argument(key + " argument name cannot be empty");
             }
             if(isOptMandatory(sopt)){
-                mandatory_opts++;
+                mnd_vals++;
                 last_mandatory_arg = sopt;
                 if(!last_arbitrary_arg.empty()){
                     throw std::invalid_argument(key
@@ -358,7 +358,7 @@ public:
         option->m_options = opts;
         option->arbitrary = flag;
         option->implicit = implicit;
-        option->mandatory_opts = mandatory_opts;
+        option->mandatory_vals = mnd_vals;
 
         argMap[splitKey.key] = option;
 
@@ -369,9 +369,8 @@ public:
 
         if(!flag){
             mandatory_option = true;
-            mandatory_opts++;
+            mandatory_args++;
         }
-
 
         return *option;
     }
@@ -447,6 +446,7 @@ public:
             const char *pName = argv[i];
             const char *pValue = argv[i+1];
 
+            //todo: handle = ?
 //            std::string s = pName;
 //            std::string s2 = (pValue == nullptr) ? "" : pValue;
 
@@ -496,7 +496,7 @@ public:
                 ///Parse other types
 
                 ///Check if string null or next key
-                if(argMap[pName]->mandatory_opts
+                if(argMap[pName]->mandatory_vals
                    && (pValue == nullptr
                        || argMap.find(pValue) != argMap.end())){
                     throw std::runtime_error("Error: no value provided for " + std::string(pName));
@@ -528,7 +528,7 @@ public:
                         break;
                     }
                     if(argMap.find(argv[cnt]) != argMap.end()
-                    && argMap[pName]->mandatory_opts != argMap[pName]->m_options.size()){
+                    && argMap[pName]->mandatory_vals != argMap[pName]->m_options.size()){
                         arbitrary_values = true;
                         break;
                     }
@@ -536,9 +536,9 @@ public:
                     opts_cnt++;
                 }
 
-                if(opts_cnt < argMap[pName]->mandatory_opts){
+                if(opts_cnt < argMap[pName]->mandatory_vals){
                     throw std::runtime_error(std::string(pName) + " requires "
-                                             + std::to_string(argMap[pName]->mandatory_opts) + " arguments, but " + std::to_string(opts_cnt) + " were provided");
+                                             + std::to_string(argMap[pName]->mandatory_vals) + " arguments, but " + std::to_string(opts_cnt) + " were provided");
                 }
 
                 if(arbitrary_values){
@@ -564,7 +564,7 @@ public:
         }
         args_parsed = true;
         //error if no option was set
-        if(parsed_mnd_opts != mandatory_opts && mandatory_option){
+        if(parsed_mnd_opts != mandatory_args && mandatory_option){
             throw std::runtime_error("No option specified");
         }
         if(positional_cnt < posMap.size()){
@@ -591,7 +591,7 @@ private:
     int parsed_mnd_opts = 0;
     bool mandatory_option = false;
     int positional_cnt = 0;
-    int mandatory_opts = 0;
+    int mandatory_args = 0;
 
     [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
         std::string skey = key;
