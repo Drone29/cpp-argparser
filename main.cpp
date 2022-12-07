@@ -8,6 +8,11 @@ std::string test(const char* a){
     return std::string(a);
 }
 
+template <class Callable, typename ...Args>
+auto Functor(Callable func, Args&&... args){
+    return func(std::forward<Args>(args)...);
+}
+
 int main(int argc, char *argv[]) {
 
     argParser parser;

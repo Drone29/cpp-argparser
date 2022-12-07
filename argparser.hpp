@@ -61,15 +61,8 @@ constexpr int countChars( const char* s, char c ){
 #define ARG_STRING STRINGIFY(ARGS_LIST)
 //count max function arguments provided by UNPACK_ARGUMENTS
 #define MAX_ARGS countChars(ARG_STRING, ']')
+//constexpr int MAX_ARGS = countChars(ARG_STRING, ']');
 
-/**
- *  To add a new type:
- *  1. Add it between ARG_TYPE_STRING and ARG_TYPE_BOOL
- *  2. Add corresponding type to argParser.OPTION struct
- *  3. Modify argParser.optionSetToGlobal() function to set value to global var if present
- *  4. Add your type parser to argParser.parseOption()
- */
-/// non-enum help type
 #define ARG_TYPE_HELP "HELP"
 
 template <typename ...>
@@ -300,12 +293,7 @@ public:
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
 
-        if(opts.size() > max_args || sizeof...(args) > max_args){
-            throw std::invalid_argument("Too many arguments for " + key
-                                     + ", provided " + std::to_string(opts.size())
-                                     + ", max " + std::to_string(max_args) + " allowed."
-                                     + " Consider changing " + std::string(STRINGIFY_IMPL(UNPACK_ARGUMENTS)));
-        }
+        static_assert(sizeof...(args) < MAX_ARGS, " too many arguments");
 
         ///Check for invalid sequence order of arguments
         std::string last_arbitrary_arg;
