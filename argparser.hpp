@@ -517,7 +517,7 @@ public:
                        || argMap.find(pValue) != argMap.end())){
                     throw std::runtime_error("Error: no argument provided for " + std::string(pName));
                 }
-                //todo: implicit
+
                 ///Parse arg with implicit option
                 if(argMap[pName]->implicit){
                     if(argMap[pName]->option->has_action){
@@ -780,7 +780,7 @@ private:
         auto printParam = [](auto j, const std::string& alias){
             std::string alias_str = "\t" + (alias.empty() ? "" : (alias + KEY_ALIAS_DELIMITER + " "));
             std::cout <<  alias_str + j.first;
-            for(auto x : j.second->m_options){
+            for(auto &x : j.second->m_options){
                 std::string opt = std::string(x);
                     if(isOptMandatory(opt))
                         opt = "<" + opt + ">";
