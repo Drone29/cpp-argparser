@@ -525,7 +525,7 @@ public:
                     }
                     if(argMap.find(argv[cnt]) != argMap.end()){
                         //todo: handle arbitrary args
-                        throw std::runtime_error(std::string(pName) + " value conflicts with " + argv[cnt]);
+                        throw std::runtime_error(std::string(pName) + " value conflicts with arg " + argv[cnt]);
                     }
                     cnt++;
                     opts_cnt++;
