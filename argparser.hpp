@@ -203,6 +203,8 @@ private:
     bool implicit = false;
     //Non-repeatable
     bool m_non_repeatable = false;
+    //Mandatory opts
+    int mandatory_opts = 0;
 };
 
 class argParser
@@ -288,12 +290,15 @@ public:
         ///Check for invalid sequence order of arguments
         std::string last_arbitrary_arg;
         std::string last_mandatory_arg;
+        int mandatory_opts = 0;
+
         for(auto & opt : opts){
             std::string sopt = opt;
             if(sopt.empty()){
                 throw std::invalid_argument(key + " argument name cannot be empty");
             }
             if(isOptMandatory(sopt)){
+                mandatory_opts++;
                 last_mandatory_arg = sopt;
                 if(!last_arbitrary_arg.empty()){
                     throw std::invalid_argument(key
@@ -353,6 +358,7 @@ public:
         option->m_options = opts;
         option->arbitrary = flag;
         option->implicit = implicit;
+        option->mandatory_opts = mandatory_opts;
 
         argMap[splitKey.key] = option;
 
@@ -486,16 +492,8 @@ public:
             {
                 ///Parse other types
 
-                ///Count mandatory options
-                int mandatory_opts = 0;
-                for(auto & x: argMap[pName]->m_options){
-                    if(isOptMandatory(x)){
-                        mandatory_opts++;
-                    }
-                }
-
                 ///Check if string null or next key
-                if(mandatory_opts
+                if(argMap[pName]->mandatory_opts
                    && (pValue == nullptr
                        || argMap.find(pValue) != argMap.end())){
                     throw std::runtime_error("Error: no value provided for " + std::string(pName));
@@ -533,9 +531,9 @@ public:
                     opts_cnt++;
                 }
 
-                if(opts_cnt < mandatory_opts){
+                if(opts_cnt < argMap[pName]->mandatory_opts){
                     throw std::runtime_error(std::string(pName) + " requires "
-                                             + std::to_string(mandatory_opts) + " arguments, but " + std::to_string(opts_cnt) + " were provided");
+                                             + std::to_string(argMap[pName]->mandatory_opts) + " arguments, but " + std::to_string(opts_cnt) + " were provided");
                 }
 
                 parseArgument(pName, pValue, i+1);
