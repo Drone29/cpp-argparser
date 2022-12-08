@@ -14,6 +14,7 @@
 #include <any>
 #include <memory>
 #include <typeindex>
+#include <tuple>
 
 /// help key
 #define HELP_NAME "--help"
@@ -88,18 +89,20 @@ public:
     bool has_action = false;
 };
 
-template <typename T>
+template <typename T, class...Targs>
 class DerivedOption : public BaseOption{
 public:
     ~DerivedOption() override = default;
 
     template <typename...args>
-    DerivedOption(T(*func)(args...) = nullptr) {
+    DerivedOption(T(*func)(Targs..., args...), Targs...targs) { //Targs...targs
         //check if args are const char*
         static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
-        t_action = reinterpret_cast<T (*)(const char *...)>(func);
+        t_action = reinterpret_cast<T (*)(Targs...,const char *...)>(func);
         has_action = func != nullptr;
         anyval = value;
+
+        tpl = std::make_tuple(targs...);
     }
 
     std::any action(const std::vector<const char*> &args) override{
@@ -107,8 +110,14 @@ public:
         for(int i=0; i<args.size();i++){
             argvCpy[i] = args[i];
         }
-        if(t_action != nullptr)
-            value = t_action(UNPACK_ARGS(argvCpy));
+
+        auto cchar_tpl = std::make_tuple(UNPACK_ARGS(argvCpy));
+        auto tplres = std::tuple_cat(tpl, cchar_tpl);
+
+        if(t_action != nullptr){
+            value = std::apply(t_action, tplres);
+        }
+           // value = t_action(UNPACK_ARGS(argvCpy));
         anyval = value;
         return anyval;
     }
@@ -142,8 +151,9 @@ public:
     }
 
 private:
-    T(*t_action)(const char*...) = nullptr;
+    T(*t_action)(Targs...,const char*...) = nullptr;
     T value{};
+    std::tuple<Targs...> tpl;
 };
 
 
@@ -276,10 +286,11 @@ public:
      * @param func function pointer or nullptr
      * @return
      */
-    template <typename T, typename...args>
+    template <typename T, class...Targs, typename...args>
     ARG_DEFS &addArgument(const std::string &key,
                       const std::vector<std::string>& opts = {},
-                      T(*func)(args...) = nullptr){
+                      T(*func)(Targs...,args...) = nullptr, //= nullptr
+                      Targs...targs){
 
         auto splitKey = parseKey(key, __func__);
         /// get template type string
@@ -350,7 +361,7 @@ public:
                 throw std::invalid_argument(std::string(__func__) + " " + key + " opts size != function arguments");
         }
 
-        auto x = new DerivedOption<T>(func);
+        auto x = new DerivedOption<T,Targs...>(func, targs...);
 
         auto option = new ARG_DEFS();
         option->typeStr = strType;
@@ -558,13 +569,13 @@ public:
                 argMap[pName]->set = true;
                 //count mandatory options
                 if(!argMap[pName]->arbitrary){
-                    parsed_mnd_opts++;
+                    parsed_mnd_args++;
                 }
             }
         }
         args_parsed = true;
         //error if no option was set
-        if(parsed_mnd_opts != mandatory_args && mandatory_option){
+        if(parsed_mnd_args != mandatory_args && mandatory_option){
             throw std::runtime_error("No option specified");
         }
         if(positional_cnt < posMap.size()){
@@ -588,7 +599,7 @@ private:
     std::string binary_name;
     bool args_parsed = false;
     int max_args = 0;
-    int parsed_mnd_opts = 0;
+    int parsed_mnd_args = 0;
     bool mandatory_option = false;
     int positional_cnt = 0;
     int mandatory_args = 0;
