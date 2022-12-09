@@ -85,7 +85,7 @@ public:
     virtual std::any increment() = 0;
     virtual void set(std::any x) = 0;
     virtual std::string get_str_val() = 0;
-    virtual void set_global_ptr(void *ptr) = 0;
+    virtual void set_global_ptr(std::any ptr) = 0;
     std::any anyval;
     bool has_action = false;
 };
@@ -151,13 +151,21 @@ public:
     }
 
     void set(std::any x) override {
-        anyval = x;
-        value = std::any_cast<T>(anyval);
-        set_global();
+        try{
+            anyval = x;
+            value = std::any_cast<T>(anyval);
+            set_global();
+        }catch(std::bad_any_cast &e){
+            throw std::invalid_argument("invalid type");
+        }
     }
 
-    void set_global_ptr(void *ptr) override {
-        global = static_cast<T*>(ptr);
+    void set_global_ptr(std::any ptr) override {
+        try{
+            global = std::any_cast<T*>(ptr);
+        }catch(std::bad_any_cast &e){
+            throw std::invalid_argument("invalid pointer type");
+        }
     }
 
 private:
@@ -198,17 +206,22 @@ struct ARG_DEFS{
         return *this;
     }
     ARG_DEFS &default_value(std::any val){
-        if (val.type() != option->anyval.type()){
-            throw std::logic_error(std::string(__func__) + "(" + typeStr + "): cannot add default value of different type");
-        }
-        if(!positional && arbitrary){
-            option->set(std::move(val));
-            show_default = true;
+        try{
+            if(!positional && arbitrary){
+                option->set(std::move(val));
+                show_default = true;
+            }
+        }catch(std::invalid_argument &e){
+            throw std::logic_error(std::string(__func__) + "(" + typeStr + "): error: " + e.what());
         }
         return *this;
     }
-    ARG_DEFS &global_ptr(void *ptr){
-        option->set_global_ptr(ptr);
+    ARG_DEFS &global_ptr(std::any ptr){
+        try {
+            option->set_global_ptr(std::move(ptr));
+        }catch(std::invalid_argument &e){
+            throw std::logic_error(std::string(__func__) + "(" + typeStr + "): error: " + e.what());
+        }
         return *this;
     }
 
