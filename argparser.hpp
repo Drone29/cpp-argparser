@@ -104,8 +104,7 @@ public:
         has_action = func != nullptr;
         anyval = value;
 
-       // tpl = std::make_tuple(targs...);
-       tpl = targs;
+        tpl = targs;
     }
 
     std::any action(const std::vector<const char*> &args) override{
@@ -193,6 +192,26 @@ struct ARG_DEFS{
         }
         return *this;
     }
+
+    [[nodiscard]] bool is_set() const{
+        return set;
+    }
+    [[nodiscard]] bool is_arbitrary() const{
+        return arbitrary;
+    }
+    [[nodiscard]] bool is_positional() const{
+        return positional;
+    }
+    [[nodiscard]] bool is_impicit() const{
+        return implicit;
+    }
+    [[nodiscard]] bool is_non_repeatable() const{
+        return m_non_repeatable;
+    }
+    [[nodiscard]] auto options_size() const{
+        return m_options.size();
+    }
+
 private:
     std::string m_help;
     std::string m_advanced_help;
@@ -217,7 +236,7 @@ private:
     //Non-repeatable
     bool m_non_repeatable = false;
     //Mandatory opts
-    int mandatory_vals = 0;
+    int mandatory_options = 0;
 };
 
 class argParser
@@ -284,6 +303,7 @@ public:
     /**
      *
      * @tparam T function return type
+     * @tparam Targs function side arguments (any)
      * @tparam args function arguments (const char*)
      * @param key argument key ("-f" adds arbitrary argument, "f" adds mandatory argument)
      * @param opts list of options ({"foo"} - mandatory, {"[foo]"} = arbitrary). {} treated as implicit argument
@@ -293,8 +313,8 @@ public:
     template <typename T, class...Targs, typename...args>
     ARG_DEFS &addArgument(const std::string &key,
                       const std::vector<std::string>& opts = {},
-                      T(*func)(args...) = nullptr, //= nullptr
-                      Targs&&...targs){ //std::tuple<Targs...> targs = std::tuple<>()
+                      T(*func)(args...) = nullptr,
+                      Targs&&...targs){
 
         auto splitKey = parseKey(key, __func__);
         /// get template type string
@@ -371,7 +391,7 @@ public:
         option->m_options = opts;
         option->arbitrary = flag;
         option->implicit = implicit;
-        option->mandatory_vals = mnd_vals;
+        option->mandatory_options = mnd_vals;
 
         argMap[splitKey.key] = option;
 
@@ -509,7 +529,7 @@ public:
                 ///Parse other types
 
                 ///Check if string null or next key
-                if(argMap[pName]->mandatory_vals
+                if(argMap[pName]->mandatory_options
                    && (pValue == nullptr
                        || argMap.find(pValue) != argMap.end())){
                     throw std::runtime_error("Error: no value provided for " + std::string(pName));
@@ -541,7 +561,7 @@ public:
                         break;
                     }
                     if(argMap.find(argv[cnt]) != argMap.end()
-                    && argMap[pName]->mandatory_vals != argMap[pName]->m_options.size()){
+                    && argMap[pName]->mandatory_options != argMap[pName]->m_options.size()){
                         arbitrary_values = true;
                         break;
                     }
@@ -549,9 +569,9 @@ public:
                     opts_cnt++;
                 }
 
-                if(opts_cnt < argMap[pName]->mandatory_vals){
+                if(opts_cnt < argMap[pName]->mandatory_options){
                     throw std::runtime_error(std::string(pName) + " requires "
-                                             + std::to_string(argMap[pName]->mandatory_vals) + " arguments, but " + std::to_string(opts_cnt) + " were provided");
+                                             + std::to_string(argMap[pName]->mandatory_options) + " options, but " + std::to_string(opts_cnt) + " were provided");
                 }
 
                 if(arbitrary_values){
@@ -586,7 +606,7 @@ public:
         return 0;
     }
 
-    ARG_DEFS &operator [](const char *key) {return getArg(key);}
+    ARG_DEFS &operator [] (const std::string &key) const { return getArg(key); }
 
 private:
 

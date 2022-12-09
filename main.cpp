@@ -48,9 +48,9 @@ int main(int argc, char *argv[]) {
 
     parser.parseArgs(argc, argv);
 
-    auto k = parser.getValue<int>("-v");
+    //int k = parser<int>["-v"];
 
-    auto i = parser.getValue<int>("-i");
+
     auto j = parser.getValue<int>("-j");
     auto b = parser.getValue<bool>("-b");
     auto s = parser.getValue<const char*>("-s");
