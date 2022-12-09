@@ -365,7 +365,7 @@ public:
         for(auto & opt : opts){
             std::string sopt = opt;
             if(sopt.empty()){
-                throw std::invalid_argument(key + " argument name cannot be empty");
+                throw std::invalid_argument(key + " option name cannot be empty");
             }
             if(isOptMandatory(sopt)){
                 mnd_vals++;
