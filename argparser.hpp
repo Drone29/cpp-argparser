@@ -244,7 +244,7 @@ public:
     template <typename T, class...Targs, typename...args>
     ARG_DEFS &addPositional(const std::string &key,
                         T(*func)(args...) = nullptr,
-                        std::tuple<Targs...> targs = std::tuple<>()){
+                        Targs&&...targs){
 
         auto splitKey = parseKey(key, __func__);
         if(!splitKey.alias.empty()){
@@ -267,7 +267,7 @@ public:
             }
         }
 
-        auto x = new DerivedOption<T,Targs...>(func, targs);
+        auto x = new DerivedOption<T,Targs...>(func, std::make_tuple(targs...));
 
         auto option = new ARG_DEFS();
         option->typeStr = strType;
@@ -294,7 +294,7 @@ public:
     ARG_DEFS &addArgument(const std::string &key,
                       const std::vector<std::string>& opts = {},
                       T(*func)(args...) = nullptr, //= nullptr
-                      std::tuple<Targs...> targs = std::tuple<>()){
+                      Targs&&...targs){ //std::tuple<Targs...> targs = std::tuple<>()
 
         auto splitKey = parseKey(key, __func__);
         /// get template type string
@@ -363,7 +363,7 @@ public:
                 throw std::invalid_argument(std::string(__func__) + " " + key + " opts size != function arguments");
         }
 
-        auto x = new DerivedOption<T,Targs...>(func, targs);
+        auto x = new DerivedOption<T,Targs...>(func, std::make_tuple(targs...));
 
         auto option = new ARG_DEFS();
         option->typeStr = strType;

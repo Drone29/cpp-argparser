@@ -12,23 +12,8 @@ int tst(int a, const char* a1){
     return a + (int)strtol(a1, nullptr, 0);
 }
 
-template<typename T, class...Targs, typename...args>
-auto cccc(T(*func)(args...) = nullptr, std::tuple<Targs...> targs = std::tuple<>()){
-
-    return new DerivedOption<T,Targs...>(func, targs);
-}
-
-template<typename T, class...Targs, typename...args>
-auto aaaa(T(*func)(args...) = nullptr, Targs&&...targs){
-
-    return new DerivedOption<T,Targs...>(func, std::make_tuple<Targs...>(targs...));
-}
-
 
 int main(int argc, char *argv[]) {
-
-    auto c = cccc<std::string>(test);
-    auto x = c->action({"123"});
 
     argParser parser;
 
@@ -58,7 +43,7 @@ int main(int argc, char *argv[]) {
             *([](const char* a1, const char* a2) -> auto{ return std::vector<const char*>{a1, a2==nullptr?"null":a2}; }))
             .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
 
-    parser.addArgument<int>("-v", {"vv"}, tst, std::make_tuple(5))
+    parser.addArgument<int>("-v", {"vv"}, tst, 5)
             .help("blah blah blah");
 
     parser.parseArgs(argc, argv);
