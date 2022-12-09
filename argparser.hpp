@@ -249,8 +249,6 @@ public:
         argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
         argMap[HELP_NAME]->arbitrary = true;
         setAlias(HELP_NAME, HELP_ALIAS);
-        //Count max number of arguments
-        max_args = MAX_ARGS;
     }
     ~argParser(){
         std::vector<std::string> aliases;
@@ -267,7 +265,7 @@ public:
 
         auto splitKey = parseKey(key, __func__);
         if(!splitKey.alias.empty()){
-            throw std::logic_error(std::string(__func__) + ": " + key + " positional argument cannot have aliases");
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot have aliases");
         }
 
         static_assert((sizeof...(args) - sizeof...(Targs)) <= 1, " too many arguments in function");
@@ -417,27 +415,20 @@ public:
             auto base_opt = r.option;
             return std::any_cast<T>(base_opt->anyval);
         }catch(const std::bad_any_cast& e){
-            throw std::runtime_error(std::string(__func__) + ": " + key + " cannot cast to " + strType);
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot cast to " + strType);
         }
-    }
-
-    bool isSet(const std::string &key){
-        if(argMap.find(key) != argMap.end()){
-            return argMap[key]->set;
-        }
-        throw std::runtime_error(key + " not defined");
     }
 
     ///Set alias for option
     void setAlias(const std::string &key, const std::string &alias){
         if(argMap.find(key) == argMap.end()){
-            throw std::runtime_error(std::string(__func__) + ": " + key + " not defined");
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " not defined");
         }
         if(!argMap[key]->m_alias.empty()){
-            throw std::runtime_error(std::string(__func__) + ": " + key + " alias already defined: " + argMap[key]->m_alias);
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " alias already defined: " + argMap[key]->m_alias);
         }
         if(argMap[key]->positional){
-            throw std::runtime_error(std::string(__func__) + ": " + key + " positional argument cannot have alias");
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot have alias");
         }
 
         sanityCheck(alias, __func__);
@@ -620,7 +611,6 @@ private:
 
     std::string binary_name;
     bool args_parsed = false;
-    int max_args = 0;
     int parsed_mnd_args = 0;
     bool mandatory_option = false;
     int positional_cnt = 0;
@@ -641,7 +631,7 @@ private:
             return *argMap.find(skey)->second;
         }
 
-        throw std::runtime_error(key + " not defined");
+        throw std::invalid_argument(key + " not defined");
     }
 
     static std::string getFuncTemplateType(const char *pretty_func, const char *specifier = "T"){
@@ -744,17 +734,17 @@ private:
         }
 
         if(key.empty()){
-            throw std::runtime_error(std::string(func) +": Key cannot be empty!");
+            throw std::invalid_argument(std::string(func) +": Key cannot be empty!");
         }
 
         //Check previous definition
         if(argMap.find(key) != argMap.end()){
-            throw std::runtime_error(std::string(func) + ": " + std::string(key) + " already defined");
+            throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
         }
 
         for(auto &x : argMap){
             if(x.second->m_alias == key){
-                throw std::runtime_error(std::string(func) + ": " + std::string(key) + " already defined");
+                throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
             }
         }
 

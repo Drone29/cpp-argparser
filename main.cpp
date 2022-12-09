@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     //int k = parser<int>["-v"];
 
 
-    auto j = parser.getValue<int>("-j");
+    auto j = parser.getValue<bool>("-j");
     auto b = parser.getValue<bool>("-b");
     auto s = parser.getValue<const char*>("-s");
     auto p = parser.getValue<std::string>("-p");
