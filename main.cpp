@@ -25,9 +25,13 @@ int main(int argc, char *argv[]) {
 
     argParser parser;
 
+    int global = 0;
+    const char *hh = nullptr;
+
     CL *c = new CL();
 
     parser.addArgument<int>("-i, --int")
+            .global_ptr(&global)
             .help("integer arbitrary argument with implicit value (repeatable)");
 
     parser.addArgument<int>("-j")
@@ -40,6 +44,7 @@ int main(int argc, char *argv[]) {
             .help("bool arbitrary argument that can be only set once (non-repeatable)");
 
     parser.addArgument<const char*>("-s, --str", {"str_value"})
+            .global_ptr(&hh)
             .help("string arbitrary argument with mandatory value");
 
     parser.addArgument<std::string>("-p", {"[str_value]"}, test)
@@ -56,14 +61,10 @@ int main(int argc, char *argv[]) {
     parser.addArgument<int>("-v", {"vv"}, tst, std::make_tuple(5))
             .help("arbitrary arg with mandatory value and side argument 5 for function tst");
 
-    parser.addArgument<bool>("-y", {}, ttt, std::make_tuple(c));
-
     parser.parseArgs(argc, argv);
 
     //int k = parser<int>["-v"];
 
-
-    auto j = parser.getValue<bool>("-j");
     auto b = parser.getValue<bool>("-b");
     auto s = parser.getValue<const char*>("-s");
     auto p = parser.getValue<std::string>("-p");

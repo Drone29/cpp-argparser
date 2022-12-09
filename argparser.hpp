@@ -83,8 +83,9 @@ public:
     virtual ~BaseOption() {};
     virtual std::any action (const std::vector<const char*> &args) = 0;
     virtual std::any increment() = 0;
-    virtual void set() = 0;
+    virtual void set(std::any x) = 0;
     virtual std::string get_str_val() = 0;
+    virtual void set_global_ptr(void *ptr) = 0;
     std::any anyval;
     bool has_action = false;
 };
@@ -119,7 +120,7 @@ public:
         if(t_action != nullptr){
             value = std::apply(t_action, tplres);
         }
-           // value = t_action(UNPACK_ARGS(argvCpy));
+        set_global();
         anyval = value;
         return anyval;
     }
@@ -128,6 +129,7 @@ public:
         if constexpr (std::is_arithmetic<T>::value){
             value+=1;
         }
+        set_global();
         anyval = value;
         return anyval;
     }
@@ -148,14 +150,27 @@ public:
         return res;
     }
 
-    void set() override {
+    void set(std::any x) override {
+        anyval = x;
         value = std::any_cast<T>(anyval);
+        set_global();
+    }
+
+    void set_global_ptr(void *ptr) override {
+        global = static_cast<T*>(ptr);
     }
 
 private:
+    void set_global(){
+        if(global != nullptr){
+            //set global
+            *global = value;
+        }
+    }
     T(*t_action)(Targs...,const char*...) = nullptr;
     T value{};
     std::tuple<Targs...> tpl;
+    T *global = nullptr;
 };
 
 
@@ -187,9 +202,13 @@ struct ARG_DEFS{
             throw std::logic_error(std::string(__func__) + "(" + typeStr + "): cannot add default value of different type");
         }
         if(!positional && arbitrary){
-            option->anyval = std::move(val);
-            option->set();
+            option->set(std::move(val));
+            show_default = true;
         }
+        return *this;
+    }
+    ARG_DEFS &global_ptr(void *ptr){
+        option->set_global_ptr(ptr);
         return *this;
     }
 
@@ -237,6 +256,8 @@ private:
     bool m_non_repeatable = false;
     //Mandatory opts
     int mandatory_options = 0;
+    //show default
+    bool show_default = false;
 };
 
 class argParser
@@ -377,7 +398,8 @@ public:
             }catch(std::runtime_error &){
                 //do nothing
             }
-        }else if((sizeof...(args) - sizeof...(Targs)) != opts.size()){
+        }
+        else if((sizeof...(args) - sizeof...(Targs)) != opts.size()){
                 throw std::invalid_argument(std::string(__func__) + " " + key + " opts size != function arguments");
         }
 
@@ -462,7 +484,7 @@ public:
                 argMap[key]->option->action(argvCpy);
             }else{
                 auto val = argMap[key]->option->anyval;
-                argMap[key]->option->anyval = scan(value, val.type());
+                argMap[key]->option->set(scan(value, val.type()));
             }
         };
 
@@ -827,10 +849,7 @@ private:
                 printParam(j, alias);
 
                 std::string def_val = (j.second->option == nullptr) ? "" : j.second->option->get_str_val();
-                def_val = j.second->arbitrary ?
-                        (def_val.empty() ? "" : " (default " + def_val + ")")
-                        : ""; //only arbitrary options can have default value
-
+                def_val = j.second->show_default ? " (default " + def_val + ")" : "";
                 std::cout << " : " + j.second->m_help + def_val << std::endl;
                 j.second->set = true; //help_set
             };
