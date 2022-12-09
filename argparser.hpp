@@ -438,11 +438,6 @@ public:
             setAlias(splitKey.key, splitKey.alias);
         }
 
-        if(!flag){
-            mandatory_option = true;
-            mandatory_args++;
-        }
-
         return *option;
     }
 
@@ -487,6 +482,15 @@ public:
         ///Retrieve binary self-name
         std::string self_name = std::string(argv[0]);
         binary_name = self_name.substr(self_name.find_last_of('/') + 1, self_name.length()-1);
+
+        for(auto &x : argMap){
+            if(!x.second->arbitrary
+               && !x.second->positional){
+                mandatory_option = true;
+                mandatory_args++;
+            }
+        }
+
         mandatory_option &= !allow_zero_options;
 
         auto parseArgument = [this, &argv, &argc](const char *key, const char *value, int idx){
