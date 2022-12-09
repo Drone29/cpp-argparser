@@ -483,6 +483,7 @@ public:
         std::string self_name = std::string(argv[0]);
         binary_name = self_name.substr(self_name.find_last_of('/') + 1, self_name.length()-1);
 
+        //count mandatory arguments
         for(auto &x : argMap){
             if(!x.second->arbitrary
                && !x.second->positional){
@@ -634,7 +635,11 @@ public:
         args_parsed = true;
         //error if no option was set
         if(parsed_mnd_args != mandatory_args && mandatory_option){
-            throw std::runtime_error("No option specified");
+            for(auto &x : argMap){
+                if(!x.second->arbitrary && !x.second->set){
+                    throw std::runtime_error(x.first + " not specified");
+                }
+            }
         }
         if(positional_cnt < posMap.size()){
             throw std::runtime_error("Not enough positional arguments provided");
