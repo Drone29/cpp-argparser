@@ -95,14 +95,17 @@ public:
     ~DerivedOption() override = default;
 
     template <typename...args>
-    DerivedOption(T(*func)(Targs..., args...), Targs...targs) { //Targs...targs
+    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs) { //Targs...targs
+
+        static_assert(sizeof...(args) < MAX_ARGS, " too many arguments");
         //check if args are const char*
         static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
         t_action = reinterpret_cast<T (*)(Targs...,const char *...)>(func);
         has_action = func != nullptr;
         anyval = value;
 
-        tpl = std::make_tuple(targs...);
+       // tpl = std::make_tuple(targs...);
+       tpl = targs;
     }
 
     std::any action(const std::vector<const char*> &args) override{
@@ -238,9 +241,10 @@ public:
         argMap.clear();
     }
 
-    template <typename T, typename...args>
+    template <typename T, class...Targs, typename...args>
     ARG_DEFS &addPositional(const std::string &key,
-                        T(*func)(args...) = nullptr){
+                        T(*func)(args...) = nullptr,
+                        std::tuple<Targs...> targs = std::tuple<>()){
 
         auto splitKey = parseKey(key, __func__);
         if(!splitKey.alias.empty()){
@@ -263,7 +267,7 @@ public:
             }
         }
 
-        auto x = new DerivedOption<T>(func);
+        auto x = new DerivedOption<T,Targs...>(func, targs);
 
         auto option = new ARG_DEFS();
         option->typeStr = strType;
@@ -289,14 +293,12 @@ public:
     template <typename T, class...Targs, typename...args>
     ARG_DEFS &addArgument(const std::string &key,
                       const std::vector<std::string>& opts = {},
-                      T(*func)(Targs...,args...) = nullptr, //= nullptr
-                      Targs...targs){
+                      T(*func)(args...) = nullptr, //= nullptr
+                      std::tuple<Targs...> targs = std::tuple<>()){
 
         auto splitKey = parseKey(key, __func__);
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
-
-        static_assert(sizeof...(args) < MAX_ARGS, " too many arguments");
 
         ///Check for invalid sequence order of arguments
         std::string last_arbitrary_arg;
@@ -357,11 +359,11 @@ public:
             }catch(std::runtime_error &){
                 //do nothing
             }
-        }else if(sizeof...(args) != opts.size()){
+        }else if((sizeof...(args) - sizeof...(Targs)) != opts.size()){
                 throw std::invalid_argument(std::string(__func__) + " " + key + " opts size != function arguments");
         }
 
-        auto x = new DerivedOption<T,Targs...>(func, targs...);
+        auto x = new DerivedOption<T,Targs...>(func, targs);
 
         auto option = new ARG_DEFS();
         option->typeStr = strType;
