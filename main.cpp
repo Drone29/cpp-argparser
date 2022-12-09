@@ -12,10 +12,20 @@ int tst(int a, const char* a1){
     return a + (int)strtol(a1, nullptr, 0);
 }
 
+class CL{
+public:
+    bool a = false;
+};
+
+bool ttt(CL *c, const char* a){
+    return c->a;
+}
 
 int main(int argc, char *argv[]) {
 
     argParser parser;
+
+    CL *c = new CL();
 
     parser.addArgument<int>("-i, --int")
             .help("integer arbitrary argument with implicit value (repeatable)");
@@ -43,8 +53,10 @@ int main(int argc, char *argv[]) {
             *([](const char* a1, const char* a2) -> auto{ return std::vector<const char*>{a1, a2==nullptr?"null":a2}; }))
             .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
 
-    parser.addArgument<int>("-v", {"vv"}, tst, 5)
+    parser.addArgument<int>("-v", {"vv"}, tst, std::make_tuple(5))
             .help("arbitrary arg with mandatory value and side argument 5 for function tst");
+
+    parser.addArgument<bool>("-y", {}, ttt, std::make_tuple(c));
 
     parser.parseArgs(argc, argv);
 
