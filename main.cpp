@@ -32,15 +32,16 @@ int main(int argc, char *argv[]) {
 
     parser.addArgument<int>("-i, --int")
             .global_ptr(&global)
+            .repeatable()
             .help("integer arbitrary argument with implicit value (repeatable)");
 
     parser.addArgument<int>("-j")
             .default_value((int)5)
+            .repeatable()
             .help("integer arbitrary argument with implicit value and default value 5(repeatable)")
             .advanced_help("and with advanced help string");
 
     parser.addArgument<bool>("-b, --bool")
-            .non_repeatable()
             .help("bool arbitrary argument that can be only set once (non-repeatable)");
 
     parser.addArgument<const char*>("-s, --str", {"str_value"})

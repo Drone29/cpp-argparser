@@ -201,8 +201,8 @@ struct ARG_DEFS{
         m_hidden = true;
         return *this;
     }
-    ARG_DEFS &non_repeatable(){
-        m_non_repeatable = true;
+    ARG_DEFS &repeatable(){
+        m_non_repeatable = false;
         return *this;
     }
     ARG_DEFS &default_value(std::any val){
@@ -222,6 +222,11 @@ struct ARG_DEFS{
         }catch(std::invalid_argument &e){
             throw std::logic_error(std::string(__func__) + "(" + typeStr + "): error: " + e.what());
         }
+        return *this;
+    }
+    ///display as mandatory in help
+    ARG_DEFS &mandatory(){
+        arbitrary = false;
         return *this;
     }
 
