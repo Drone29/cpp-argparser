@@ -202,7 +202,7 @@ struct ARG_DEFS{
         return *this;
     }
     ARG_DEFS &repeatable(){
-        m_non_repeatable = false;
+        m_repeatable = true;
         return *this;
     }
     ARG_DEFS &default_value(std::any val){
@@ -243,7 +243,7 @@ struct ARG_DEFS{
         return implicit;
     }
     [[nodiscard]] bool is_non_repeatable() const{
-        return m_non_repeatable;
+        return m_repeatable;
     }
     [[nodiscard]] auto options_size() const{
         return m_options.size();
@@ -271,7 +271,7 @@ private:
     //Implicit
     bool implicit = false;
     //Non-repeatable
-    bool m_non_repeatable = false;
+    bool m_repeatable = false;
     //Mandatory opts
     int mandatory_options = 0;
     //show default
@@ -299,8 +299,8 @@ public:
 
     template <typename T, class...Targs, typename...args>
     ARG_DEFS &addPositional(const std::string &key,
-                        T(*func)(args...) = nullptr,
-                        std::tuple<Targs...> targs = std::tuple<>()){
+                            T(*func)(args...) = nullptr,
+                            std::tuple<Targs...> targs = std::tuple<>()){
 
         auto splitKey = parseKey(key, __func__);
         if(!splitKey.alias.empty()){
@@ -349,9 +349,9 @@ public:
      */
     template <typename T, class...Targs, typename...args>
     ARG_DEFS &addArgument(const std::string &key,
-                      const std::vector<std::string>& opts = {},
-                      T(*func)(args...) = nullptr,
-                      std::tuple<Targs...> targs = std::tuple<>()){ //Targs&&...targs
+                          const std::vector<std::string>& opts = {},
+                          T(*func)(args...) = nullptr,
+                          std::tuple<Targs...> targs = std::tuple<>()){ //Targs&&...targs
 
         auto splitKey = parseKey(key, __func__);
         /// get template type string
@@ -372,10 +372,10 @@ public:
                 last_mandatory_arg = sopt;
                 if(!last_arbitrary_arg.empty()){
                     throw std::invalid_argument(key
-                                             + ": arbitrary argument "
-                                             + last_arbitrary_arg
-                                             + " cannot be followed by mandatory argument "
-                                             + sopt);
+                                                + ": arbitrary argument "
+                                                + last_arbitrary_arg
+                                                + " cannot be followed by mandatory argument "
+                                                + sopt);
                 }
             }
             else{
@@ -418,7 +418,7 @@ public:
             }
         }
         else if((sizeof...(args) - sizeof...(Targs)) != opts.size()){
-                throw std::invalid_argument(std::string(__func__) + " " + key + " opts size != function arguments");
+            throw std::invalid_argument(std::string(__func__) + " " + key + " opts size != function arguments");
         }
 
         auto x = new DerivedOption<T,Targs...>(func, targs); //std::make_tuple(targs...)
@@ -568,8 +568,8 @@ public:
 
                 ///If non-repeatable and occurred again, throw error
                 if(argMap[pName]->set
-                && argMap[pName]->m_non_repeatable){
-                    throw std::runtime_error("Error: " + std::string(pName) + " already defined");
+                   && !argMap[pName]->m_repeatable){
+                    throw std::runtime_error("Error: redefinition of non-repeatable arg " + std::string(pName));
                 }
 
                 ///Parse arg with implicit option
@@ -580,6 +580,7 @@ public:
                     else{
                         argMap[pName]->option->increment();
                     }
+                    argMap[pName]->set = true;
                     continue;
                 }
 
@@ -592,7 +593,7 @@ public:
                         break;
                     }
                     if(argMap.find(argv[cnt]) != argMap.end()
-                    && argMap[pName]->mandatory_options != argMap[pName]->m_options.size()){
+                       && argMap[pName]->mandatory_options != argMap[pName]->m_options.size()){
                         arbitrary_values = true;
                         break;
                     }
@@ -824,7 +825,7 @@ private:
 
     static bool isOptMandatory(const std::string &sopt){
         return !sopt.empty() && (sopt.at(0) != '[')
-                                && (sopt.at(sopt.length() - 1) != ']');
+               && (sopt.at(sopt.length() - 1) != ']');
     }
 
     ///These are voids in case funcType is changed later
@@ -841,8 +842,8 @@ private:
             std::cout <<  alias_str + j.first;
             for(auto &x : j.second->m_options){
                 std::string opt = std::string(x);
-                    if(isOptMandatory(opt))
-                        opt = "<" + opt + ">";
+                if(isOptMandatory(opt))
+                    opt = "<" + opt + ">";
 
                 std::cout << " " + opt;
             }
