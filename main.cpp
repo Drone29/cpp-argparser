@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
             .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
 
     parser.addArgument<int>("-v", {"vv"}, tst, 5)
-            .help("blah blah blah");
+            .help("arbitrary arg with mandatory value and side argument 5 for function tst");
 
     parser.parseArgs(argc, argv);
 

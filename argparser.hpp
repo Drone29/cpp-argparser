@@ -251,7 +251,7 @@ public:
             throw std::logic_error(std::string(__func__) + ": " + key + " positional argument cannot have aliases");
         }
 
-        static_assert(sizeof...(args) <= 1, " too many arguments in function");
+        static_assert((sizeof...(args) - sizeof...(Targs)) <= 1, " too many arguments in function");
 
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
