@@ -315,7 +315,7 @@ public:
         ///check if default parser for this type is present
         if(func == nullptr){
             try{
-                scan(nullptr, std::type_index(typeid(T)));
+                scan(std::type_index(typeid(T)), nullptr);
             }catch(std::logic_error &e){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no default parser for " + strType);
             }catch(std::runtime_error &){
@@ -410,7 +410,7 @@ public:
 
             ///check if default parser for this type is present
             try{
-                scan(nullptr, std::type_index(typeid(T)));
+                scan(std::type_index(typeid(T)), nullptr);
             }catch(std::logic_error &e){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no default parser for " + strType);
             }catch(std::runtime_error &){
@@ -507,7 +507,7 @@ public:
                 argMap[key]->option->action(argvCpy);
             }else{
                 auto val = argMap[key]->option->anyval;
-                argMap[key]->option->set(scan(value, val.type()));
+                argMap[key]->option->set(scan(val.type(), value));
             }
         };
 
@@ -700,7 +700,7 @@ private:
         return y;
     }
 
-    static std::any scan(const char *arg, std::type_index type){
+    static std::any scan(std::type_index type, const char *arg) {
 
         std::string temp = (arg == nullptr) ? "" : std::string(arg);
 
