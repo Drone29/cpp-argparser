@@ -207,7 +207,7 @@ struct ARG_DEFS{
     }
     ARG_DEFS &default_value(std::any val){
         try{
-            if(!positional && arbitrary){
+            if(!m_positional && m_arbitrary){
                 option->set(std::move(val));
                 show_default = true;
             }
@@ -225,8 +225,16 @@ struct ARG_DEFS{
         return *this;
     }
     ///display as mandatory in help
+    ///user should specify all of mandatory options
     ARG_DEFS &mandatory(){
-        arbitrary = false;
+        m_arbitrary = false;
+        return *this;
+    }
+    ///only for arbitrary options
+    ///user should specify at least one required option
+    ARG_DEFS &required(){
+        if(m_arbitrary && !m_positional)
+            m_required = true;
         return *this;
     }
 
@@ -234,13 +242,13 @@ struct ARG_DEFS{
         return set;
     }
     [[nodiscard]] bool is_arbitrary() const{
-        return arbitrary;
+        return m_arbitrary;
     }
     [[nodiscard]] bool is_positional() const{
-        return positional;
+        return m_positional;
     }
     [[nodiscard]] bool is_impicit() const{
-        return implicit;
+        return m_implicit;
     }
     [[nodiscard]] bool is_non_repeatable() const{
         return m_repeatable;
@@ -265,11 +273,13 @@ private:
     //alias
     std::string m_alias;
     //Positional
-    bool positional = false;
+    bool m_positional = false;
     //Flag
-    bool arbitrary = false;
+    bool m_arbitrary = false;
+    //Required != !arbitrary. if !arbitrary, user should specify all of them. If required, at least one is enough
+    bool m_required = false;
     //Implicit
-    bool implicit = false;
+    bool m_implicit = false;
     //Non-repeatable
     bool m_repeatable = false;
     //Mandatory opts
@@ -286,7 +296,7 @@ public:
         argMap[HELP_NAME]->typeStr = ARG_TYPE_HELP;
         argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
         argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
-        argMap[HELP_NAME]->arbitrary = true;
+        argMap[HELP_NAME]->m_arbitrary = true;
         setAlias(HELP_NAME, HELP_ALIAS);
     }
     ~argParser(){
@@ -329,7 +339,7 @@ public:
         option->typeStr = strType;
         option->m_options = {};
         option->option = x;
-        option->positional = true;
+        option->m_positional = true;
 
         argMap[splitKey.key] = option;
         posMap.emplace_back(splitKey.key);
@@ -427,8 +437,8 @@ public:
         option->typeStr = strType;
         option->option = x;
         option->m_options = opts;
-        option->arbitrary = flag;
-        option->implicit = implicit;
+        option->m_arbitrary = flag;
+        option->m_implicit = implicit;
         option->mandatory_options = mnd_vals;
 
         argMap[splitKey.key] = option;
@@ -462,7 +472,7 @@ public:
         if(!argMap[key]->m_alias.empty()){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " alias already defined: " + argMap[key]->m_alias);
         }
-        if(argMap[key]->positional){
+        if(argMap[key]->m_positional){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot have alias");
         }
 
@@ -483,15 +493,21 @@ public:
         std::string self_name = std::string(argv[0]);
         binary_name = self_name.substr(self_name.find_last_of('/') + 1, self_name.length()-1);
 
-        //count mandatory arguments
+        int parsed_mnd_args = 0;
+        int parsed_required_args = 0;
+
+        //count mandatory/required arguments
         for(auto &x : argMap){
-            if(!x.second->arbitrary
-               && !x.second->positional){
-                mandatory_option = true;
+            if(!x.second->m_arbitrary
+               && !x.second->m_positional){
                 mandatory_args++;
+            }else if(x.second->m_arbitrary
+                    && x.second->m_required){
+                required_args++;
             }
         }
 
+        mandatory_option = mandatory_args || required_args;
         mandatory_option &= !allow_zero_options;
 
         auto parseArgument = [this, &argv, &argc](const char *key, const char *value, int idx){
@@ -578,7 +594,7 @@ public:
                 }
 
                 ///Parse arg with implicit option
-                if(argMap[pName]->implicit){
+                if(argMap[pName]->m_implicit){
                     if(argMap[pName]->option->has_action){
                         argMap[pName]->option->action({});
                     }
@@ -626,21 +642,30 @@ public:
                 i += opts_cnt;
 
                 argMap[pName]->set = true;
-                //count mandatory options
-                if(!argMap[pName]->arbitrary){
+                //count mandatory/required options
+                if(!argMap[pName]->m_arbitrary){
                     parsed_mnd_args++;
+                }else if(argMap[pName]->m_required){
+                    parsed_required_args++;
                 }
             }
         }
         args_parsed = true;
         //error if no option was set
-        if(parsed_mnd_args != mandatory_args && mandatory_option){
-            for(auto &x : argMap){
-                if(!x.second->arbitrary && !x.second->set){
-                    throw std::runtime_error(x.first + " not specified");
+        if(mandatory_option){
+            if(parsed_mnd_args != mandatory_args){
+                for(auto &x : argMap){
+                    if(!x.second->m_arbitrary && !x.second->set){
+                        throw std::runtime_error(x.first + " not specified");
+                    }
                 }
             }
+            if(required_args > 0 && parsed_required_args < 1){
+                throw std::runtime_error("Missing option");
+            }
         }
+
+
         if(positional_cnt < posMap.size()){
             throw std::runtime_error("Not enough positional arguments provided");
         }
@@ -661,10 +686,10 @@ private:
 
     std::string binary_name;
     bool args_parsed = false;
-    int parsed_mnd_args = 0;
     bool mandatory_option = false;
     int positional_cnt = 0;
     int mandatory_args = 0;
+    int required_args = 0;
 
     [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
         std::string skey = key;
@@ -860,7 +885,7 @@ private:
 
         auto sorted_usage = [this, &advanced, &printParam](bool flag, bool hidden){
 
-            auto print_usage = [&advanced, &printParam](auto j, const std::string& alias = ""){
+            auto print_usage = [&advanced, &printParam, this](auto j, const std::string& alias = ""){
                 //skip already printed
                 if(j.second->set){
                     return;
@@ -870,7 +895,7 @@ private:
                     return;
                 }
                 //skip positional
-                if(j.second->positional){
+                if(j.second->m_positional){
                     return;
                 }
 
@@ -878,14 +903,15 @@ private:
 
                 std::string def_val = (j.second->option == nullptr) ? "" : j.second->option->get_str_val();
                 def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
-                std::cout << " : " + j.second->m_help + def_val << std::endl;
+                std::string required = j.second->m_required ? (required_args > 1 ? " (*)" : "") : "";
+                std::cout << " : " + j.second->m_help + def_val + required << std::endl;
                 j.second->set = true; //help_set
             };
 
             for (auto & j : argMap)
             {
-                if((j.second->arbitrary == flag)
-                   && (j.second->m_hidden == hidden))
+                if((j.second->m_arbitrary && !j.second->m_required) == flag
+                   && j.second->m_hidden == hidden)
                 {
                     //find alias
                     std::string alias = j.second->m_alias;
@@ -915,7 +941,7 @@ private:
                 if(j != argMap.end()){
                     printParam(*j, j->second->m_alias);
                     std::cout << ":" << std::endl;
-                    std::cout << "Type: " + j->second->typeStr << std::endl;
+                    //std::cout << "Type: " + j->second->typeStr << std::endl;
                     std::cout << j->second->m_help << std::endl;
                     std::cout << j->second->m_advanced_help << std::endl;
                 }else{
@@ -932,9 +958,10 @@ private:
 
         int flag_cnt = 0, opt_cnt = 0;
         for(auto &x : argMap){
-            if(x.second->arbitrary){
+            if(x.second->m_arbitrary
+            && !x.second->m_required){
                 flag_cnt++;
-            }else if(!x.second->positional){
+            }else if(!x.second->m_positional){
                 opt_cnt++;
             }
         }
@@ -967,6 +994,10 @@ private:
                 sorted_usage(false, true);
             }
 
+        }
+
+        if(required_args > 1){
+            std::cout << "For options marked with (*): at least one such option should be provided" << std::endl;
         }
     }
 };

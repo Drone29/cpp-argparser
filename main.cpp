@@ -62,6 +62,13 @@ int main(int argc, char *argv[]) {
     parser.addArgument<int>("v", {"vv"}, tst, std::make_tuple(5))
             .help("mandatory arg with mandatory value and side argument 5 for function tst");
 
+    parser.addArgument<int>("--ggg", {})
+            .required()
+            .help("Required option 1");
+    parser.addArgument<int>("--ccc", {})
+            .required()
+            .help("Required option 2");
+
     parser.parseArgs(argc, argv);
 
     //int k = parser<int>["-v"];
