@@ -927,7 +927,7 @@ private:
 
         std::string positional;
         for (auto &x : posMap){
-            positional += " " + x;
+            positional += " <" + x + ">";
         }
 
         int flag_cnt = 0, opt_cnt = 0;
@@ -940,9 +940,9 @@ private:
         }
 
         std::cout << "Usage: " + std::string(name)
-                     + (flag_cnt ? " [flags]" : "")
+                     + (flag_cnt ? " [flags...]" : "")
                      + (opt_cnt ? (!mandatory_option ? " [options]" : " options") : "")
-                     + (opt_cnt ? " [arguments...]" : "") + positional << std::endl;
+                     + positional << std::endl; //+ (opt_cnt ? " [arguments...]" : "")
 
         if(!posMap.empty()){
             std::cout << "Positional arguments:" << std::endl;
