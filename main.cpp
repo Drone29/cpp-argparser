@@ -59,8 +59,8 @@ int main(int argc, char *argv[]) {
             *([](const char* a1, const char* a2) -> auto{ return std::vector<const char*>{a1, a2==nullptr?"null":a2}; }))
             .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
 
-    parser.addArgument<int>("-v", {"vv"}, tst, std::make_tuple(5))
-            .help("arbitrary arg with mandatory value and side argument 5 for function tst");
+    parser.addArgument<int>("v", {"vv"}, tst, std::make_tuple(5))
+            .help("mandatory arg with mandatory value and side argument 5 for function tst");
 
     parser.parseArgs(argc, argv);
 

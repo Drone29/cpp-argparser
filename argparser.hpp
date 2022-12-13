@@ -941,7 +941,7 @@ private:
 
         std::cout << "Usage: " + std::string(name)
                      + (flag_cnt ? " [flags...]" : "")
-                     + (opt_cnt ? (!mandatory_option ? " [options]" : " options") : "")
+                     + (opt_cnt ? " options..." : "")     //(!mandatory_option ? " [options]" : " options")
                      + positional << std::endl; //+ (opt_cnt ? " [arguments...]" : "")
 
         if(!posMap.empty()){
