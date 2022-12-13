@@ -32,6 +32,8 @@
 #define BOOL_POSITIVES "true", "1", "yes", "on"
 #define BOOL_NEGATIVES "false", "0", "no", "off"
 
+#define REQUIRED_OPTION_SIGN "(*)"
+
 /// list of arguments to unpack starting from x index (ONLY TRIVIAL TYPES)
 #define UNPACK_ARGUMENTS(arg,x) \
 (arg)[(x)],                                 \
@@ -655,13 +657,13 @@ public:
         if(mandatory_option){
             if(parsed_mnd_args != mandatory_args){
                 for(auto &x : argMap){
-                    if(!x.second->m_arbitrary && !x.second->set){
+                    if(!x.second->m_arbitrary && !x.second->m_positional && !x.second->set){
                         throw std::runtime_error(x.first + " not specified");
                     }
                 }
             }
             if(required_args > 0 && parsed_required_args < 1){
-                throw std::runtime_error("Missing option");
+                throw std::runtime_error("Missing required option " + std::string(REQUIRED_OPTION_SIGN));
             }
         }
 
@@ -903,7 +905,7 @@ private:
 
                 std::string def_val = (j.second->option == nullptr) ? "" : j.second->option->get_str_val();
                 def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
-                std::string required = j.second->m_required ? (required_args > 1 ? " (*)" : "") : "";
+                std::string required = j.second->m_required ? (required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
                 std::cout << " : " + j.second->m_help + def_val + required << std::endl;
                 j.second->set = true; //help_set
             };
@@ -997,7 +999,7 @@ private:
         }
 
         if(required_args > 1){
-            std::cout << "For options marked with (*): at least one such option should be provided" << std::endl;
+            std::cout << "For options marked with " + std::string(REQUIRED_OPTION_SIGN) + ": at least one such option should be provided" << std::endl;
         }
     }
 };
