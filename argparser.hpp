@@ -582,13 +582,6 @@ public:
             {
                 ///Parse other types
 
-                ///Check if string null or next key
-                if(argMap[pName]->mandatory_options
-                   && (pValue == nullptr
-                       || argMap.find(pValue) != argMap.end())){
-                    throw std::runtime_error("Error: no value provided for " + std::string(pName));
-                }
-
                 ///If non-repeatable and occurred again, throw error
                 if(argMap[pName]->set
                    && !argMap[pName]->m_repeatable){
