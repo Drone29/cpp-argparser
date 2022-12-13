@@ -877,7 +877,7 @@ private:
                 printParam(j, alias);
 
                 std::string def_val = (j.second->option == nullptr) ? "" : j.second->option->get_str_val();
-                def_val = j.second->show_default ? " (default " + def_val + ")" : "";
+                def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
                 std::cout << " : " + j.second->m_help + def_val << std::endl;
                 j.second->set = true; //help_set
             };
