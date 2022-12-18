@@ -504,7 +504,7 @@ public:
                && !x.second->m_positional){
                 mandatory_args++;
             }else if(x.second->m_arbitrary
-                    && x.second->m_required){
+                     && x.second->m_required){
                 required_args++;
             }
         }
@@ -527,6 +527,39 @@ public:
                 auto val = argMap[key]->option->anyval;
                 argMap[key]->option->set(scan(val.type(), value));
             }
+        };
+
+        auto setArgument = [this, &parsed_mnd_args, &parsed_required_args](const char* pName){
+            argMap[pName]->set = true;
+            //count mandatory/required options
+            if(!argMap[pName]->m_arbitrary){
+                parsed_mnd_args++;
+            }else if(argMap[pName]->m_required){
+                parsed_required_args++;
+            }
+        };
+
+        auto strMismatch = [](const std::string &compareWhat, const std::string &compareWith) -> size_t{
+            auto tmpWhat = compareWhat;
+            size_t result = 0;
+            int idx = 0;
+            if(compareWith.length() < compareWhat.length()){
+                return std::string::npos;
+            }
+            while(tmpWhat.length() < compareWith.length()){
+                tmpWhat += ' ';
+            }
+            for(auto &x : compareWith){
+                auto remStr = compareWith.substr(idx+1);
+                char c = tmpWhat[idx++];
+                if(x != c){
+                    result++;
+                    if(remStr.find(c) != std::string::npos){
+                        result--;
+                    }
+                }
+            }
+            return result;
         };
 
         for (int i = 1; i < argc; i++){
@@ -570,8 +603,23 @@ public:
                     break;
                 }
 
+                std::string thrError = "Unknown argument: " + std::string(pName);
+                ///find closest key
+                auto proposed_value = argMap.begin()->first;
+                auto mismatch = strMismatch(pName, proposed_value);
+                for(auto &x : argMap){
+                    auto tmp = strMismatch(pName, x.first);
+                    if(tmp < mismatch){
+                        mismatch = tmp;
+                        proposed_value = x.first;
+                    }
+                }
+
                 dummyFunc(nullptr);
-                throw std::runtime_error("Unknown argument: " + std::string(pName));
+                if(mismatch < 2){
+                    thrError += ". Did you mean " + proposed_value + "?";
+                }
+                throw std::runtime_error(thrError);
             }
 
             if(argMap[pName]->typeStr == ARG_TYPE_HELP){
@@ -596,7 +644,8 @@ public:
                     else{
                         argMap[pName]->option->increment();
                     }
-                    argMap[pName]->set = true;
+
+                    setArgument(pName);
                     continue;
                 }
 
@@ -635,14 +684,7 @@ public:
                 }
 
                 i += opts_cnt;
-
-                argMap[pName]->set = true;
-                //count mandatory/required options
-                if(!argMap[pName]->m_arbitrary){
-                    parsed_mnd_args++;
-                }else if(argMap[pName]->m_required){
-                    parsed_required_args++;
-                }
+                setArgument(pName);
             }
         }
         args_parsed = true;
@@ -659,7 +701,6 @@ public:
                 throw std::runtime_error("Missing required option " + std::string(REQUIRED_OPTION_SIGN));
             }
         }
-
 
         if(positional_cnt < posMap.size()){
             throw std::runtime_error("Not enough positional arguments provided");
@@ -954,7 +995,7 @@ private:
         int flag_cnt = 0, opt_cnt = 0;
         for(auto &x : argMap){
             if(x.second->m_arbitrary
-            && !x.second->m_required){
+               && !x.second->m_required){
                 flag_cnt++;
             }else if(!x.second->m_positional){
                 opt_cnt++;
