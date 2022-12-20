@@ -81,8 +81,12 @@ template <typename ... Ts>
 inline constexpr bool are_same_v = are_same<Ts...>::value;
 
 class BaseOption{
-public:
-    virtual ~BaseOption() {};
+
+protected:
+    friend class argParser;
+    friend struct ARG_DEFS;
+    BaseOption() = default;
+    virtual ~BaseOption() = default;
     virtual std::any action (const std::vector<const char*> &args) = 0;
     virtual std::any increment() = 0;
     virtual void set(std::any x) = 0;
@@ -94,22 +98,8 @@ public:
 
 template <typename T, class...Targs>
 class DerivedOption : public BaseOption{
-public:
-    ~DerivedOption() override = default;
-
-    template <typename...args>
-    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs) { //Targs...targs
-
-        static_assert(sizeof...(args) < MAX_ARGS, " too many arguments");
-        //check if args are const char*
-        static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
-        t_action = reinterpret_cast<T (*)(Targs...,const char *...)>(func);
-        has_action = func != nullptr;
-        anyval = value;
-
-        tpl = targs;
-    }
-
+private:
+    friend class argParser;
     std::any action(const std::vector<const char*> &args) override{
         const char *argvCpy[MAX_ARGS+1] = {nullptr};
         for(int i=0; i<args.size();i++){
@@ -170,7 +160,20 @@ public:
         }
     }
 
-private:
+    template <typename...args>
+    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs) { //Targs...targs
+
+        static_assert(sizeof...(args) < MAX_ARGS, " too many arguments");
+        //check if args are const char*
+        static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
+        t_action = reinterpret_cast<T (*)(Targs...,const char *...)>(func);
+        has_action = func != nullptr;
+        anyval = value;
+
+        tpl = targs;
+    }
+    ~DerivedOption() override = default;
+
     void set_global(){
         if(global != nullptr){
             //set global
