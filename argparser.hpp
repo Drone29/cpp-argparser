@@ -494,6 +494,7 @@ public:
     /// Parse arguments
     int parseArgs(int argc, char *argv[], bool allow_zero_options = false)
     {
+        std::vector<const char*> arg_vec = {argv + 1, argv + argc};
         ///Retrieve binary self-name
         std::string self_name = std::string(argv[0]);
         binary_name = self_name.substr(self_name.find_last_of('/') + 1, self_name.length()-1);
@@ -515,13 +516,13 @@ public:
         mandatory_option = mandatory_args || required_args;
         mandatory_option &= !allow_zero_options;
 
-        auto parseArgument = [this, &argv, &argc](const char *key, const char *value, int idx){
+        auto parseArgument = [this, &arg_vec](const char *key, const char *value, int idx){
             std::vector<const char*> argvCpy;
             for(int i=0;i<argMap[key]->m_options.size(); i++){
-                if(idx+i >= argc){
+                if(idx+i >= arg_vec.size()){
                     break;
                 }
-                argvCpy.push_back(argv[idx+i]);
+                argvCpy.push_back(arg_vec.at(idx+i));
             }
 
             if(argMap[key]->option->has_action){
@@ -565,14 +566,18 @@ public:
             return result;
         };
 
-        for (int i = 1; i < argc; i++){
-            const char *pName = argv[i];
-            const char *pValue = argv[i+1];
+        //for (int i = 1; i < argc; i++){
+        for(auto it = arg_vec.begin(); it != arg_vec.end(); it++){
+//            const char *pName = argv[i];
+//            const char *pValue = argv[i+1];
+            auto i = it - arg_vec.begin();
+            const char *pName = *it;
+            const char *pValue = (it+1) > arg_vec.end() ? nullptr : *(it+1);
 
             //todo: handle = ?
 //            std::string s = pName;
 //            std::string s2 = (pValue == nullptr) ? "" : pValue;
-
+//
 //            auto c = s.find('=');
 //            if(c != std::string::npos){
 //                s2 = s.substr(c+1);
@@ -657,10 +662,11 @@ public:
                 bool arbitrary_values = false;
 
                 for(int j=0; j<argMap[pName]->m_options.size(); j++){
-                    if(cnt >= argc){
+                    if(cnt >= arg_vec.size()){
                         break;
                     }
-                    if(argMap.find(argv[cnt]) != argMap.end()
+                    auto c = arg_vec.at(cnt);
+                    if(argMap.find(arg_vec.at(cnt)) != argMap.end()
                        && argMap[pName]->mandatory_options != argMap[pName]->m_options.size()){
                         arbitrary_values = true;
                         break;
@@ -675,18 +681,18 @@ public:
                 }
 
                 if(arbitrary_values){
-                    std::vector<const char*> vec = {argv + i + 1, argv + cnt};
+                    std::vector<const char*> vec = {argv+i+2, argv+cnt+1};
                     ///parse arg with partial arbitrary values list
                     if(argMap[pName]->option->has_action){
                         argMap[pName]->option->action(vec);
                     }else{
-                        throw std::runtime_error(std::string(pName) + " arbitrary value conflicts with arg " + argv[cnt]);
+                        throw std::runtime_error(std::string(pName) + " arbitrary value conflicts with arg " + arg_vec.at(cnt));
                     }
                 }else{
                     parseArgument(pName, pValue, i+1);
                 }
 
-                i += opts_cnt;
+                it += opts_cnt;
                 setArgument(pName);
             }
         }
