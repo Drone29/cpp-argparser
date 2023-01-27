@@ -948,8 +948,9 @@ private:
 
                 std::string def_val = (j.second->option == nullptr) ? "" : j.second->option->get_str_val();
                 def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
+                std::string repeatable = j.second->m_repeatable ? " [repeatable]" : "";
                 std::string required = j.second->m_required ? (required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
-                std::cout << " : " + j.second->m_help + def_val + required << std::endl;
+                std::cout << " : " + j.second->m_help + repeatable + def_val + required << std::endl;
                 j.second->set = true; //help_set
             };
 
