@@ -81,12 +81,10 @@ template <typename ... Ts>
 inline constexpr bool are_same_v = are_same<Ts...>::value;
 
 class BaseOption{
-
 protected:
     friend class argParser;
     friend struct ARG_DEFS;
-    BaseOption() = default;
-    virtual ~BaseOption() = default;
+    virtual ~BaseOption() {};
     virtual std::any action (const std::vector<const char*> &args) = 0;
     virtual std::any increment() = 0;
     virtual void set(std::any x) = 0;
@@ -100,6 +98,21 @@ template <typename T, class...Targs>
 class DerivedOption : public BaseOption{
 private:
     friend class argParser;
+    ~DerivedOption() override = default;
+
+    template <typename...args>
+    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs) { //Targs...targs
+
+        static_assert(sizeof...(args) < MAX_ARGS, " too many arguments");
+        //check if args are const char*
+        static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
+        t_action = reinterpret_cast<T (*)(Targs...,const char *...)>(func);
+        has_action = func != nullptr;
+        anyval = value;
+
+        tpl = targs;
+    }
+
     std::any action(const std::vector<const char*> &args) override{
         const char *argvCpy[MAX_ARGS+1] = {nullptr};
         for(int i=0; i<args.size();i++){
@@ -159,20 +172,6 @@ private:
             throw std::invalid_argument("invalid pointer type");
         }
     }
-
-    template <typename...args>
-    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs) { //Targs...targs
-
-        static_assert(sizeof...(args) < MAX_ARGS, " too many arguments");
-        //check if args are const char*
-        static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
-        t_action = reinterpret_cast<T (*)(Targs...,const char *...)>(func);
-        has_action = func != nullptr;
-        anyval = value;
-
-        tpl = targs;
-    }
-    ~DerivedOption() override = default;
 
     void set_global(){
         if(global != nullptr){
@@ -660,7 +659,14 @@ public:
                     if(cnt >= argc){
                         break;
                     }
-                    if(argMap.find(argv[cnt]) != argMap.end()
+
+                    //check if next value is also a key
+                    bool next_is_key = argMap.find(argv[cnt]) != argMap.end();
+                    for(auto &x : argMap){
+                        next_is_key |= x.second->m_alias == argv[cnt];
+                    }
+
+                    if(next_is_key
                        && argMap[pName]->mandatory_options != argMap[pName]->m_options.size()){
                         arbitrary_values = true;
                         break;
