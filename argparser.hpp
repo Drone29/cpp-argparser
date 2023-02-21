@@ -616,7 +616,7 @@ public:
                         }
                         ///check if alias is part of current
                         else if(!contAlias.empty()
-                                && alias == contAlias){
+                        && alias == contAlias){
                             s2 = s.substr(contAlias.length());
                             s = contAlias;
                             insertKeyValue(s, s2);
