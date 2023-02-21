@@ -635,7 +635,7 @@ public:
                 int pos_idx = index;
                 if(!posMap.empty()){
                     for(auto &x : posMap){
-                        if(pos_idx >= argc){
+                        if(pos_idx >= arg_vec.size()){
                             break;
                         }
                         parseArgument(x, index, index+1);
