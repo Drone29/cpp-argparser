@@ -563,7 +563,7 @@ public:
         ///for(auto it = arg_vec.begin(); it != arg_vec.end(); it++){
         for(auto index = 0; index < arg_vec.size(); index++){
             const char *pName = arg_vec[index].c_str();
-            const char *pValue = index+1 > arg_vec.size() ? nullptr : arg_vec[index+1].c_str();
+            const char *pValue = index+1 >= arg_vec.size() ? nullptr : arg_vec[index+1].c_str();
 
             std::string s = pName;
             std::string s2 = (pValue == nullptr) ? "" : pValue;
