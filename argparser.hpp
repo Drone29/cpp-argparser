@@ -559,8 +559,24 @@ public:
             return result;
         };
 
+        auto findKeyByAlias = [this](const std::string &key) -> std::string{
+            for(auto &x : argMap){
+                if(x.second->m_alias == key){
+                    return x.first;
+                }
+            }
+            return "";
+        };
 
         for(auto index = 0; index < arg_vec.size(); index++){
+
+            auto insertKeyValue = [&arg_vec, &index](const std::string &key, const std::string &val){
+                arg_vec[index] = key;
+                arg_vec.insert(arg_vec.begin()+index+1, val);
+                //move pointer
+                index--;
+            };
+
             const char *pName = arg_vec[index].c_str();
             const char *pValue = index+1 >= arg_vec.size() ? nullptr : arg_vec[index+1].c_str();
 
@@ -573,22 +589,47 @@ public:
                 s2 = s.substr(c+1);
                 s = s.substr(0, c);
                 //change current key and insert value to vector
-                arg_vec[index] = s;
-                arg_vec.insert(arg_vec.begin()+index+1, s2);
-                //move pointer
-                index--;
+                insertKeyValue(s, s2);
                 continue;
             }
 
-            ///Find alias
             if(argMap.find(pName) == argMap.end()){
-                for(auto &x : argMap){
-                    if(x.second->m_alias == pName){
-                        pName = x.first.c_str();
-                        break;
+                ///Find alias
+                auto newKey = findKeyByAlias(pName);
+                if(!newKey.empty()){
+                    pName = newKey.c_str();
+                }else{
+                    ///check contiguous alias+value
+                    bool contiguous = false;
+                    for(auto &x : argMap){
+                        auto key = x.first;
+                        auto alias = x.second->m_alias;
+                        std::string contKey = s.substr(0, key.length());
+                        std::string contAlias = s.substr(0, alias.length());
+                        ///check if key is part of current
+                        if(key == contKey){
+                            s2 = s.substr(contKey.length());
+                            s = contKey;
+                            insertKeyValue(s, s2);
+                            contiguous = true;
+                            break;
+                        }
+                        ///check if alias is part of current
+                        else if(!contAlias.empty()
+                                && alias == contAlias){
+                            s2 = s.substr(contAlias.length());
+                            s = contAlias;
+                            insertKeyValue(s, s2);
+                            contiguous = true;
+                            break;
+                        }
+                    }
+                    if(contiguous){
+                        continue;
                     }
                 }
             }
+
 
             if(argMap.find(pName) == argMap.end()){
                 ///Try parsing positional args
@@ -647,7 +688,6 @@ public:
                     else{
                         argMap[pName]->option->increment();
                     }
-
                     setArgument(pName);
                     continue;
                 }
