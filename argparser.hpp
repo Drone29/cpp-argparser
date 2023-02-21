@@ -582,6 +582,7 @@ public:
 
             std::string s = pName;
             std::string s2 = (pValue == nullptr) ? "" : pValue;
+            std::string newKey;
 
             ///Handle '='
             auto c = s.find('=');
@@ -595,7 +596,7 @@ public:
 
             if(argMap.find(pName) == argMap.end()){
                 ///Find alias
-                auto newKey = findKeyByAlias(pName);
+                newKey = findKeyByAlias(pName);
                 if(!newKey.empty()){
                     pName = newKey.c_str();
                 }else{
@@ -639,7 +640,6 @@ public:
                         if(pos_idx >= argc){
                             break;
                         }
-                        //todo: check
                         parseArgument(x.c_str(), {arg_vec.begin() + index, arg_vec.begin() + index + 1});
                         positional_cnt++;
                         pos_idx++;
