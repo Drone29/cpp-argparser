@@ -494,7 +494,9 @@ public:
     /// Parse arguments
     int parseArgs(int argc, char *argv[], bool allow_zero_options = false)
     {
-        std::vector<std::string> arg_vec = {argv + 1, argv + argc};
+        arg_vec = {argv + 1, argv + argc};
+        //allocate enough space for all possible resize operations
+        arg_vec.reserve(argc*2);
         ///Retrieve binary self-name
         std::string self_name = std::string(argv[0]);
         binary_name = self_name.substr(self_name.find_last_of('/') + 1, self_name.length()-1);
@@ -516,17 +518,16 @@ public:
         mandatory_option = mandatory_args || required_args;
         mandatory_option &= !allow_zero_options;
 
-        auto parseArgument = [this, &arg_vec](const char *key, const std::vector<std::string> &args){
-            //argvCpy.resize(argMap[key]->m_options.size()); //todo: no need?
+        auto parseArgument = [this](const std::string &key, int start, int end){
             if(argMap[key]->option->has_action){
-                argMap[key]->option->action(args);
+                argMap[key]->option->action({arg_vec.begin() + start, arg_vec.begin() + end});
             }else{
                 auto val = argMap[key]->option->anyval;
-                argMap[key]->option->set(scan(val.type(), args[0].c_str()));
+                argMap[key]->option->set(scan(val.type(), arg_vec[start].c_str()));
             }
         };
 
-        auto setArgument = [this, &parsed_mnd_args, &parsed_required_args](const char* pName){
+        auto setArgument = [this, &parsed_mnd_args, &parsed_required_args](const std::string &pName){
             argMap[pName]->set = true;
             //count mandatory/required options
             if(!argMap[pName]->m_arbitrary){
@@ -570,27 +571,24 @@ public:
 
         for(auto index = 0; index < arg_vec.size(); index++){
 
-            auto insertKeyValue = [&arg_vec, &index](const std::string &key, const std::string &val){
+            auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
                 arg_vec[index] = key;
                 arg_vec.insert(arg_vec.begin()+index+1, val);
                 //move pointer
                 index--;
             };
 
-            const char *pName = arg_vec[index].c_str();
-            const char *pValue = index+1 >= arg_vec.size() ? nullptr : arg_vec[index+1].c_str();
-
-            std::string s = pName;
-            std::string s2 = (pValue == nullptr) ? "" : pValue;
+            std::string pName = arg_vec[index];
+            std::string pValue = index+1 >= arg_vec.size() ? "" : arg_vec[index+1];
             std::string newKey;
 
             ///Handle '='
-            auto c = s.find('=');
+            auto c = pName.find('=');
             if(c != std::string::npos){
-                s2 = s.substr(c+1);
-                s = s.substr(0, c);
+                pValue = pName.substr(c+1);
+                pName = pName.substr(0, c);
                 //change current key and insert value to vector
-                insertKeyValue(s, s2);
+                insertKeyValue(pName, pValue);
                 continue;
             }
 
@@ -598,29 +596,29 @@ public:
                 ///Find alias
                 newKey = findKeyByAlias(pName);
                 if(!newKey.empty()){
-                    pName = newKey.c_str();
+                    pName = newKey;
                 }else{
                     ///check contiguous alias+value
                     bool contiguous = false;
                     for(auto &x : argMap){
                         auto key = x.first;
                         auto alias = x.second->m_alias;
-                        std::string contKey = s.substr(0, key.length());
-                        std::string contAlias = s.substr(0, alias.length());
+                        std::string contKey = pName.substr(0, key.length());
+                        std::string contAlias = pName.substr(0, alias.length());
                         ///check if key is part of current
                         if(key == contKey){
-                            s2 = s.substr(contKey.length());
-                            s = contKey;
-                            insertKeyValue(s, s2);
+                            pValue = pName.substr(contKey.length());
+                            pName = contKey;
+                            insertKeyValue(pName, pValue);
                             contiguous = true;
                             break;
                         }
                         ///check if alias is part of current
                         else if(!contAlias.empty()
                         && alias == contAlias){
-                            s2 = s.substr(contAlias.length());
-                            s = contAlias;
-                            insertKeyValue(s, s2);
+                            pValue = pName.substr(contAlias.length());
+                            pName = contAlias;
+                            insertKeyValue(pName, pValue);
                             contiguous = true;
                             break;
                         }
@@ -640,7 +638,7 @@ public:
                         if(pos_idx >= argc){
                             break;
                         }
-                        parseArgument(x.c_str(), {arg_vec.begin() + index, arg_vec.begin() + index + 1});
+                        parseArgument(x, index, index+1);
                         positional_cnt++;
                         pos_idx++;
                     }
@@ -722,8 +720,8 @@ public:
                                              + std::to_string(argMap[pName]->mandatory_options) + " options, but " + std::to_string(opts_cnt) + " were provided");
                 }
 
-                std::vector<std::string> vec = {arg_vec.begin() + index + 1, arg_vec.begin() + index + 1 + opts_cnt};
                 if(arbitrary_values){
+                    std::vector<std::string> vec = {arg_vec.begin() + index + 1, arg_vec.begin() + index + 1 + opts_cnt};
                     ///parse arg with partial arbitrary values list
                     if(argMap[pName]->option->has_action){
                         argMap[pName]->option->action(vec);
@@ -731,7 +729,7 @@ public:
                         throw std::runtime_error(std::string(pName) + " arbitrary value conflicts with arg " + arg_vec[cnt]);
                     }
                 }else{
-                    parseArgument(pName, vec);
+                    parseArgument(pName, index + 1, index + 1 + opts_cnt);
                 }
 
                 index += opts_cnt;
@@ -770,6 +768,7 @@ private:
 
     std::map<std::string, ARG_DEFS*> argMap;
     std::vector<std::string>posMap;
+    std::vector<std::string> arg_vec;
 
     std::string binary_name;
     bool args_parsed = false;
@@ -954,7 +953,7 @@ private:
         std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
     }
 
-    void helpDefault(const char* name, const char *param = nullptr){
+    void helpDefault(const char* name, const std::string &param = ""){
 
         bool advanced = false;
 
@@ -1008,34 +1007,33 @@ private:
             }
         };
 
-        if(param != nullptr){
-            if(std::string(param) == HELP_HIDDEN_OPT){
-                advanced = true;
-            }
-            else{
-                //param advanced help
-                auto j = argMap.find(param);
-                //seek alias
-                if(j == argMap.end()){
-                    for(auto &x : argMap){
-                        if(x.second->m_alias == param){
-                            j = argMap.find(x.first);
-                            break;
-                        }
+
+        if(param == HELP_HIDDEN_OPT){
+            advanced = true;
+        }
+        else{
+            //param advanced help
+            auto j = argMap.find(param);
+            //seek alias
+            if(j == argMap.end()){
+                for(auto &x : argMap){
+                    if(x.second->m_alias == param){
+                        j = argMap.find(x.first);
+                        break;
                     }
                 }
-
-                if(j != argMap.end()){
-                    printParam(*j, j->second->m_alias);
-                    std::cout << ":" << std::endl;
-                    //std::cout << "Type: " + j->second->typeStr << std::endl;
-                    std::cout << j->second->m_help << std::endl;
-                    std::cout << j->second->m_advanced_help << std::endl;
-                }else{
-                    std::cout << "Unknown parameter " + std::string(param) << std::endl;
-                }
-                return;
             }
+
+            if(j != argMap.end()){
+                printParam(*j, j->second->m_alias);
+                std::cout << ":" << std::endl;
+                //std::cout << "Type: " + j->second->typeStr << std::endl;
+                std::cout << j->second->m_help << std::endl;
+                std::cout << j->second->m_advanced_help << std::endl;
+            }else{
+                std::cout << "Unknown parameter " + std::string(param) << std::endl;
+            }
+            return;
         }
 
         std::string positional;
