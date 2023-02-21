@@ -71,6 +71,10 @@ int main(int argc, char *argv[]) {
             .required()
             .help("Required option 2");
 
+    parser.addPositional<int>("pos")
+            .global_ptr(&global)
+            .help("Positional arg");
+
     parser.parseArgs(argc, argv);
 
     //int k = parser<int>["-v"];
@@ -78,7 +82,6 @@ int main(int argc, char *argv[]) {
     auto b = parser.getValue<bool>("-b");
     auto s = parser.getValue<const char*>("-s");
     auto p = parser.getValue<std::string>("-p");
-    auto m = parser.getValue<int>("m");
     auto pos = parser.getValue<int>("pos");
     auto a = parser.getValue<std::vector<const char*>>("-a");
 
