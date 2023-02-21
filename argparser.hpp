@@ -560,10 +560,10 @@ public:
         };
 
 
-        for(auto it = arg_vec.begin(); it != arg_vec.end(); it++){
-            auto index = it - arg_vec.begin();
-            const char *pName = (*it).c_str();
-            const char *pValue = (it+1) > arg_vec.end() ? nullptr : (*(it+1)).c_str();
+        ///for(auto it = arg_vec.begin(); it != arg_vec.end(); it++){
+        for(auto index = 0; index < arg_vec.size(); index++){
+            const char *pName = arg_vec[index].c_str();
+            const char *pValue = index+1 > arg_vec.size() ? nullptr : arg_vec[index+1].c_str();
 
             std::string s = pName;
             std::string s2 = (pValue == nullptr) ? "" : pValue;
@@ -577,7 +577,7 @@ public:
                 arg_vec[index] = s;
                 arg_vec.insert(arg_vec.begin()+index+1, s2);
                 //move pointer
-                it = arg_vec.begin()+index-1;
+                index--;
                 continue;
             }
 
@@ -601,7 +601,6 @@ public:
                         }
                         //todo: check
                         parseArgument(x.c_str(), {arg_vec.begin() + index, arg_vec.begin() + index + 1});
-                        //parseArgument(x.c_str(), argv[pos_idx], pos_idx);
                         positional_cnt++;
                         pos_idx++;
                     }
@@ -696,7 +695,7 @@ public:
                     parseArgument(pName, vec);
                 }
 
-                it += opts_cnt;
+                index += opts_cnt;
                 setArgument(pName);
             }
         }
