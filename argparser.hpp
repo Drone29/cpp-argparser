@@ -81,7 +81,6 @@ template <typename ... Ts>
 inline constexpr bool are_same_v = are_same<Ts...>::value;
 
 class BaseOption{
-
 protected:
     friend class argParser;
     friend struct ARG_DEFS;
@@ -212,7 +211,7 @@ struct ARG_DEFS{
     }
     ARG_DEFS &default_value(std::any val){
         try{
-            if(!m_positional && m_arbitrary){
+            if(m_arbitrary && !m_positional){
                 option->set(std::move(val));
                 show_default = true;
             }
@@ -244,7 +243,7 @@ struct ARG_DEFS{
     }
 
     [[nodiscard]] bool is_set() const{
-        return set;
+        return m_set;
     }
     [[nodiscard]] bool is_arbitrary() const{
         return m_arbitrary;
@@ -255,7 +254,7 @@ struct ARG_DEFS{
     [[nodiscard]] bool is_impicit() const{
         return m_implicit;
     }
-    [[nodiscard]] bool is_non_repeatable() const{
+    [[nodiscard]] bool is_repeatable() const{
         return m_repeatable;
     }
     [[nodiscard]] auto options_size() const{
@@ -274,7 +273,7 @@ private:
     ///Option/flag
     BaseOption* option = nullptr;
     //in use
-    bool set = false;
+    bool m_set = false;
     //alias
     std::string m_alias;
     //Positional
@@ -310,6 +309,7 @@ public:
             delete x.second;
         }
         argMap.clear();
+        argVec.clear();
     }
 
     template <typename T, class...Targs, typename...args>
@@ -378,15 +378,15 @@ public:
         int mnd_vals = 0;
 
         for(auto & opt : opts){
-            std::string sopt = opt;
+            const std::string& sopt = opt;
             if(sopt.empty()){
-                throw std::invalid_argument(key + " option name cannot be empty");
+                throw std::invalid_argument(std::string(__func__) + ": " + key + " option name cannot be empty");
             }
             if(isOptMandatory(sopt)){
                 mnd_vals++;
                 last_mandatory_arg = sopt;
                 if(!last_arbitrary_arg.empty()){
-                    throw std::invalid_argument(key
+                    throw std::invalid_argument(std::string(__func__) + ": " + key
                                                 + ": arbitrary argument "
                                                 + last_arbitrary_arg
                                                 + " cannot be followed by mandatory argument "
@@ -402,7 +402,7 @@ public:
         if(!splitKey.alias.empty()){
             bool match = (splitKey.alias[0] == '-');
             if (match != flag){
-                throw std::invalid_argument(key + ": cannot add alias " + splitKey.alias + ": different type");
+                throw std::invalid_argument(std::string(__func__) + ": " + key + ": cannot add alias " + splitKey.alias + ": different type");
             }
         }
 
@@ -494,9 +494,9 @@ public:
     /// Parse arguments
     int parseArgs(int argc, char *argv[], bool allow_zero_options = false)
     {
-        arg_vec = {argv + 1, argv + argc};
+        argVec = {argv + 1, argv + argc};
         //allocate enough space for all possible resize operations
-        arg_vec.reserve(argc*2);
+        argVec.reserve(argc * 2);
         ///Retrieve binary self-name
         std::string self_name = std::string(argv[0]);
         binary_name = self_name.substr(self_name.find_last_of('/') + 1, self_name.length()-1);
@@ -520,15 +520,15 @@ public:
 
         auto parseArgument = [this](const std::string &key, int start, int end){
             if(argMap[key]->option->has_action){
-                argMap[key]->option->action({arg_vec.begin() + start, arg_vec.begin() + end});
+                argMap[key]->option->action({argVec.begin() + start, argVec.begin() + end});
             }else{
                 auto val = argMap[key]->option->anyval;
-                argMap[key]->option->set(scan(val.type(), arg_vec[start].c_str()));
+                argMap[key]->option->set(scan(val.type(), argVec[start].c_str()));
             }
         };
 
         auto setArgument = [this, &parsed_mnd_args, &parsed_required_args](const std::string &pName){
-            argMap[pName]->set = true;
+            argMap[pName]->m_set = true;
             //count mandatory/required options
             if(!argMap[pName]->m_arbitrary){
                 parsed_mnd_args++;
@@ -573,7 +573,7 @@ public:
             if(mandatory_option){
                 if(parsed_mnd_args != mandatory_args){
                     for(auto &x : argMap){
-                        if(!x.second->m_arbitrary && !x.second->m_positional && !x.second->set){
+                        if(!x.second->m_arbitrary && !x.second->m_positional && !x.second->m_set){
                             throw std::runtime_error(x.first + " not specified");
                         }
                     }
@@ -584,17 +584,17 @@ public:
             }
         };
 
-        for(auto index = 0; index < arg_vec.size(); index++){
+        for(auto index = 0; index < argVec.size(); index++){
 
             auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
-                arg_vec[index] = key;
-                arg_vec.insert(arg_vec.begin()+index+1, val);
+                argVec[index] = key;
+                argVec.insert(argVec.begin() + index + 1, val);
                 //move pointer
                 index--;
             };
 
-            std::string pName = arg_vec[index];
-            std::string pValue = index+1 >= arg_vec.size() ? "" : arg_vec[index+1];
+            std::string pName = argVec[index];
+            std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
             std::string newKey;
 
             ///Handle '='
@@ -649,9 +649,10 @@ public:
                 ///Try parsing positional args
                 int pos_idx = index;
                 if(!posMap.empty()){
+                    ///check if non-positional options were parsed
                     checkParsedNonPos();
                     for(auto &x : posMap){
-                        if(pos_idx >= arg_vec.size()){
+                        if(pos_idx >= argVec.size()){
                             break;
                         }
                         parseArgument(x, index, index+1);
@@ -689,7 +690,7 @@ public:
                 ///Parse other types
 
                 ///If non-repeatable and occurred again, throw error
-                if(argMap[pName]->set
+                if(argMap[pName]->m_set
                    && !argMap[pName]->m_repeatable){
                     throw std::runtime_error("Error: redefinition of non-repeatable arg " + std::string(pName));
                 }
@@ -711,15 +712,15 @@ public:
                 bool arbitrary_values = false;
 
                 for(int j=0; j<argMap[pName]->m_options.size(); j++){
-                    if(cnt >= arg_vec.size()){
+                    if(cnt >= argVec.size()){
                         break;
                     }
 
                     //check if next value is also a key
-                    bool next_is_key = argMap.find(arg_vec[cnt]) != argMap.end();
+                    bool next_is_key = argMap.find(argVec[cnt]) != argMap.end();
                     //find alias
                     for(auto &x : argMap){
-                        next_is_key |= x.second->m_alias == arg_vec[cnt];
+                        next_is_key |= x.second->m_alias == argVec[cnt];
                     }
 
                     if(next_is_key
@@ -737,12 +738,12 @@ public:
                 }
 
                 if(arbitrary_values){
-                    std::vector<std::string> vec = {arg_vec.begin() + index + 1, arg_vec.begin() + index + 1 + opts_cnt};
+                    std::vector<std::string> vec = {argVec.begin() + index + 1, argVec.begin() + index + 1 + opts_cnt};
                     ///parse arg with partial arbitrary values list
                     if(argMap[pName]->option->has_action){
                         argMap[pName]->option->action(vec);
                     }else{
-                        throw std::runtime_error(std::string(pName) + " arbitrary value conflicts with arg " + arg_vec[cnt]);
+                        throw std::runtime_error(std::string(pName) + " arbitrary value conflicts with arg " + argVec[cnt]);
                     }
                 }else{
                     parseArgument(pName, index + 1, index + 1 + opts_cnt);
@@ -772,7 +773,7 @@ private:
 
     std::map<std::string, ARG_DEFS*> argMap;
     std::vector<std::string>posMap;
-    std::vector<std::string> arg_vec;
+    std::vector<std::string> argVec;
 
     std::string binary_name;
     bool args_parsed = false;
@@ -977,7 +978,7 @@ private:
 
             auto print_usage = [&advanced, &printParam, this](auto j, const std::string& alias = ""){
                 //skip already printed
-                if(j.second->set){
+                if(j.second->m_set){
                     return;
                 }
                 //skip hidden
@@ -996,7 +997,7 @@ private:
                 std::string repeatable = j.second->m_repeatable ? " [repeatable]" : "";
                 std::string required = j.second->m_required ? (required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
                 std::cout << " : " + j.second->m_help + repeatable + def_val + required << std::endl;
-                j.second->set = true; //help_set
+                j.second->m_set = true; //help_set
             };
 
             for (auto & j : argMap)
@@ -1058,8 +1059,8 @@ private:
 
         std::cout << "Usage: " + std::string(name)
                      + (flag_cnt ? " [flags...]" : "")
-                     + (opt_cnt ? " options..." : "")     //(!mandatory_option ? " [options]" : " options")
-                     + positional << std::endl; //+ (opt_cnt ? " [arguments...]" : "")
+                     + (opt_cnt ? " options..." : "")
+                     + positional << std::endl;
 
         if(!posMap.empty()){
             std::cout << "Positional arguments:" << std::endl;

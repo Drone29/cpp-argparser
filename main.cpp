@@ -76,6 +76,10 @@ int main(int argc, char *argv[]) {
             .global_ptr(&global)
             .help("Positional arg");
 
+    parser.addPositional<int>("pos2")
+            .global_ptr(&global)
+            .help("Positional arg2");
+
     parser.parseArgs(argc, argv);
 
 
