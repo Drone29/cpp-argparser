@@ -569,6 +569,21 @@ public:
             return "";
         };
 
+        auto checkParsedNonPos = [this, &parsed_mnd_args, &parsed_required_args](){
+            if(mandatory_option){
+                if(parsed_mnd_args != mandatory_args){
+                    for(auto &x : argMap){
+                        if(!x.second->m_arbitrary && !x.second->m_positional && !x.second->set){
+                            throw std::runtime_error(x.first + " not specified");
+                        }
+                    }
+                }
+                if(required_args > 0 && parsed_required_args < 1){
+                    throw std::runtime_error("Missing required option " + std::string(REQUIRED_OPTION_SIGN));
+                }
+            }
+        };
+
         for(auto index = 0; index < arg_vec.size(); index++){
 
             auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
@@ -634,6 +649,7 @@ public:
                 ///Try parsing positional args
                 int pos_idx = index;
                 if(!posMap.empty()){
+                    checkParsedNonPos();
                     for(auto &x : posMap){
                         if(pos_idx >= arg_vec.size()){
                             break;
@@ -737,19 +753,7 @@ public:
             }
         }
         args_parsed = true;
-        //error if no option was set
-        if(mandatory_option){
-            if(parsed_mnd_args != mandatory_args){
-                for(auto &x : argMap){
-                    if(!x.second->m_arbitrary && !x.second->m_positional && !x.second->set){
-                        throw std::runtime_error(x.first + " not specified");
-                    }
-                }
-            }
-            if(required_args > 0 && parsed_required_args < 1){
-                throw std::runtime_error("Missing required option " + std::string(REQUIRED_OPTION_SIGN));
-            }
-        }
+        checkParsedNonPos();
 
         if(positional_cnt < posMap.size()){
             throw std::runtime_error("Not enough positional arguments provided");
@@ -989,8 +993,9 @@ private:
 
                 std::string def_val = (j.second->option == nullptr) ? "" : j.second->option->get_str_val();
                 def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
+                std::string repeatable = j.second->m_repeatable ? " [repeatable]" : "";
                 std::string required = j.second->m_required ? (required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
-                std::cout << " : " + j.second->m_help + def_val + required << std::endl;
+                std::cout << " : " + j.second->m_help + repeatable + def_val + required << std::endl;
                 j.second->set = true; //help_set
             };
 
@@ -1011,7 +1016,7 @@ private:
         if(param == HELP_HIDDEN_OPT){
             advanced = true;
         }
-        else{
+        else if(!param.empty()){
             //param advanced help
             auto j = argMap.find(param);
             //seek alias
@@ -1031,7 +1036,7 @@ private:
                 std::cout << j->second->m_help << std::endl;
                 std::cout << j->second->m_advanced_help << std::endl;
             }else{
-                std::cout << "Unknown parameter " + std::string(param) << std::endl;
+                std::cout << "Unknown parameter " + param << std::endl;
             }
             return;
         }
