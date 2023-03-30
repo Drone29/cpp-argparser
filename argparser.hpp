@@ -246,8 +246,11 @@ struct ARG_DEFS{
     ///user should specify at least one required option
     ARG_DEFS &required(){
         /// hidden cannot be required
-        if(m_arbitrary && !m_positional && !m_hidden)
+        if(!m_positional && !m_hidden){
             m_required = true;
+            /// if mandatory option forced to be required, set flag to arbitrary
+            m_arbitrary = true;
+        }
         return *this;
     }
 
@@ -298,6 +301,8 @@ private:
     bool m_implicit = false;
     //Non-repeatable
     bool m_repeatable = false;
+    //If starts with minus
+    bool m_starts_with_minus = false;
     //Mandatory opts
     int mandatory_options = 0;
     //show default
@@ -415,6 +420,7 @@ public:
         }
 
         bool flag = (splitKey.key[0] == '-');
+        bool starts_with_minus = flag;
         if(!splitKey.alias.empty()){
             bool match = (splitKey.alias[0] == '-');
             if (match != flag){
@@ -460,6 +466,7 @@ public:
         option->m_options = opts;
         option->m_arbitrary = flag;
         option->m_implicit = implicit;
+        option->m_starts_with_minus = starts_with_minus;
         option->mandatory_options = mnd_vals;
 
         argMap[splitKey.key] = option;
@@ -652,6 +659,10 @@ public:
                     ///check contiguous alias+value
                     bool contiguous = false;
                     for(auto &x : argMap){
+                        //contiguous format isn't allowed for options that doesn't start with '-'
+                        if(!x.second->m_starts_with_minus){
+                            continue;
+                        }
                         auto key = x.first;
                         auto alias = x.second->m_alias;
                         std::string contKey = pName.substr(0, key.length());

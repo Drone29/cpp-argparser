@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
      *  But can be forced to be mandatory or required
      *
      *  Arguments specified without '-' are mandatory,
-     *  And cannot be forced to be arbitrary or required
+     *  But can be forced to be required
      *
      *  Mandatory - all such arguments should be provided
      *  Required - at least 1 such argument should be provided
@@ -106,14 +106,18 @@ int main(int argc, char *argv[]) {
      *
      *  I.e. '-s aaa', '--str=aaa', '-sFFF' are valid calls
      *
+     *  NOTICE: Mandatory arguments are not allowed to be used in contiguous format.
+     *  I.e. 'vFFF', 'v123' are not valid,
+     *  Although 'v=FFF', 'v=123' are still valid
+     *
      *  Arbitrary parameters can be omitted
      *  Mandatory parameters cannot be omitted
      *
-     *  Enclose parameter name with [ ] to make it arbitrary,
+     *  Enclose parameter name with [] to make it arbitrary,
      *  Not []-enclosed params are considered as mandatory
      */
 
-    // arguments without '-' are mandatory, user should specify it anyway
+    // arguments without '-' are mandatory
     // mandatory arguments should have at least 1 mandatory parameter
     parser.addArgument<bool>("m", {"m_param"})
             .help("mandatory bool argument with mandatory parameter");
@@ -147,7 +151,9 @@ int main(int argc, char *argv[]) {
             .help("mandatory arg with mandatory value and side argument 5 for function tst");
 
     // return type can be almost any type, all you need is a right function
+    // also this one is forced to be required instead of mandatory
     parser.addArgument<CL*>("class", {"bool", "[integer]"}, createClass)
+            .required()
             .help("create class from 2 strings, one is arbitrary");
 
     // non-capturing lambdas are considered as functions too
@@ -175,6 +181,7 @@ int main(int argc, char *argv[]) {
     // const methods of argument can be accessed via [ ]
     // here it returns if argument 'v' was set by user
     auto isArgumentSet = parser["v"].is_set();
+    auto v = parser.getValue<int>("v");
 
     // to get parsed value, use getValue, explicitly setting the type,
     // or set a global_ptr beforehand
