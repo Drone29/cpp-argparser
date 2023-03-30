@@ -20,6 +20,7 @@ public:
 };
 
 CL *createClass(const char *bl, const char *itgr = nullptr){
+    //static parser helper function, converts string to  basic type
     bool b = argParser::scanValue<bool>(bl);
     int i = argParser::scanValue<int>(itgr);
     return new CL(b, i);
@@ -32,63 +33,151 @@ int main(int argc, char *argv[]) {
     int global = 0;
     const char *hh = nullptr;
 
+
+    /**
+     *  Args with implicit values
+     *
+     *  Can be called only by key without parameters: '-x', '-b', '--bool', etc.
+     *
+     */
+
+    // for implicit values, if no function provided and the type is arithmetic,
+    // parser will increment their value if called,
+    // starting from 0 or default_value, if provided.
+    // by default, the arguments are NON-REPEATABLE,
+    // i.e. a call '-x -x' is NOT VALID and will cast an error
+    parser.addArgument<int>("-x")
+            .help("int arbitrary argument with implicit value (if set, returns 1)");
+
+    // bool is also considered arithmetic,
+    // so parser will increment it, thus setting it to true.
+    // again, it's NON-REPEATABLE
+    parser.addArgument<bool>("-b, --bool")
+            .help("bool arbitrary argument with alias and implicit value (if set, returns true)");
+
+    // REPEATABLE argument can be specified more than once,
+    // in this case, due to implicit value, it will increment each time it's called
+    // i.e. a call '-j -j -j' will increment counter 3 times, starting from 5 (default value),
+    // and returns 8
+    parser.addArgument<int>("-j")
+            .default_value(5)
+            .repeatable()
+            .help("int arbitrary repeatable argument with implicit value and default value 5")
+            .advanced_help("and with advanced help string (can be viewed with --help -j)");
+
     parser.addArgument<int>("-i, --int")
             .global_ptr(&global)
             .repeatable()
-            .help("integer arbitrary argument with implicit value");
+            .help("int arbitrary repeatable argument with alias, implicit value and pointer to global variable (if set, returns 1)");
 
-    parser.addArgument<int>("-j")
-            .default_value((int)5)
-            .repeatable()
-            .help("integer arbitrary argument with implicit value and default value 5")
-            .advanced_help("and with advanced help string");
+    /**
+     *  Arguments can be mandatory, arbitrary, required and positional
+     *
+     *  Arguments specified with '-' are by default arbitrary,
+     *  But can be forced to be mandatory or required
+     *
+     *  Arguments specified without '-' are mandatory,
+     *  And cannot be forced to be arbitrary or required
+     *
+     *  Mandatory - all such arguments should be provided
+     *  Required - at least 1 such argument should be provided
+     */
 
-    parser.addArgument<bool>("-b, --bool")
-            .help("bool arbitrary argument that can be only set once");
+    // arbitrary arguments can be made required
+    // in this case, user should specify at least one of '--req1' and '--req2'
+    parser.addArgument<int>("--req1")
+            .required()
+            .help("required argument 1 with implicit value");
 
+    parser.addArgument<int>("--req2")
+            .required()
+            .help("required argument 2 with implicit value");
+
+    /**
+     *  Args with parameters
+     *
+     *  Can be called with parameters: '-s aaa', '--str=aaa', '-sFFF', etc.
+     *  Or can be called without them, if parameter is arbitrary: '-p'
+     *
+     *  One argument can have up to 10 parameters
+     *
+     *  Delimiters between argument and parameter can be:
+     *  '=', <space>, <empty_string>
+     *
+     *  I.e. '-s aaa', '--str=aaa', '-sFFF' are valid calls
+     *
+     *  Arbitrary parameters can be omitted
+     *  Mandatory parameters cannot be omitted
+     *
+     *  Enclose parameter name with [ ] to make it arbitrary,
+     *  Not []-enclosed params are considered as mandatory
+     */
+
+    // arguments without '-' are mandatory, user should specify it anyway
+    // mandatory arguments should have at least 1 mandatory parameter
+    parser.addArgument<bool>("m", {"m_param"})
+            .help("mandatory bool argument with mandatory parameter");
+
+    // str_value - mandatory value, cannot be omitted
+    // i.e. calls like '-s aaa' or '--str=aaa' are VALID,
+    // but '-s' or '--str' are NOT VALID and will cast an error
     parser.addArgument<const char*>("-s, --str", {"str_value"})
             .global_ptr(&hh)
-            .help("string arbitrary argument with mandatory value");
+            .help("string arbitrary argument with mandatory param and pointer to global variable (if set, returns specified string)");
 
+    // [str_value] - arbitrary value, can be omitted
+    // i.e. calls '-p aaaa' and '-p' are both VALID
+    // function should return type of argument,
+    // and its number of const char* arguments should be the same as number of parameters specified in {}
     parser.addArgument<std::string>("-p", {"[str_value]"}, test)
-            .help("string arbitrary argument with arbitrary value and function test");
+            .help("string arbitrary argument with arbitrary value and function test (if set, returns result of test())");
 
+    // hidden arguments are not shown when '--help' called without '-a' specifier
     parser.addArgument<int>("--hidden", {"int_value"})
             .hidden()
             .help("hidden int argument with mandatory value (can be viewed with --help -a)");
 
-    parser.addArgument<std::vector<const char*>>("-a, --array", {"a1", "[a2]"},
-            *([](const char* a1, const char* a2) -> auto{ return std::vector<const char*>{a1, a2==nullptr?"null":a2}; }))
-            .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
-
+    // function can accept not only string arguments that should be parsed,
+    // but also any number of side arguments.
+    // side arguments need to be placed before strings:
+    // func(int a, const char* b) is VALID,
+    // func(const char*b, int a) is NOT VALID
+    // side arguments should be passed to addArgument after function inside a tuple
     parser.addArgument<int>("v", {"vv"}, tst, std::make_tuple(5))
             .help("mandatory arg with mandatory value and side argument 5 for function tst");
 
-    parser.addArgument<bool>("--version")
-            .help("version arbitrary");
+    // return type can be almost any type, all you need is a right function
+    parser.addArgument<CL*>("class", {"bool", "[integer]"}, createClass)
+            .help("create class from 2 strings, one is arbitrary");
 
-    parser.addArgument<int>("--ggg")
-            .required()
-            .help("Required option 1");
-    parser.addArgument<int>("--ccc")
-            .required()
-            .help("Required option 2");
+    // non-capturing lambdas are considered as functions too
+    // only they need to be dereferenced with *
+    // NOTE! '-a' alias conflicts with help's self key '-a', but it's not an error
+    // Calling '--help -a' will list advanced options, but
+    // '--help --array' will return help for --array argument
+    parser.addArgument<std::vector<const char*>>("-a, --array", {"a1", "[a2]"},
+                                                 *([](const char* a1, const char* a2) -> auto
+                                                 {
+                                                     return std::vector<const char*>{a1, a2==nullptr?"null":a2};
+                                                 }))
+            .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
 
+    // positional arguments should be specified after all other arguments
+    // they cannot be hidden or made arbitrary
     parser.addPositional<int>("pos")
             .global_ptr(&global)
             .help("Positional arg");
 
-    parser.addPositional<int>("pos2")
-            .global_ptr(&global)
-            .help("Positional arg2");
-
-    parser.addArgument<CL*>("class", {"bool", "[integer]"}, createClass);
-
+    // parseArgs accepts 3 parameters: argc, argv and optional bool 'allow_zero_options'
+    // if allow_zero_options is true, it will not cast errors if required or mandatory arguments were not specified
     parser.parseArgs(argc, argv);
 
+    // const methods of argument can be accessed via [ ]
+    // here it returns if argument 'v' was set by user
+    auto isArgumentSet = parser["v"].is_set();
 
-    //int k = parser<int>["-v"];
-
+    // to get parsed value, use getValue, explicitly setting the type,
+    // or set a global_ptr beforehand
     auto b = parser.getValue<bool>("-b");
     auto s = parser.getValue<const char*>("-s");
     auto p = parser.getValue<std::string>("-p");

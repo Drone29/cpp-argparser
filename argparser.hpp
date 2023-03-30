@@ -1016,8 +1016,9 @@ private:
 
         bool advanced = false;
 
-        auto printParam = [](auto j, const std::string& alias){
-            std::string alias_str = "\t" + (alias.empty() ? "" : (alias + KEY_ALIAS_DELIMITER + " "));
+        auto printParam = [](auto j, const std::string& alias, bool notab = false){
+            std::string alias_str = notab ? "" : "\t";
+            alias_str += (alias.empty() ? "" : (alias + KEY_ALIAS_DELIMITER + " "));
             std::cout <<  alias_str + j.first;
             for(auto &x : j.second->m_options){
                 std::string opt = std::string(x);
@@ -1085,7 +1086,7 @@ private:
             }
 
             if(j != argMap.end()){
-                printParam(*j, j->second->m_alias);
+                printParam(*j, j->second->m_alias, true);
                 std::cout << ":" << std::endl;
                 //std::cout << "Type: " + j->second->typeStr << std::endl;
                 std::cout << j->second->m_help << std::endl;
