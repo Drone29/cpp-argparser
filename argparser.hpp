@@ -28,6 +28,8 @@
     "Show this message and exit. " HELP_HIDDEN_OPT " to list advanced options"
 /// delimiter for key aliases
 #define KEY_ALIAS_DELIMITER ","
+/// additional key/option delimiter (default is space)
+#define KEY_OPTION_DELIMITER "="
 /// bool parsable strings
 #define BOOL_POSITIVES "true", "1", "yes", "on"
 #define BOOL_NEGATIVES "false", "0", "no", "off"
@@ -86,7 +88,7 @@ protected:
     friend struct ARG_DEFS;
     BaseOption() = default;
     virtual ~BaseOption() = default;
-    virtual std::any action (const std::vector<std::string> &args) = 0;
+    virtual std::any action (const std::string *args, int size) = 0;
     virtual std::any increment() = 0;
     virtual void set(std::any x) = 0;
     virtual std::string get_str_val() = 0;
@@ -99,10 +101,11 @@ template <typename T, class...Targs>
 class DerivedOption : public BaseOption{
 private:
     friend class argParser;
-    std::any action(const std::vector<std::string> &args) override{
+    std::any action(const std::string *args, int size) override{
         const char *argvCpy[MAX_ARGS+1] = {nullptr};
-        for(int i=0; i<args.size();i++){
-            argvCpy[i] = args[i].c_str();
+        const std::string *ptr = args;
+        for(int i=0; i<size;i++){
+            argvCpy[i] = (*ptr++).c_str();
         }
 
         auto cchar_tpl = std::make_tuple(UNPACK_ARGS(argvCpy));
@@ -201,12 +204,15 @@ struct ARG_DEFS{
         m_advanced_help = std::move(hlp);
         return *this;
     }
+    /// positional, mandatory or required options cannot be hidden
     ARG_DEFS &hidden(){
-        m_hidden = true;
+        if(!m_positional && m_arbitrary && !m_required)
+            m_hidden = true;
         return *this;
     }
     ARG_DEFS &repeatable(){
-        m_repeatable = true;
+        if(!m_positional)
+            m_repeatable = true;
         return *this;
     }
     ARG_DEFS &default_value(std::any val){
@@ -231,13 +237,16 @@ struct ARG_DEFS{
     ///display as mandatory in help
     ///user should specify all of mandatory options
     ARG_DEFS &mandatory(){
-        m_arbitrary = false;
+        /// hidden cannot be mandatory
+        if(m_arbitrary && !m_positional && !m_hidden)
+            m_arbitrary = false;
         return *this;
     }
     ///only for arbitrary options
     ///user should specify at least one required option
     ARG_DEFS &required(){
-        if(m_arbitrary && !m_positional)
+        /// hidden cannot be required
+        if(m_arbitrary && !m_positional && !m_hidden)
             m_required = true;
         return *this;
     }
@@ -248,10 +257,13 @@ struct ARG_DEFS{
     [[nodiscard]] bool is_arbitrary() const{
         return m_arbitrary;
     }
+    [[nodiscard]] bool is_required() const{
+        return m_required;
+    }
     [[nodiscard]] bool is_positional() const{
         return m_positional;
     }
-    [[nodiscard]] bool is_impicit() const{
+    [[nodiscard]] bool is_implicit() const{
         return m_implicit;
     }
     [[nodiscard]] bool is_repeatable() const{
@@ -382,6 +394,10 @@ public:
             if(sopt.empty()){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " option name cannot be empty");
             }
+            if(sopt.at(0) == ' ' || sopt.at(sopt.length()-1) == ' '){
+                throw std::invalid_argument(std::string(__func__) + ": " + key + " option " + sopt + " cannot begin or end with space");
+            }
+
             if(isOptMandatory(sopt)){
                 mnd_vals++;
                 last_mandatory_arg = sopt;
@@ -499,7 +515,7 @@ public:
         argVec.reserve(argc * 2);
         ///Retrieve binary self-name
         std::string self_name = std::string(argv[0]);
-        binary_name = self_name.substr(self_name.find_last_of('/') + 1, self_name.length()-1);
+        binary_name = self_name.substr(self_name.find_last_of('/') + 1);
 
         int parsed_mnd_args = 0;
         int parsed_required_args = 0;
@@ -520,7 +536,7 @@ public:
 
         auto parseArgument = [this](const std::string &key, int start, int end){
             if(argMap[key]->option->has_action){
-                argMap[key]->option->action({argVec.begin() + start, argVec.begin() + end});
+                argMap[key]->option->action(&argVec[start], end - start);
             }else{
                 auto val = argMap[key]->option->anyval;
                 argMap[key]->option->set(scan(val.type(), argVec[start].c_str()));
@@ -598,7 +614,7 @@ public:
             std::string newKey;
 
             ///Handle '='
-            auto c = pName.find('=');
+            auto c = pName.find(KEY_OPTION_DELIMITER);
             if(c != std::string::npos){
                 pValue = pName.substr(c+1);
                 pName = pName.substr(0, c);
@@ -628,9 +644,9 @@ public:
                             contiguous = true;
                             break;
                         }
-                        ///check if alias is part of current
+                            ///check if alias is part of current
                         else if(!contAlias.empty()
-                        && alias == contAlias){
+                                && alias == contAlias){
                             pValue = pName.substr(contAlias.length());
                             pName = contAlias;
                             insertKeyValue(pName, pValue);
@@ -698,7 +714,7 @@ public:
                 ///Parse arg with implicit option
                 if(argMap[pName]->m_implicit){
                     if(argMap[pName]->option->has_action){
-                        argMap[pName]->option->action({});
+                        argMap[pName]->option->action(nullptr, 0);
                     }
                     else{
                         argMap[pName]->option->increment();
@@ -738,10 +754,9 @@ public:
                 }
 
                 if(arbitrary_values){
-                    std::vector<std::string> vec = {argVec.begin() + index + 1, argVec.begin() + index + 1 + opts_cnt};
                     ///parse arg with partial arbitrary values list
                     if(argMap[pName]->option->has_action){
-                        argMap[pName]->option->action(vec);
+                        argMap[pName]->option->action(&argVec[index+1], opts_cnt);
                     }else{
                         throw std::runtime_error(std::string(pName) + " arbitrary value conflicts with arg " + argVec[cnt]);
                     }
@@ -762,7 +777,7 @@ public:
         return 0;
     }
 
-    ARG_DEFS &operator [] (const std::string &key) const { return getArg(key); }
+    const ARG_DEFS &operator [] (const std::string &key) const { return getArg(key); }
 
 private:
 
@@ -844,8 +859,7 @@ private:
             for(auto elem : temp) {
                 lVal += std::tolower(elem);
             }
-            bool val = isTrue(lVal.c_str());
-            return val;
+            return isTrue(lVal.c_str());
         }
 
         ///numbers
@@ -900,7 +914,7 @@ private:
         }
 
         if(key.empty()){
-            throw std::invalid_argument(std::string(func) +": Key cannot be empty!");
+            throw std::invalid_argument(std::string(func) + ": Key cannot be empty!");
         }
 
         //Check previous definition
@@ -913,7 +927,18 @@ private:
                 throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
             }
         }
+    }
 
+    static void checkForEqualsSymbol(const std::string &key, const char* func = nullptr){
+        if(func == nullptr){
+            func = __func__;
+        }
+        if(!key.empty()){
+            auto c = key.find(KEY_OPTION_DELIMITER);
+            if(c == 0 || c == key.length()-1){
+                throw std::invalid_argument(std::string(func) + ": " + key + " cannot begin or end with =");
+            }
+        }
     }
 
     KEY_ALIAS parseKey(const std::string &key, const char* func = nullptr){
@@ -940,7 +965,16 @@ private:
             sanityCheck(alias, func);
             skey = skey.substr(0, split);
         }
+
+        if(skey.empty()){
+            throw std::invalid_argument(std::string(func) + ": key cannot be empty");
+        }
+
         sanityCheck(skey, func);
+
+        checkForEqualsSymbol(skey, func);
+        checkForEqualsSymbol(alias, func);
+
         //key is always longer
         if(alias.length() > skey.length()){
             std::swap(skey, alias);
