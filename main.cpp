@@ -14,11 +14,15 @@ int tst(int a, const char* a1){
 
 class CL{
 public:
+    CL(bool _a, int _b) : a{_a}, b{_b} {}
     bool a = false;
+    int b = 0;
 };
 
-bool ttt(CL *c, const char* a){
-    return c->a;
+CL *createClass(const char *bl, const char *itgr = nullptr){
+    bool b = argParser::scanValue<bool>(bl);
+    int i = argParser::scanValue<int>(itgr);
+    return new CL(b, i);
 }
 
 int main(int argc, char *argv[]) {
@@ -27,8 +31,6 @@ int main(int argc, char *argv[]) {
 
     int global = 0;
     const char *hh = nullptr;
-
-    CL *c = new CL();
 
     parser.addArgument<int>("-i, --int")
             .global_ptr(&global)
@@ -79,6 +81,8 @@ int main(int argc, char *argv[]) {
     parser.addPositional<int>("pos2")
             .global_ptr(&global)
             .help("Positional arg2");
+
+    parser.addArgument<CL*>("class", {"bool", "[integer]"}, createClass);
 
     parser.parseArgs(argc, argv);
 

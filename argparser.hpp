@@ -485,6 +485,26 @@ public:
         }
     }
 
+    /**
+     *
+     * @tparam T conversion type
+     * @param value - string needed to be converted
+     * @return
+     */
+    template <typename T>
+    static T scanValue(const char *value){
+        if(value == nullptr){
+            return T{};
+        }
+        auto strType = getFuncTemplateType(__PRETTY_FUNCTION__);
+        try{
+            std::any val = scan(std::type_index(typeid(T)), value);
+            return std::any_cast<T>(val);
+        }catch(const std::bad_any_cast& e){
+            throw std::invalid_argument(std::string(__func__) + ": cannot cast to " + strType);
+        }
+    }
+
     ///Set alias for option
     void setAlias(const std::string &key, const std::string &alias){
         if(argMap.find(key) == argMap.end()){
