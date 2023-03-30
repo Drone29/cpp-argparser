@@ -33,16 +33,16 @@ int main(int argc, char *argv[]) {
     parser.addArgument<int>("-i, --int")
             .global_ptr(&global)
             .repeatable()
-            .help("integer arbitrary argument with implicit value (repeatable)");
+            .help("integer arbitrary argument with implicit value");
 
     parser.addArgument<int>("-j")
             .default_value((int)5)
             .repeatable()
-            .help("integer arbitrary argument with implicit value and default value 5(repeatable)")
+            .help("integer arbitrary argument with implicit value and default value 5")
             .advanced_help("and with advanced help string");
 
     parser.addArgument<bool>("-b, --bool")
-            .help("bool arbitrary argument that can be only set once (non-repeatable)");
+            .help("bool arbitrary argument that can be only set once");
 
     parser.addArgument<const char*>("-s, --str", {"str_value"})
             .global_ptr(&hh)
@@ -62,23 +62,32 @@ int main(int argc, char *argv[]) {
     parser.addArgument<int>("v", {"vv"}, tst, std::make_tuple(5))
             .help("mandatory arg with mandatory value and side argument 5 for function tst");
 
-    parser.addArgument<bool>("--version", {});
+    parser.addArgument<bool>("--version")
+            .help("version arbitrary");
 
-    parser.addArgument<int>("--ggg", {})
+    parser.addArgument<int>("--ggg")
             .required()
             .help("Required option 1");
-    parser.addArgument<int>("--ccc", {})
+    parser.addArgument<int>("--ccc")
             .required()
             .help("Required option 2");
 
+    parser.addPositional<int>("pos")
+            .global_ptr(&global)
+            .help("Positional arg");
+
+    parser.addPositional<int>("pos2")
+            .global_ptr(&global)
+            .help("Positional arg2");
+
     parser.parseArgs(argc, argv);
+
 
     //int k = parser<int>["-v"];
 
     auto b = parser.getValue<bool>("-b");
     auto s = parser.getValue<const char*>("-s");
     auto p = parser.getValue<std::string>("-p");
-    auto m = parser.getValue<int>("m");
     auto pos = parser.getValue<int>("pos");
     auto a = parser.getValue<std::vector<const char*>>("-a");
 
