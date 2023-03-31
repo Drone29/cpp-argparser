@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
      *
      *  I.e. '-s aaa', '--str=aaa', '-sFFF' are valid calls
      *
-     *  NOTICE: Mandatory arguments are not allowed to be used in contiguous format.
+     *  NOTICE: Arguments that doesn't start with '-' are not allowed to be used in contiguous format.
      *  I.e. 'vFFF', 'v123' are not valid,
      *  Although 'v=FFF', 'v=123' are still valid
      *
