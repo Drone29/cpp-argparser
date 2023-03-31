@@ -924,7 +924,7 @@ private:
         }else if(type == GET_TYPE(date_t)){
             date_t tt = {0};
             if(date_format == nullptr){
-                throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date. Format not specified");
+                date_format = DEFAULT_DATE_FORMAT;
             }
             if(strptime(temp.c_str(), date_format, &tt) == nullptr){
                 throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date. Format must be " + date_format);
