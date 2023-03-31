@@ -686,7 +686,7 @@ public:
                 if(!newKey.empty()){
                     pName = newKey;
                 }else{
-                    ///check contiguous alias+value
+                    ///check contiguous or combined arguments
                     bool contiguous = false;
                     for(auto &x : argMap){
                         //contiguous format isn't allowed for options that doesn't start with '-'
@@ -697,7 +697,21 @@ public:
                         auto alias = x.second->m_alias;
                         std::string contKey = pName.substr(0, key.length());
                         std::string contAlias = pName.substr(0, alias.length());
-                        ///check if key is part of current
+                        std::string first2dig = pName.substr(0,2); //first 2 digits of current key
+                        // if key or alias is 2 digits long arg with implicit value,
+                        // starts with '-' and match first 2 digits,
+                        // it's a combined (-vvv style) argument
+                        if(first2dig.length() == 2
+                        && x.second->m_implicit
+                        && (first2dig == key || first2dig == alias)){
+                            //set '-' to other portion to extract it later
+                            pValue = "-" + pName.substr(first2dig.length());
+                            pName = first2dig;
+                            insertKeyValue(pName, pValue);
+                            contiguous = true;
+                            break;
+                        }
+                        //check if it's a contiguous keyValue pair
                         if(key == contKey){
                             pValue = pName.substr(contKey.length());
                             pName = contKey;
@@ -705,9 +719,9 @@ public:
                             contiguous = true;
                             break;
                         }
-                            ///check if alias is part of current
-                        else if(!contAlias.empty()
-                                && alias == contAlias){
+                        //check if it's a contiguous aliasValue pair
+                        if(!contAlias.empty()
+                        && alias == contAlias){
                             pValue = pName.substr(contAlias.length());
                             pName = contAlias;
                             insertKeyValue(pName, pValue);

@@ -31,21 +31,25 @@ int main(int argc, char *argv[]) {
     argParser parser;
 
     int global = 0;
+    int i_val = 0;
     const char *hh = nullptr;
-
 
     /**
      *  Args with implicit values
      *
      *  Can be called only by key without parameters: '-x', '-b', '--bool', etc.
      *
+     *  Arguments can be repeatable or non-repeatable (default)
+     *
+     *  Short repeatable implicit arguments that start with '-' can be combined using single '-':
+     *  '-jjj', '-ij'
      */
 
     // for implicit values, if no function provided and the type is arithmetic,
     // parser will increment their value if called,
     // starting from 0 or default_value, if provided.
     // by default, the arguments are NON-REPEATABLE,
-    // i.e. a call '-x -x' is NOT VALID and will cast an error
+    // i.e. a call '-x -x' or '-xx' is NOT VALID and will cast an error
     parser.addArgument<int>("-x")
             .help("int arbitrary argument with implicit value (if set, returns 1)");
 
@@ -57,7 +61,7 @@ int main(int argc, char *argv[]) {
 
     // REPEATABLE argument can be specified more than once,
     // in this case, due to implicit value, it will increment each time it's called
-    // i.e. a call '-j -j -j' will increment counter 3 times, starting from 5 (default value),
+    // i.e. a call '-j -j -j' or '-jjj' will increment counter 3 times, starting from 5 (default value),
     // and returns 8
     parser.addArgument<int>("-j")
             .default_value(5)
@@ -66,7 +70,7 @@ int main(int argc, char *argv[]) {
             .advanced_help("and with advanced help string (can be viewed with --help -j)");
 
     parser.addArgument<int>("-i, --int")
-            .global_ptr(&global)
+            .global_ptr(&i_val)
             .repeatable()
             .help("int arbitrary repeatable argument with alias, implicit value and pointer to global variable (if set, returns 1)");
 
@@ -81,6 +85,7 @@ int main(int argc, char *argv[]) {
      *
      *  Mandatory - all such arguments should be provided
      *  Required - at least 1 such argument should be provided
+     *
      */
 
     // arbitrary arguments can be made required
@@ -184,14 +189,11 @@ int main(int argc, char *argv[]) {
 
     // parseArgs accepts 3 parameters: argc, argv and optional bool 'allow_zero_options'
     // if allow_zero_options is true, it will not cast errors if required or mandatory arguments were not specified
-    parser.parseArgs(argc, argv);
+    parser.parseArgs(argc, argv, true);
 
     // const methods of argument can be accessed via [ ]
     // here it returns if argument 'v' was set by user
     auto isArgumentSet = parser["v"].is_set();
-    auto v = parser.getValue<int>("v");
-
-    auto d = parser.getValue<date_t>("--date");
 
     // to get parsed value, use getValue, explicitly setting the type,
     // or set a global_ptr beforehand
@@ -200,7 +202,6 @@ int main(int argc, char *argv[]) {
     auto p = parser.getValue<std::string>("-p");
     auto pos = parser.getValue<int>("pos");
     auto a = parser.getValue<std::vector<const char*>>("-a");
-
 
     return 0;
 }
