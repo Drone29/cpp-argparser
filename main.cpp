@@ -174,6 +174,14 @@ int main(int argc, char *argv[]) {
             .global_ptr(&global)
             .help("Positional arg");
 
+    // there's an date_t type which is an alias for std::tm struct
+    parser.addArgument<date_t>("date", {"date"})
+            // date_format can be specified for date_t type.
+            // Format must correspond to strptime() format
+            // If not specified, default format used (%Y-%m-%dT%H:%M:%S)
+            .date_format("%d.%m.%Y-%H:%M")
+            .help("Converts date string to date struct");
+
     // parseArgs accepts 3 parameters: argc, argv and optional bool 'allow_zero_options'
     // if allow_zero_options is true, it will not cast errors if required or mandatory arguments were not specified
     parser.parseArgs(argc, argv);
@@ -182,6 +190,8 @@ int main(int argc, char *argv[]) {
     // here it returns if argument 'v' was set by user
     auto isArgumentSet = parser["v"].is_set();
     auto v = parser.getValue<int>("v");
+
+    auto d = parser.getValue<date_t>("--date");
 
     // to get parsed value, use getValue, explicitly setting the type,
     // or set a global_ptr beforehand

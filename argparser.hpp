@@ -15,6 +15,7 @@
 #include <memory>
 #include <typeindex>
 #include <tuple>
+#include <ctime>
 
 /// help key
 #define HELP_NAME "--help"
@@ -68,7 +69,13 @@ constexpr int countChars( const char* s, char c ){
 #define MAX_ARGS countChars(ARG_STRING, ']')
 //constexpr int MAX_ARGS = countChars(ARG_STRING, ']');
 
+#define GET_TYPE(x)  std::type_index(typeid(x))
+
 #define ARG_TYPE_HELP "HELP"
+//date format by default
+#define DEFAULT_DATE_FORMAT "%Y-%m-%dT%H:%M:%S"
+// isodate special type
+using date_t = std::tm;
 
 template <typename ...>
 struct are_same : std::true_type {};
@@ -253,6 +260,16 @@ struct ARG_DEFS{
         }
         return *this;
     }
+    ///only for date_t
+    ///specify date format in terms of strptime()
+    ARG_DEFS &date_format(const char *format){
+        if(option->anyval.type() == typeid(date_t)
+        && format != nullptr
+        && m_options.size() == 1){
+            m_date_format = format;
+        }
+        return *this;
+    }
 
     [[nodiscard]] bool is_set() const{
         return m_set;
@@ -271,6 +288,10 @@ struct ARG_DEFS{
     }
     [[nodiscard]] bool is_repeatable() const{
         return m_repeatable;
+    }
+    // applicable only for date_t type
+    [[nodiscard]] const char *get_date_format() const{
+        return m_date_format;
     }
     [[nodiscard]] auto options_size() const{
         return m_options.size();
@@ -303,6 +324,8 @@ private:
     bool m_repeatable = false;
     //If starts with minus
     bool m_starts_with_minus = false;
+    //Date format (only for isodate_t type)
+    const char *m_date_format = nullptr;
     //Mandatory opts
     int mandatory_options = 0;
     //show default
@@ -347,7 +370,7 @@ public:
         ///check if default parser for this type is present
         if(func == nullptr){
             try{
-                scan(std::type_index(typeid(T)), nullptr);
+                scan(GET_TYPE(T), nullptr);
             }catch(std::logic_error &e){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no default parser for " + strType);
             }catch(std::runtime_error &){
@@ -362,6 +385,9 @@ public:
         option->m_options = {};
         option->option = x;
         option->m_positional = true;
+        if(GET_TYPE(T) == GET_TYPE(date_t)){
+            option->m_date_format = DEFAULT_DATE_FORMAT;
+        }
 
         argMap[splitKey.key] = option;
         posMap.emplace_back(splitKey.key);
@@ -447,7 +473,7 @@ public:
 
             ///check if default parser for this type is present
             try{
-                scan(std::type_index(typeid(T)), nullptr);
+                scan(GET_TYPE(T), nullptr);
             }catch(std::logic_error &e){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no default parser for " + strType);
             }catch(std::runtime_error &){
@@ -468,6 +494,10 @@ public:
         option->m_implicit = implicit;
         option->m_starts_with_minus = starts_with_minus;
         option->mandatory_options = mnd_vals;
+        if(GET_TYPE(T) == GET_TYPE(date_t)
+        && opts.size() == 1){
+            option->m_date_format = DEFAULT_DATE_FORMAT;
+        }
 
         argMap[splitKey.key] = option;
 
@@ -499,13 +529,13 @@ public:
      * @return
      */
     template <typename T>
-    static T scanValue(const char *value){
+    static T scanValue(const char *value, const char *date_format = DEFAULT_DATE_FORMAT){
         if(value == nullptr){
             return T{};
         }
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__);
         try{
-            std::any val = scan(std::type_index(typeid(T)), value);
+            std::any val = scan(GET_TYPE(T), value, date_format);
             return std::any_cast<T>(val);
         }catch(const std::bad_any_cast& e){
             throw std::invalid_argument(std::string(__func__) + ": cannot cast to " + strType);
@@ -861,16 +891,16 @@ private:
         }
         return y;
     }
-
-    static std::any scan(std::type_index type, const char *arg) {
+    /// format is applicable only to date_t type
+    static std::any scan(std::type_index type, const char *arg, const char *date_format = nullptr) {
 
         std::string temp = (arg == nullptr) ? "" : std::string(arg);
 
-        if(type == std::type_index(typeid(const char *))){
+        if(type == GET_TYPE(const char *)){
             return arg;
-        }else if(type == std::type_index(typeid(std::string))){
+        }else if(type == GET_TYPE(std::string)){
             return temp;
-        }else if(type == std::type_index(typeid(bool))){
+        }else if(type == GET_TYPE(bool)){
             auto isTrue = [func=__func__](const char *s){
                 const char *pos_buf[] = {BOOL_POSITIVES, nullptr};
                 const char *neg_buf[] = {BOOL_NEGATIVES, nullptr};
@@ -891,32 +921,41 @@ private:
                 lVal += std::tolower(elem);
             }
             return isTrue(lVal.c_str());
+        }else if(type == GET_TYPE(date_t)){
+            date_t tt = {0};
+            if(date_format == nullptr){
+                throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date. Format not specified");
+            }
+            if(strptime(temp.c_str(), date_format, &tt) == nullptr){
+                throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date. Format must be " + date_format);
+            }
+            return tt;
         }
 
         ///numbers
         char *tmp = (char*)temp.c_str();
         std::any res;
-        if(type == std::type_index(typeid(int))){
+        if(type == GET_TYPE(int)){
             res = (int)strtol(temp.c_str(), &tmp, 0);
-        }else if(type == std::type_index(typeid(char))){
+        }else if(type == GET_TYPE(char)){
             res = (char)strtol(temp.c_str(), &tmp, 0);
-        }else if(type == std::type_index(typeid(short int))){
+        }else if(type == GET_TYPE(short int)){
             res = (short int)strtol(temp.c_str(), &tmp, 0);
-        }else if(type == std::type_index(typeid(long))){
+        }else if(type == GET_TYPE(long)){
             res = strtol(temp.c_str(), &tmp, 0);
-        }else if(type == std::type_index(typeid(long long))){
+        }else if(type == GET_TYPE(long long)){
             res = strtoll(temp.c_str(), &tmp, 0);
-        }else if(type == std::type_index(typeid(unsigned int))){
+        }else if(type == GET_TYPE(unsigned int)){
             res = (unsigned int)strtoul(temp.c_str(), &tmp, 0);
-        }else if(type == std::type_index(typeid(unsigned long))){
+        }else if(type == GET_TYPE(unsigned long)){
             res = strtoul(temp.c_str(), &tmp, 0);
-        }else if(type == std::type_index(typeid(unsigned char))){
+        }else if(type == GET_TYPE(unsigned char)){
             res = (unsigned char)strtoul(temp.c_str(), &tmp, 0);
-        }else if(type == std::type_index(typeid(short unsigned int))){
+        }else if(type == GET_TYPE(short unsigned int)){
             res = (short unsigned int)strtoul(temp.c_str(), &tmp, 0);
-        }else if(type == std::type_index(typeid(float))){
+        }else if(type == GET_TYPE(float)){
             res = strtof(temp.c_str(), &tmp);
-        }else if(type == std::type_index(typeid(double))){
+        }else if(type == GET_TYPE(double)){
             res = strtod(temp.c_str(), &tmp);
         }else{
             throw std::logic_error(std::string(__func__) + ": value of unknown type " + temp);
@@ -1061,8 +1100,9 @@ private:
                 std::string def_val = (j.second->option == nullptr) ? "" : j.second->option->get_str_val();
                 def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
                 std::string repeatable = j.second->m_repeatable ? " [repeatable]" : "";
+                std::string date_format = j.second->m_date_format == nullptr ? "" : (" [" + std::string(j.second->m_date_format) + "]");
                 std::string required = j.second->m_required ? (required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
-                std::cout << " : " + j.second->m_help + repeatable + def_val + required << std::endl;
+                std::cout << " : " + j.second->m_help + repeatable + date_format + def_val + required << std::endl;
                 j.second->m_set = true; //help_set
             };
 
@@ -1131,7 +1171,8 @@ private:
         if(!posMap.empty()){
             std::cout << "Positional arguments:" << std::endl;
             for(auto &x : posMap){
-                std::cout << "\t" + x + " : " + argMap[x]->m_help << std::endl;
+                std::string date_format = argMap[x]->m_date_format == nullptr ? "" : ("[" + std::string(argMap[x]->m_date_format) + "] ");
+                std::cout << "\t" + x + " : " + date_format + argMap[x]->m_help << std::endl;
             }
         }
 
