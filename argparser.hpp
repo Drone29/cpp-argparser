@@ -975,6 +975,9 @@ private:
             throw std::logic_error(std::string(__func__) + ": value of unknown type " + temp);
         }
 
+        if (errno == ERANGE) {
+            throw std::range_error{std::string(__func__) + ": " + temp + " not representable"};
+        }
         if(temp.c_str() == tmp || *tmp){
             throw std::runtime_error(std::string(__func__) + ": could not convert " + temp);
         }
