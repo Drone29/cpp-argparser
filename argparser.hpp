@@ -568,8 +568,8 @@ public:
     int parseArgs(int argc, char *argv[], bool allow_zero_options = false)
     {
         argVec = {argv + 1, argv + argc};
-        //allocate enough space for all possible resize operations
-        argVec.reserve(argc * 2);
+        //should be enough for any sane number of arguments
+        argVec.reserve(100);
         ///Retrieve binary self-name
         std::string self_name = std::string(argv[0]);
         binary_name = self_name.substr(self_name.find_last_of('/') + 1);
