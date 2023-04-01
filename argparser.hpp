@@ -568,7 +568,7 @@ public:
     int parseArgs(int argc, char *argv[], bool allow_zero_options = false)
     {
         argVec = {argv + 1, argv + argc};
-        //should be enough for any sane number of arguments
+        //should be enough for any reasonable number of arguments
         argVec.reserve(100);
         ///Retrieve binary self-name
         std::string self_name = std::string(argv[0]);
