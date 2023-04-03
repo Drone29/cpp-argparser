@@ -1142,7 +1142,9 @@ private:
                 // show date format if not prohibited
                 std::string date_format = j.second->m_hide_date_format
                         ? ""
-                        : (j.second->m_date_format == nullptr ? "" : (" {format " + std::string(j.second->m_date_format) + "}"));
+                        : (j.second->m_date_format == nullptr
+                            ? ""
+                            : (" {" + j.second->m_options[0] + " format: " + std::string(j.second->m_date_format) + "}"));
                 std::string required = j.second->m_required ? (required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
                 std::cout << " : " + j.second->m_help + repeatable + date_format + def_val + required << std::endl;
                 j.second->m_set = true; //help_set

@@ -180,11 +180,11 @@ int main(int argc, char *argv[]) {
             .help("Positional arg");
 
     // there's an date_t type which is an alias for std::tm struct
-    parser.addArgument<date_t>("date", {"date"})
+    parser.addArgument<date_t>("date", {"date_str"})
             // date_format can be specified for date_t type.
             // Format must correspond to strptime() format
-            // If not specified, default format used (%Y-%m-%dT%H:%M:%S)
-            // date_format takes optional argument hide_in_help.
+            // If not specified, default format used (defined as DEFAULT_DATE_FORMAT)
+            // date_format takes optional bool argument hide_in_help.
             // If set to true, the format will not be shown in help.
             // Otherwise it'll be shown in {} brackets exactly as it's specified in the 1st argument
             .date_format("%d.%m.%Y-%H:%M")
