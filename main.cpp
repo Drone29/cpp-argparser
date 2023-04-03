@@ -184,12 +184,15 @@ int main(int argc, char *argv[]) {
             // date_format can be specified for date_t type.
             // Format must correspond to strptime() format
             // If not specified, default format used (%Y-%m-%dT%H:%M:%S)
+            // date_format takes optional argument hide_in_help.
+            // If set to true, the format will not be shown in help.
+            // Otherwise it'll be shown in {} brackets exactly as it's specified in the 1st argument
             .date_format("%d.%m.%Y-%H:%M")
             .help("Converts date string to date struct");
 
     // parseArgs accepts 3 parameters: argc, argv and optional bool 'allow_zero_options'
     // if allow_zero_options is true, it will not cast errors if required or mandatory arguments were not specified
-    parser.parseArgs(argc, argv, true);
+    parser.parseArgs(argc, argv);
 
     // const methods of argument can be accessed via [ ]
     // here it returns if argument 'v' was set by user

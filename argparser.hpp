@@ -16,6 +16,7 @@
 #include <typeindex>
 #include <tuple>
 #include <ctime>
+#include <iomanip>
 
 /// help key
 #define HELP_NAME "--help"
@@ -262,11 +263,28 @@ struct ARG_DEFS{
     }
     ///only for date_t
     ///specify date format in terms of strptime()
-    ARG_DEFS &date_format(const char *format){
+    ARG_DEFS &date_format(const char *format, bool hide_in_help = false){
         if(option->anyval.type() == typeid(date_t)
-        && format != nullptr
         && m_options.size() == 1){
-            m_date_format = format;
+
+            if(format != nullptr){
+                //check if contains spaces
+                for(auto &c : std::string(format)){
+                    if(c == ' '){
+                        throw std::logic_error(std::string(__func__) + ": invalid date format " + format + " (cannot contain spaces)");
+                    }
+                }
+                auto t = std::time(nullptr);
+                std::tm tt = *std::localtime(&t);
+                std::stringstream ss;
+                ss << std::put_time(&tt, format);
+                ss >> std::get_time(&tt, format);
+                if (ss.fail()){
+                    throw std::logic_error(std::string(__func__) + ": invalid date format " + format);
+                }
+                m_date_format = format;
+            }
+            m_hide_date_format = hide_in_help;
         }
         return *this;
     }
@@ -326,6 +344,8 @@ private:
     bool m_starts_with_minus = false;
     //Date format (only for isodate_t type)
     const char *m_date_format = nullptr;
+    //If needed to be shown in help
+    bool m_hide_date_format = false;
     //Mandatory opts
     int mandatory_options = 0;
     //show default
@@ -596,7 +616,7 @@ public:
                 argMap[key]->option->action(&argVec[start], end - start);
             }else{
                 auto val = argMap[key]->option->anyval;
-                argMap[key]->option->set(scan(val.type(), argVec[start].c_str()));
+                argMap[key]->option->set(scan(val.type(), argVec[start].c_str(), argMap[key]->m_date_format));
             }
         };
 
@@ -940,7 +960,9 @@ private:
             if(date_format == nullptr){
                 date_format = DEFAULT_DATE_FORMAT;
             }
-            if(strptime(temp.c_str(), date_format, &tt) == nullptr){
+            std::stringstream ss(temp);
+            ss >> std::get_time(&tt, date_format);
+            if (ss.fail()){
                 throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date. Format must be " + date_format);
             }
             return tt;
@@ -1117,7 +1139,10 @@ private:
                 std::string def_val = (j.second->option == nullptr) ? "" : j.second->option->get_str_val();
                 def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
                 std::string repeatable = j.second->m_repeatable ? " [repeatable]" : "";
-                std::string date_format = j.second->m_date_format == nullptr ? "" : (" [" + std::string(j.second->m_date_format) + "]");
+                // show date format if not prohibited
+                std::string date_format = j.second->m_hide_date_format
+                        ? ""
+                        : (j.second->m_date_format == nullptr ? "" : (" {format " + std::string(j.second->m_date_format) + "}"));
                 std::string required = j.second->m_required ? (required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
                 std::cout << " : " + j.second->m_help + repeatable + date_format + def_val + required << std::endl;
                 j.second->m_set = true; //help_set
