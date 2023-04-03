@@ -963,7 +963,7 @@ private:
             std::stringstream ss(temp);
             ss >> std::get_time(&tt, date_format);
             if (ss.fail()){
-                throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date. Format must be " + date_format);
+                throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date");
             }
             return tt;
         }
