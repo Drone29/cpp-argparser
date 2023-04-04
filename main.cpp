@@ -12,18 +12,24 @@ int tst(int a, const char* a1){
     return a + (int)strtol(a1, nullptr, 0);
 }
 
-class CL{
-public:
-    CL(bool _a, int _b) : a{_a}, b{_b} {}
+//class CL{
+//public:
+//    //
+//    CL(bool _a, int _b) : a{_a}, b{_b} {}
+//    bool a = false;
+//    int b = 0;
+//};
+
+struct CL{
     bool a = false;
     int b = 0;
 };
 
-CL *createClass(const char *bl, const char *itgr = nullptr){
+CL createClass(const char *bl, const char *itgr = nullptr){
     //static parser helper function, converts string to  basic type
     bool b = argParser::scanValue<bool>(bl);
     int i = argParser::scanValue<int>(itgr);
-    return new CL(b, i);
+    return CL{b, i};
 }
 
 int main(int argc, char *argv[]) {
@@ -157,9 +163,9 @@ int main(int argc, char *argv[]) {
 
     // return type can be almost any type, all you need is a right function
     // also this one is forced to be required instead of mandatory
-    parser.addArgument<CL*>("class", {"bool", "[integer]"}, createClass)
+    parser.addArgument<CL>("struct", {"bool", "[integer]"}, createClass)
             .required()
-            .help("create class from 2 strings, one is arbitrary");
+            .help("create struct from 2 strings, one is arbitrary");
 
     // non-capturing lambdas are considered as functions too
     // only they need to be dereferenced with *

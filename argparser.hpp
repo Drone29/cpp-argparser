@@ -140,14 +140,15 @@ private:
     std::string get_str_val() override{
         std::string res;
         try{
-            if constexpr (std::is_arithmetic<T>::value){
+            if constexpr (std::is_arithmetic_v<T>){
                 res = std::to_string(value);
             }
-            else if (value == NULL || value == nullptr){
-                res = "";
-            }
-            else if constexpr (std::is_convertible<T, std::string>::value){
-                res = std::string(value);
+            else if constexpr (std::is_convertible_v<T, std::string>){
+                if constexpr(std::is_pointer_v<T>){
+                    res = (value == NULL || value == nullptr) ? "" : res = std::string(value);
+                }else{
+                    res = std::string(value);
+                }
             }
         }catch(...){
             res = ""; //if null or other exception, set empty
