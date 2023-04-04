@@ -17,6 +17,7 @@
 #include <tuple>
 #include <ctime>
 #include <iomanip>
+#include <sstream>
 
 /// help key
 #define HELP_NAME "--help"
@@ -142,6 +143,9 @@ private:
             if constexpr (std::is_arithmetic<T>::value){
                 res = std::to_string(value);
             }
+            else if (value == NULL){
+                res = "";
+            }
             else if constexpr (std::is_convertible<T, std::string>::value){
                 res = std::string(value);
             }
@@ -265,7 +269,7 @@ struct ARG_DEFS{
     ///specify date format in terms of strptime()
     ARG_DEFS &date_format(const char *format, bool hide_in_help = false){
         if(option->anyval.type() == typeid(date_t)
-        && m_options.size() == 1){
+           && m_options.size() == 1){
 
             if(format != nullptr){
                 //check if contains spaces
@@ -515,7 +519,7 @@ public:
         option->m_starts_with_minus = starts_with_minus;
         option->mandatory_options = mnd_vals;
         if(GET_TYPE(T) == GET_TYPE(date_t)
-        && opts.size() == 1){
+           && opts.size() == 1){
             option->m_date_format = DEFAULT_DATE_FORMAT;
         }
 
@@ -722,8 +726,8 @@ public:
                         // starts with '-' and match first 2 digits,
                         // it's a combined (-vvv style) argument
                         if(first2dig.length() == 2
-                        && x.second->m_implicit
-                        && (first2dig == key || first2dig == alias)){
+                           && x.second->m_implicit
+                           && (first2dig == key || first2dig == alias)){
                             //set '-' to other portion to extract it later
                             pValue = "-" + pName.substr(first2dig.length());
                             pName = first2dig;
@@ -741,7 +745,7 @@ public:
                         }
                         //check if it's a contiguous aliasValue pair
                         if(!contAlias.empty()
-                        && alias == contAlias){
+                           && alias == contAlias){
                             pValue = pName.substr(contAlias.length());
                             pName = contAlias;
                             insertKeyValue(pName, pValue);
@@ -1141,10 +1145,10 @@ private:
                 std::string repeatable = j.second->m_repeatable ? " [repeatable]" : "";
                 // show date format if not prohibited
                 std::string date_format = j.second->m_hide_date_format
-                        ? ""
-                        : (j.second->m_date_format == nullptr
-                            ? ""
-                            : (" {" + j.second->m_options[0] + " format: " + std::string(j.second->m_date_format) + "}"));
+                                          ? ""
+                                          : (j.second->m_date_format == nullptr
+                                             ? ""
+                                             : (" {" + j.second->m_options[0] + " format: " + std::string(j.second->m_date_format) + "}"));
                 std::string required = j.second->m_required ? (required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
                 std::cout << " : " + j.second->m_help + repeatable + date_format + def_val + required << std::endl;
                 j.second->m_set = true; //help_set
