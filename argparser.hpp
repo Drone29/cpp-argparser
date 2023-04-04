@@ -227,11 +227,11 @@ struct ARG_DEFS{
             m_repeatable = true;
         return *this;
     }
-    ARG_DEFS &default_value(std::any val){
+    ARG_DEFS &default_value(std::any val, bool hide_in_help = false){
         try{
             if(m_arbitrary && !m_positional){
                 option->set(std::move(val));
-                show_default = true;
+                show_default = !hide_in_help;
             }
         }catch(std::invalid_argument &e){
             throw std::logic_error(std::string(__func__) + "(" + typeStr + "): error: " + e.what());
