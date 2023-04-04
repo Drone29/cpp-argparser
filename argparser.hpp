@@ -143,7 +143,7 @@ private:
             if constexpr (std::is_arithmetic<T>::value){
                 res = std::to_string(value);
             }
-            else if (value == NULL){
+            else if (value == NULL || value == nullptr){
                 res = "";
             }
             else if constexpr (std::is_convertible<T, std::string>::value){
