@@ -69,7 +69,7 @@ constexpr int countChars( const char* s, char c ){
 #define ARG_STRING STRINGIFY(ARGS_LIST)
 //count max function arguments provided by UNPACK_ARGUMENTS
 #define MAX_ARGS countChars(ARG_STRING, ']')
-#define NO_CONST(T) std::add_pointer_t<std::remove_cv_t<std::remove_pointer_t<T>>>
+//get type index
 #define GET_TYPE(x) std::type_index(typeid(std::remove_cv_t<x>))
 
 #define ARG_TYPE_HELP "HELP"
@@ -692,7 +692,6 @@ public:
             };
             std::string pName = argVec[index];
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
-            std::string newKey;
 
             ///Handle '='
             auto c = pName.find(KEY_OPTION_DELIMITER);
@@ -1245,10 +1244,6 @@ private:
             std::cout << "Options (mandatory):" << std::endl;
             sorted_usage(false, false, 0); //show options without *
             sorted_usage(false, false, 1); //show options with *
-            if(advanced){
-                //show hidden
-                sorted_usage(false, true);
-            }
         }
 
         if(required_args > 1){
