@@ -69,9 +69,8 @@ constexpr int countChars( const char* s, char c ){
 #define ARG_STRING STRINGIFY(ARGS_LIST)
 //count max function arguments provided by UNPACK_ARGUMENTS
 #define MAX_ARGS countChars(ARG_STRING, ']')
-//constexpr int MAX_ARGS = countChars(ARG_STRING, ']');
-
-#define GET_TYPE(x)  std::type_index(typeid(x))
+#define NO_CONST(T) std::add_pointer_t<std::remove_cv_t<std::remove_pointer_t<T>>>
+#define GET_TYPE(x) std::type_index(typeid(std::remove_cv_t<x>))
 
 #define ARG_TYPE_HELP "HELP"
 //date format by default
@@ -102,6 +101,7 @@ protected:
     virtual void set(std::any x) = 0;
     virtual std::string get_str_val() = 0;
     virtual void set_global_ptr(std::any ptr) = 0;
+    virtual std::type_index get_type() = 0;
     std::any anyval;
     bool has_action = false;
 };
@@ -155,6 +155,10 @@ private:
         }
 
         return res;
+    }
+
+    std::type_index get_type() override{
+        return GET_TYPE(decltype(value));
     }
 
     void set(std::any x) override {
@@ -620,8 +624,8 @@ public:
             if(argMap[key]->option->has_action){
                 argMap[key]->option->action(&argVec[start], end - start);
             }else{
-                auto val = argMap[key]->option->anyval;
-                argMap[key]->option->set(scan(val.type(), argVec[start].c_str(), argMap[key]->m_date_format));
+//                auto val = argMap[key]->option->anyval;
+                argMap[key]->option->set(scan(argMap[key]->option->get_type(), argVec[start].c_str(), argMap[key]->m_date_format));
             }
         };
 
@@ -935,7 +939,7 @@ private:
 
         std::string temp = (arg == nullptr) ? "" : std::string(arg);
 
-        if(type == GET_TYPE(const char *)){
+        if(type == GET_TYPE(char*) || type == GET_TYPE(const char*)){
             return arg;
         }else if(type == GET_TYPE(std::string)){
             return temp;
