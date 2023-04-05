@@ -597,8 +597,6 @@ public:
     int parseArgs(int argc, char *argv[], bool allow_zero_options = false)
     {
         argVec = {argv + 1, argv + argc};
-        //should be enough for any reasonable number of arguments
-        argVec.reserve(100);
         ///Retrieve binary self-name
         std::string self_name = std::string(argv[0]);
         binary_name = self_name.substr(self_name.find_last_of('/') + 1);
@@ -624,7 +622,6 @@ public:
             if(argMap[key]->option->has_action){
                 argMap[key]->option->action(&argVec[start], end - start);
             }else{
-//                auto val = argMap[key]->option->anyval;
                 argMap[key]->option->set(scan(argMap[key]->option->get_type(), argVec[start].c_str(), argMap[key]->m_date_format));
             }
         };
@@ -686,15 +683,13 @@ public:
             }
         };
 
+        /// Handle '=' and combined args
         for(auto index = 0; index < argVec.size(); index++){
 
             auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
                 argVec[index] = key;
                 argVec.insert(argVec.begin() + index + 1, val);
-                //move pointer
-                index--;
             };
-
             std::string pName = argVec[index];
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
             std::string newKey;
@@ -711,10 +706,7 @@ public:
 
             if(argMap.find(pName) == argMap.end()){
                 ///Find alias
-                newKey = findKeyByAlias(pName);
-                if(!newKey.empty()){
-                    pName = newKey;
-                }else{
+                if(findKeyByAlias(pName).empty()){
                     ///check contiguous or combined arguments
                     bool contiguous = false;
                     for(auto &x : argMap){
@@ -763,10 +755,23 @@ public:
                     }
                 }
             }
+        }
 
+        /// Main parser loop
+        for(auto index = 0; index < argVec.size(); index++){
 
+            std::string pName = argVec[index];
+            std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
+            ///Find alias
             if(argMap.find(pName) == argMap.end()){
-                ///Try parsing positional args
+                std::string newKey = findKeyByAlias(pName);
+                if(!newKey.empty()){
+                    pName = newKey;
+                }
+            }
+
+            ///Try parsing positional args
+            if(argMap.find(pName) == argMap.end()){
                 int pos_idx = index;
                 if(!posMap.empty()){
                     ///check if non-positional options were parsed
@@ -1126,8 +1131,8 @@ private:
                 std::cout << " " + opt;
             }
         };
-
-        auto sorted_usage = [this, &advanced, &printParam](bool flag, bool hidden){
+        //check required: -1-don't check, 0-false, other-true
+        auto sorted_usage = [this, &advanced, &printParam](bool flag, bool hidden, int check_required = -1){
 
             auto print_usage = [&advanced, &printParam, this](auto j, const std::string& alias = ""){
                 //skip already printed
@@ -1159,16 +1164,15 @@ private:
                 j.second->m_set = true; //help_set
             };
 
-            for (auto & j : argMap)
-            {
+            for (auto & j : argMap){
+                bool req = check_required < 0 ? j.second->m_required : check_required > 0;
                 if((j.second->m_arbitrary && !j.second->m_required) == flag
-                   && j.second->m_hidden == hidden)
-                {
+                   && j.second->m_hidden == hidden
+                   && j.second->m_required == req){
                     //find alias
                     std::string alias = j.second->m_alias;
                     print_usage(j, alias);
                 }
-
             }
         };
 
@@ -1239,12 +1243,12 @@ private:
         }
         if(opt_cnt){
             std::cout << "Options (mandatory):" << std::endl;
-            sorted_usage(false, false);
+            sorted_usage(false, false, 0); //show options without *
+            sorted_usage(false, false, 1); //show options with *
             if(advanced){
                 //show hidden
                 sorted_usage(false, true);
             }
-
         }
 
         if(required_args > 1){
