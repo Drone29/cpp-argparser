@@ -283,7 +283,7 @@ struct ARG_DEFS{
                         throw std::logic_error(std::string(__func__) + ": invalid date format " + format + " (cannot contain spaces)");
                     }
                 }
-                auto t = std::time(nullptr);
+                time_t t = 0;
                 std::tm tt = *std::localtime(&t);
                 std::stringstream ss;
                 ss << std::put_time(&tt, format);
