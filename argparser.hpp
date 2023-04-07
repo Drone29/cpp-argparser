@@ -274,7 +274,7 @@ struct ARG_DEFS{
     ///specify date format in terms of strptime()
     ARG_DEFS &date_format(const char *format, bool hide_in_help = false){
         if(option->anyval.type() == typeid(date_t)
-           && m_options.size() == 1){
+           && (m_positional || m_options.size() == 1)){
 
             if(format != nullptr){
                 //check if contains spaces

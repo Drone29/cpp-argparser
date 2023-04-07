@@ -3,7 +3,7 @@
 
 std::string test(const char* a){
     if(a == nullptr){
-        a = "34";
+        a = "null";
     }
     return std::string(a);
 }
@@ -12,20 +12,12 @@ int tst(int a, const char* a1){
     return a + (int)strtol(a1, nullptr, 0);
 }
 
-//class CL{
-//public:
-//    //
-//    CL(bool _a, int _b) : a{_a}, b{_b} {}
-//    bool a = false;
-//    int b = 0;
-//};
-
 struct CL{
     bool a = false;
     int b = 0;
 };
 
-CL createClass(const char *bl, const char *itgr = nullptr){
+CL createStruct(const char *bl, const char *itgr = nullptr){
     //static parser helper function, converts string to  basic type
     bool b = argParser::scanValue<bool>(bl);
     int i = argParser::scanValue<int>(itgr);
@@ -36,9 +28,9 @@ int main(int argc, char *argv[]) {
 
     argParser parser;
 
-    int global = 0;
-    int i_val = 0;
-    const char *hh = nullptr;
+    int pos_val = 0;
+    int i_val;
+    const char *s_val = nullptr;
 
     /**
      *  Args with implicit values
@@ -113,7 +105,9 @@ int main(int argc, char *argv[]) {
      *  One argument can have up to 10 parameters
      *
      *  Delimiters between argument and parameter can be:
-     *  '=', <space>, <empty_string>
+     *  '='
+     *  <space>
+     *  <empty_string> (if starts with '-')
      *
      *  I.e. '-s aaa', '--str=aaa', '-sFFF' are valid calls
      *
@@ -125,7 +119,7 @@ int main(int argc, char *argv[]) {
      *  Mandatory parameters cannot be omitted
      *
      *  Enclose parameter name with [] to make it arbitrary,
-     *  Not []-enclosed params are considered as mandatory
+     *  Not []-enclosed params are considered mandatory
      */
 
     // arguments without '-' are mandatory
@@ -137,7 +131,7 @@ int main(int argc, char *argv[]) {
     // i.e. calls like '-s aaa' or '--str=aaa' are VALID,
     // but '-s' or '--str' are NOT VALID and will cast an error
     parser.addArgument<const char*>("-s, --str", {"str_value"})
-            .global_ptr(&hh)
+            .global_ptr(&s_val)
             .help("string arbitrary argument with mandatory param and pointer to global variable (if set, returns specified string)");
 
     // [str_value] - arbitrary value, can be omitted
@@ -163,9 +157,9 @@ int main(int argc, char *argv[]) {
 
     // return type can be almost any type, all you need is a right function
     // also this one is forced to be required instead of mandatory
-    parser.addArgument<CL>("struct", {"bool", "[integer]"}, createClass)
+    parser.addArgument<CL>("struct", {"bool", "[integer]"}, createStruct)
             .required()
-            .help("create struct from 2 strings, one is arbitrary");
+            .help("mandatory arg with 2 parameters: mandatory and arbitrary, returns result of function createStruct()");
 
     // non-capturing lambdas are considered as functions too
     // only they need to be dereferenced with *
@@ -182,14 +176,14 @@ int main(int argc, char *argv[]) {
     // positional arguments should be specified after all other arguments
     // they cannot be hidden or made arbitrary
     parser.addPositional<int>("pos")
-            .global_ptr(&global)
-            .help("Positional arg");
+            .global_ptr(&pos_val)
+            .help("Positional int argument with global variable");
 
     // there's an date_t type which is an alias for std::tm struct
     parser.addArgument<date_t>("date", {"date_str"})
             // date_format can be specified for date_t type.
-            // Format must correspond to strptime() format
-            // If not specified, default format used (defined as DEFAULT_DATE_FORMAT)
+            // Format shouldn't contain any spaces and must correspond to strptime() format, otherwise std::logic_error is thrown
+            // If format not specified or specified as nullptr, default format used (defined as DEFAULT_DATE_FORMAT)
             // date_format takes optional bool argument hide_in_help.
             // If set to true, the format will not be shown in help.
             // Otherwise it'll be shown in {} brackets exactly as it's specified in the 1st argument
@@ -201,7 +195,7 @@ int main(int argc, char *argv[]) {
     parser.parseArgs(argc, argv);
 
     // const methods of argument can be accessed via [ ]
-    // here it returns if argument 'v' was set by user
+    // here it returns true if argument 'v' was set by user
     auto isArgumentSet = parser["v"].is_set();
 
     // to get parsed value, use getValue, explicitly setting the type,
