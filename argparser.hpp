@@ -18,6 +18,7 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 
 /// help key
 #define HELP_NAME "--help"
@@ -338,7 +339,7 @@ private:
     //in use
     bool m_set = false;
     //alias
-    std::string m_alias;
+    std::vector<std::string> m_aliases;
     //Positional
     bool m_positional = false;
     //Flag
@@ -370,7 +371,7 @@ public:
         argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
         argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
         argMap[HELP_NAME]->m_arbitrary = true;
-        setAlias(HELP_NAME, HELP_ALIAS);
+        setAlias(HELP_NAME, {HELP_ALIAS});
     }
     ~argParser(){
         std::vector<std::string> aliases;
@@ -386,10 +387,8 @@ public:
                             T(*func)(args...) = nullptr,
                             std::tuple<Targs...> targs = std::tuple<>()){
 
-        auto splitKey = parseKey(key, __func__);
-        if(!splitKey.alias.empty()){
-            throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot have aliases");
-        }
+        KEY_ALIAS splitKey;
+        splitKey.key = std::string(key);
 
         static_assert((sizeof...(args) - sizeof...(Targs)) <= 1, " too many arguments in function");
 
@@ -424,23 +423,30 @@ public:
         return *option;
     }
 
-    /**
-     *
-     * @tparam T function return type
-     * @tparam Targs function side arguments (any)
-     * @tparam args function arguments (const char*)
-     * @param key argument key ("-f" adds arbitrary argument, "f" adds mandatory argument)
-     * @param opts list of options ({"foo"} - mandatory, {"[foo]"} = arbitrary). {} treated as implicit argument
-     * @param func function pointer or nullptr
-     * @return
-     */
     template <typename T, class...Targs, typename...args>
-    ARG_DEFS &addArgument(const std::string &key,
-                          const std::vector<std::string>& opts = {},
+    ARG_DEFS &addArgument(std::vector<std::string> names,
+                          const std::initializer_list<std::string>& opts = {},
                           T(*func)(args...) = nullptr,
-                          std::tuple<Targs...> targs = std::tuple<>()){ //Targs&&...targs
+                          std::tuple<Targs...> targs = std::tuple<>()){
 
-        auto splitKey = parseKey(key, __func__);
+        if(names.empty()){
+            throw std::invalid_argument(std::string(__func__) + ": argument must have a name");
+        }
+        for(auto &el : names){
+            checkForbiddenSymbols(el, __func__);
+        }
+
+        auto sortingFunc = [](const std::string& first, const std::string& second){
+            return first.size() > second.size();
+        };
+
+        //sort vector by length from longer to shorter (key is always the longest)
+        std::sort(names.begin(), names.end(), sortingFunc);
+
+        KEY_ALIAS splitKey;
+        splitKey.key = names[0];
+        splitKey.aliases = {names.begin() + 1, names.begin() + names.size()};
+
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
 
@@ -449,20 +455,19 @@ public:
         std::string last_mandatory_arg;
         int mnd_vals = 0;
 
-        for(auto & opt : opts){
-            const std::string& sopt = opt;
+        for(auto & sopt : opts){
             if(sopt.empty()){
-                throw std::invalid_argument(std::string(__func__) + ": " + key + " option name cannot be empty");
+                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " option name cannot be empty");
             }
             if(sopt.at(0) == ' ' || sopt.at(sopt.length()-1) == ' '){
-                throw std::invalid_argument(std::string(__func__) + ": " + key + " option " + sopt + " cannot begin or end with space");
+                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " option " + sopt + " cannot begin or end with space");
             }
 
             if(isOptMandatory(sopt)){
                 mnd_vals++;
                 last_mandatory_arg = sopt;
                 if(!last_arbitrary_arg.empty()){
-                    throw std::invalid_argument(std::string(__func__) + ": " + key
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key
                                                 + ": arbitrary argument "
                                                 + last_arbitrary_arg
                                                 + " cannot be followed by mandatory argument "
@@ -476,44 +481,44 @@ public:
 
         bool flag = (splitKey.key[0] == '-');
         bool starts_with_minus = flag;
-        if(!splitKey.alias.empty()){
-            bool match = (splitKey.alias[0] == '-');
+        for(auto &el : splitKey.aliases){
+            bool match = (el[0] == '-');
             if (match != flag){
-                throw std::invalid_argument(std::string(__func__) + ": " + key + ": cannot add alias " + splitKey.alias + ": different type");
+                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + ": cannot add alias " + el + ": different type");
             }
         }
 
         if(last_mandatory_arg.empty() && !flag){
-            throw std::invalid_argument(std::string(__func__) + ": " + key + " should have at least 1 mandatory parameter");
+            throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " should have at least 1 mandatory parameter");
         }
 
-        bool implicit = opts.empty();
+        bool implicit = opts.size() == 0;
 
         if(func == nullptr){
             if(implicit && !std::is_arithmetic<T>::value){ //typeid(T) != typeid(bool)
-                throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for non-arithmetic arg with implicit option");
+                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for non-arithmetic arg with implicit option");
             }
             if(opts.size() > 1){
-                throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
+                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
             }
             if(!implicit && last_mandatory_arg.empty()){
-                throw std::invalid_argument(std::string(__func__) + ": " + key + " no function provided for arg with arbitrary options");
+                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for arg with arbitrary options");
             }
 
             ///check if default parser for this type is present
             try{
                 scan(GET_TYPE(T), nullptr);
             }catch(std::logic_error &e){
-                throw std::invalid_argument(std::string(__func__) + ": " + key + " no default parser for " + strType);
+                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no default parser for " + strType);
             }catch(std::runtime_error &){
                 //do nothing
             }
         }
         else if((sizeof...(args) - sizeof...(Targs)) != opts.size()){
-            throw std::invalid_argument(std::string(__func__) + " " + key + " opts size != function arguments");
+            throw std::invalid_argument(std::string(__func__) + " " + splitKey.key + " opts size != function arguments");
         }
 
-        auto x = new DerivedOption<T,Targs...>(func, targs); //std::make_tuple(targs...)
+        auto x = new DerivedOption<T,Targs...>(func, targs);
 
         auto option = new ARG_DEFS();
         option->typeStr = strType;
@@ -530,12 +535,54 @@ public:
 
         argMap[splitKey.key] = option;
 
-        if(!splitKey.alias.empty()){
-            //add alias
-            setAlias(splitKey.key, splitKey.alias);
+        // add aliases
+        for(auto &alias : splitKey.aliases){
+            setAlias(splitKey.key, alias);
         }
 
         return *option;
+    }
+
+    /**
+     *
+     * @tparam T function return type
+     * @tparam Targs function side arguments (any)
+     * @tparam args function arguments (const char*)
+     * @param key argument key ("-f" adds arbitrary argument, "f" adds mandatory argument)
+     * @param opts list of options ({"foo"} - mandatory, {"[foo]"} = arbitrary). {} treated as implicit argument
+     * @param func function pointer or nullptr
+     * @return
+     */
+    template <typename T, class...Targs, typename...args>
+    ARG_DEFS &addArgument(const char *key,
+                          const std::initializer_list<std::string>& opts = {},
+                          T(*func)(args...) = nullptr,
+                          std::tuple<Targs...> targs = std::tuple<>()){
+
+        std::string keys = key == nullptr ? "" : std::string(key);
+        std::vector<std::string> vec;
+
+        size_t c;
+        while((c = keys.find(KEY_ALIAS_DELIMITER)) != std::string::npos){
+            vec.push_back(keys.substr(0, c));
+            keys = keys.substr(c + strlen(KEY_ALIAS_DELIMITER));
+        }
+
+        vec.push_back(keys);
+
+        // strip from spaces
+        for(auto & el : vec){
+            // leading
+            while((c = el.rfind(' ', 0)) != std::string::npos){
+                el = el.substr(c+1);
+            }
+            // trailing
+            if((c = el.find(' ')) != std::string::npos){
+                el = el.substr(0, c);
+            }
+        }
+
+        return addArgument(vec, opts, func, targs);
     }
 
     template <typename T>
@@ -576,15 +623,19 @@ public:
         if(argMap.find(key) == argMap.end()){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " not defined");
         }
-        if(!argMap[key]->m_alias.empty()){
-            throw std::invalid_argument(std::string(__func__) + ": " + key + " alias already defined: " + argMap[key]->m_alias);
-        }
         if(argMap[key]->m_positional){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot have alias");
         }
 
         sanityCheck(alias, __func__);
-        argMap[key]->m_alias = alias;
+
+        auto sortingFunc = [](const std::string& first, const std::string& second){
+            return first.size() < second.size();
+        };
+
+        argMap[key]->m_aliases.push_back(alias);
+        //sort vector by length after inserting new alias
+        std::sort(argMap[key]->m_aliases.begin(), argMap[key]->m_aliases.end(), sortingFunc);
     }
 
     /// Self exec name
@@ -661,8 +712,10 @@ public:
 
         auto findKeyByAlias = [this](const std::string &key) -> std::string{
             for(auto &x : argMap){
-                if(x.second->m_alias == key){
-                    return x.first;
+                for(auto &el : x.second->m_aliases){
+                    if(el == key){
+                        return x.first;
+                    }
                 }
             }
             return "";
@@ -714,40 +767,45 @@ public:
                             continue;
                         }
                         auto key = x.first;
-                        auto alias = x.second->m_alias;
-                        std::string contKey = pName.substr(0, key.length());
-                        std::string contAlias = pName.substr(0, alias.length());
-                        std::string first2dig = pName.substr(0,2); //first 2 digits of current key
-                        // if key or alias is 2 digits long arg with implicit value,
-                        // starts with '-' and match first 2 digits,
-                        // it's a combined (-vvv style) argument
-                        if(first2dig.length() == 2
-                           && x.second->m_implicit
-                           && (first2dig == key || first2dig == alias)){
-                            //set '-' to other portion to extract it later
-                            pValue = "-" + pName.substr(first2dig.length());
-                            pName = first2dig;
-                            insertKeyValue(pName, pValue);
-                            contiguous = true;
-                            break;
+                        for(auto &alias : x.second->m_aliases){
+
+                            //auto alias = x.second->m_aliases;
+                            std::string contKey = pName.substr(0, key.length());
+                            std::string contAlias = pName.substr(0, alias.length());
+                            std::string first2dig = pName.substr(0,2); //first 2 digits of current key
+                            // if key or alias is 2 digits long arg with implicit value,
+                            // starts with '-' and match first 2 digits,
+                            // it's a combined (-vvv style) argument
+                            if(first2dig.length() == 2
+                               && x.second->m_implicit
+                               && (first2dig == key || first2dig == alias)){
+                                //set '-' to other portion to extract it later
+                                pValue = "-" + pName.substr(first2dig.length());
+                                pName = first2dig;
+                                insertKeyValue(pName, pValue);
+                                contiguous = true;
+                                break;
+                            }
+                            //check if it's a contiguous keyValue pair
+                            if(key == contKey){
+                                pValue = pName.substr(contKey.length());
+                                pName = contKey;
+                                insertKeyValue(pName, pValue);
+                                contiguous = true;
+                                break;
+                            }
+                            //check if it's a contiguous aliasValue pair
+                            if(!contAlias.empty()
+                               && alias == contAlias){
+                                pValue = pName.substr(contAlias.length());
+                                pName = contAlias;
+                                insertKeyValue(pName, pValue);
+                                contiguous = true;
+                                break;
+                            }
                         }
-                        //check if it's a contiguous keyValue pair
-                        if(key == contKey){
-                            pValue = pName.substr(contKey.length());
-                            pName = contKey;
-                            insertKeyValue(pName, pValue);
-                            contiguous = true;
+                        if(contiguous)
                             break;
-                        }
-                        //check if it's a contiguous aliasValue pair
-                        if(!contAlias.empty()
-                           && alias == contAlias){
-                            pValue = pName.substr(contAlias.length());
-                            pName = contAlias;
-                            insertKeyValue(pName, pValue);
-                            contiguous = true;
-                            break;
-                        }
                     }
                     if(contiguous){
                         continue;
@@ -844,7 +902,12 @@ public:
                     bool next_is_key = argMap.find(argVec[cnt]) != argMap.end();
                     //find alias
                     for(auto &x : argMap){
-                        next_is_key |= x.second->m_alias == argVec[cnt];
+                        for(auto &alias : x.second->m_aliases){
+                            next_is_key |= alias == argVec[cnt];
+                        }
+                        if(next_is_key){
+                            break;
+                        }
                     }
 
                     if(next_is_key
@@ -891,7 +954,7 @@ private:
 
     struct KEY_ALIAS{
         std::string key;
-        std::string alias;
+        std::vector<std::string> aliases;
     };
 
     std::map<std::string, ARG_DEFS*> argMap;
@@ -909,8 +972,13 @@ private:
         std::string skey = key;
         if(argMap.find(skey) == argMap.end()){
             for(auto &x : argMap){
-                if(x.second->m_alias == skey){
-                    skey = x.first;
+                for(auto &alias : x.second->m_aliases){
+                    if(alias == skey){
+                        skey = x.first;
+                        break;
+                    }
+                }
+                if(skey != key){
                     break;
                 }
             }
@@ -1045,63 +1113,29 @@ private:
         }
 
         for(auto &x : argMap){
-            if(x.second->m_alias == key){
-                throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
-            }
-        }
-    }
-
-    static void checkForEqualsSymbol(const std::string &key, const char* func = nullptr){
-        if(func == nullptr){
-            func = __func__;
-        }
-        if(!key.empty()){
-            auto c = key.find(KEY_OPTION_DELIMITER);
-            if(c == 0 || c == key.length()-1){
-                throw std::invalid_argument(std::string(func) + ": " + key + " cannot begin or end with =");
-            }
-        }
-    }
-
-    KEY_ALIAS parseKey(const std::string &key, const char* func = nullptr){
-
-        if(func == nullptr){
-            func = __func__;
-        }
-
-        auto stripSpaces = [] (const std::string& word) -> std::string{
-            std::string newWord;
-            for (char i : word) {
-                if (i != ' ') {
-                    newWord += i;
+            for(auto &alias : x.second->m_aliases){
+                if(alias == key){
+                    throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
                 }
             }
-            return newWord;
-        };
-
-        std::string skey = stripSpaces(key);
-        std::string alias;
-        auto split = skey.find(KEY_ALIAS_DELIMITER);
-        if(split != std::string::npos){
-            alias = skey.substr(split+1);
-            sanityCheck(alias, func);
-            skey = skey.substr(0, split);
         }
+    }
 
-        if(skey.empty()){
+    static void checkForbiddenSymbols(const std::string &key, const char* func = nullptr){
+        if(func == nullptr){
+            func = __func__;
+        }
+        if(key.empty()){
             throw std::invalid_argument(std::string(func) + ": key cannot be empty");
         }
-
-        sanityCheck(skey, func);
-
-        checkForEqualsSymbol(skey, func);
-        checkForEqualsSymbol(alias, func);
-
-        //key is always longer
-        if(alias.length() > skey.length()){
-            std::swap(skey, alias);
+        auto c = key.find(KEY_OPTION_DELIMITER);
+        auto s = key.find(' ');
+        if(c == 0 || c == key.length()-1){
+            throw std::invalid_argument(std::string(func) + ": " + key + " cannot begin or end with =");
         }
-        return {skey, alias};
+        if(s != std::string::npos){
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot contain spaces");
+        }
     }
 
     static bool isOptMandatory(const std::string &sopt){
@@ -1118,9 +1152,11 @@ private:
 
         bool advanced = false;
 
-        auto printParam = [](auto j, const std::string& alias, bool notab = false){
+        auto printParam = [](auto j, bool notab = false){
             std::string alias_str = notab ? "" : "\t";
-            alias_str += (alias.empty() ? "" : (alias + KEY_ALIAS_DELIMITER + " "));
+            for(auto &alias : j.second->m_aliases){
+                alias_str += alias + KEY_ALIAS_DELIMITER + " ";
+            }
             std::cout <<  alias_str + j.first;
             for(auto &x : j.second->m_options){
                 std::string opt = std::string(x);
@@ -1133,7 +1169,7 @@ private:
         //check required: -1-don't check, 0-false, other-true
         auto sorted_usage = [this, &advanced, &printParam](bool flag, bool hidden, int check_required = -1){
 
-            auto print_usage = [&advanced, &printParam, this](auto j, const std::string& alias = ""){
+            auto print_usage = [&advanced, &printParam, this](auto j){
                 //skip already printed
                 if(j.second->m_set){
                     return;
@@ -1147,7 +1183,7 @@ private:
                     return;
                 }
 
-                printParam(j, alias);
+                printParam(j);
 
                 std::string def_val = (j.second->option == nullptr) ? "" : j.second->option->get_str_val();
                 def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
@@ -1168,9 +1204,8 @@ private:
                 if((j.second->m_arbitrary && !j.second->m_required) == flag
                    && j.second->m_hidden == hidden
                    && j.second->m_required == req){
-                    //find alias
-                    std::string alias = j.second->m_alias;
-                    print_usage(j, alias);
+
+                    print_usage(j);
                 }
             }
         };
@@ -1184,16 +1219,22 @@ private:
             auto j = argMap.find(param);
             //seek alias
             if(j == argMap.end()){
+                bool found = false;
                 for(auto &x : argMap){
-                    if(x.second->m_alias == param){
-                        j = argMap.find(x.first);
-                        break;
+                    for(auto &alias : x.second->m_aliases){
+                        if(alias == param){
+                            j = argMap.find(x.first);
+                            found = true;
+                            break;
+                        }
                     }
+                    if(found)
+                        break;
                 }
             }
 
             if(j != argMap.end()){
-                printParam(*j, j->second->m_alias, true);
+                printParam(*j, true);
                 std::cout << ":" << std::endl;
                 //std::cout << "Type: " + j->second->typeStr << std::endl;
                 std::cout << j->second->m_help << std::endl;

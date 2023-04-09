@@ -62,10 +62,10 @@ Non-positional arguments can have aliases. Here is a `--bool` argument with `-b`
     parser.addArgument<bool>("-b, --bool")
           .help("bool arbitrary argument with alias and implicit value");
 
-Alias is specified by comma in the same string. One argument can have only one alias
+Alias is specified by comma in the same string
 
 **NOTE:** Argument name and alias should be of the same type: 
-`if name starts with -, alias should also start with -`:
+`if name starts with -, aliases should also start with -`:
 
      parser.addArgument<int>("i, integer", {"v_int"}); //VALID
      parser.addArgument<int>("-i, --integer", {"v_int"}); //VALID
@@ -89,7 +89,7 @@ All `mandatory` arguments must be set by user, otherwise an error is generated
 
 Mandatory argument should have `at least one mandatory parameter`, i.e. they `cannot be implicit`
 
-To specify a mandatory argument, its name/alias should start `without -`
+To specify a mandatory argument, its name/aliases should start `without -`
     
     parser.addArgument<bool>("m", {"m_param"})
           .help("mandatory bool argument with mandatory parameter");
@@ -258,18 +258,18 @@ A list of public parser methods:
 
 * `addPositional<T>("name", parser_func, side_args)` - adds positional argument of type T
 with optional parser function and side arguments
-* `addArgument<T>("name,alias", {parameter_list}, parser_func, side_args)` - adds argument of type T
-with optional alias, parameters, parser function and side arguments
-* `getValue<T>("name or alias")` - returns value of type T of specified argument
+* `addArgument<T>("name,aliases", {parameter_list}, parser_func, side_args)` - adds argument of type T
+with optional aliases, parameters, parser function and side arguments
+* `getValue<T>("name or aliases")` - returns value of type T of specified argument
 * `scanValue<T>(value, date_format)` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values and `date_t` type. 
 `date_format` - optional, applicable to `date_t` type only
-* `setAlias("name", "alias")` - set alias to argument name if wasn't set in addArgument
+* `setAlias("name", "aliases")` - set aliases to argument name if wasn't set in addArgument
 * `getSelfName()` - get executable self name, applicable only after arguments are parsed
 * `parseArgs(argc, argv, allow_zero_options)` - parse arguments from command line. 
 `allow_zero_options` - optional, if set to true, 
 treats all `required` and `mandatory` arguments as arbitrary
-* `operator [] ("name or alias")` - provides access to const methods of argument, such as `is_set()`
+* `operator [] ("name or aliases")` - provides access to const methods of argument, such as `is_set()`
     
 ### addArgument and addPositional modifiers
 
