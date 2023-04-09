@@ -388,9 +388,6 @@ public:
                             T(*func)(args...) = nullptr,
                             std::tuple<Targs...> targs = std::tuple<>()){
 
-        KEY_ALIAS splitKey;
-        splitKey.key = std::string(key);
-
         static_assert((sizeof...(args) - sizeof...(Targs)) <= 1, " too many arguments in function");
 
         /// get template type string
@@ -408,7 +405,6 @@ public:
         }
 
         auto x = new DerivedOption<T,Targs...>(func, targs); //std::make_tuple(targs...)
-
         auto option = new ARG_DEFS();
         option->typeStr = strType;
         option->m_options = {};
@@ -418,8 +414,8 @@ public:
             option->m_date_format = DEFAULT_DATE_FORMAT;
         }
 
-        argMap[splitKey.key] = option;
-        posMap.emplace_back(splitKey.key);
+        argMap[key] = option;
+        posMap.emplace_back(key);
 
         return *option;
     }
@@ -429,7 +425,6 @@ public:
                           const std::initializer_list<std::string>& opts = {},
                           T(*func)(args...) = nullptr,
                           std::tuple<Targs...> targs = std::tuple<>()){
-
 
         if(names.empty()){
             throw std::invalid_argument(std::string(__func__) + ": argument must have a name");
@@ -524,7 +519,6 @@ public:
         }
 
         auto x = new DerivedOption<T,Targs...>(func, targs);
-
         auto option = new ARG_DEFS();
         option->typeStr = strType;
         option->option = x;
@@ -773,14 +767,13 @@ public:
                             continue;
                         }
                         auto key = x.first;
+                        std::string contKey = pName.substr(0, key.length());
                         for(auto &alias : x.second->m_aliases){
 
-                            //auto alias = x.second->m_aliases;
-                            std::string contKey = pName.substr(0, key.length());
                             std::string contAlias = pName.substr(0, alias.length());
                             std::string first2dig = pName.substr(0,2); //first 2 digits of current key
                             // if key or alias is 2 digits long arg with implicit value,
-                            // starts with '-' and match first 2 digits,
+                            // starts with '-' and matches first 2 digits,
                             // it's a combined (-vvv style) argument
                             if(first2dig.length() == 2
                                && x.second->m_implicit
@@ -792,7 +785,7 @@ public:
                                 contiguous = true;
                                 break;
                             }
-                            //check if it's a contiguous keyValue pair
+                            //check if it's a contiguous keyValue pair (-k123 style)
                             if(key == contKey){
                                 pValue = pName.substr(contKey.length());
                                 pName = contKey;
@@ -800,7 +793,7 @@ public:
                                 contiguous = true;
                                 break;
                             }
-                            //check if it's a contiguous aliasValue pair
+                            //check if it's a contiguous aliasValue pair (-a123 style)
                             if(!contAlias.empty()
                                && alias == contAlias){
                                 pValue = pName.substr(contAlias.length());
