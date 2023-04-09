@@ -180,6 +180,13 @@ private:
         }
     }
 
+    void set_global(){
+        if(global != nullptr){
+            //set global
+            *global = value;
+        }
+    }
+
     template <typename...args>
     DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs) { //Targs...targs
 
@@ -194,14 +201,8 @@ private:
     }
     ~DerivedOption() override = default;
 
-    void set_global(){
-        if(global != nullptr){
-            //set global
-            *global = value;
-        }
-    }
     T(*t_action)(Targs...,const char*...) = nullptr;
-    T value{};
+    T value {};
     std::tuple<Targs...> tpl;
     T *global = nullptr;
 };
@@ -424,10 +425,11 @@ public:
     }
 
     template <typename T, class...Targs, typename...args>
-    ARG_DEFS &addArgument(std::vector<std::string> names,
+    ARG_DEFS &addArgument(const std::vector<std::string> &names,
                           const std::initializer_list<std::string>& opts = {},
                           T(*func)(args...) = nullptr,
                           std::tuple<Targs...> targs = std::tuple<>()){
+
 
         if(names.empty()){
             throw std::invalid_argument(std::string(__func__) + ": argument must have a name");
@@ -436,16 +438,19 @@ public:
             checkForbiddenSymbols(el, __func__);
         }
 
-        auto sortingFunc = [](const std::string& first, const std::string& second){
-            return first.size() > second.size();
-        };
-
-        //sort vector by length from longer to shorter (key is always the longest)
-        std::sort(names.begin(), names.end(), sortingFunc);
-
         KEY_ALIAS splitKey;
-        splitKey.key = names[0];
-        splitKey.aliases = {names.begin() + 1, names.begin() + names.size()};
+        splitKey.aliases = {names};
+        splitKey.key = splitKey.aliases[0];
+        // find longest entry in vector, it'll be key
+        auto idx = splitKey.aliases.begin();
+        for(auto it = splitKey.aliases.begin(); it != splitKey.aliases.end(); it++){
+            if((*it).length() > splitKey.key.length()){
+                splitKey.key = *it;
+                idx = it;
+            }
+        }
+        // remove key from aliases vector
+        splitKey.aliases.erase(idx);
 
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
@@ -479,10 +484,10 @@ public:
             }
         }
 
-        bool flag = (splitKey.key[0] == '-');
+        bool flag = splitKey.key[0] == '-';
         bool starts_with_minus = flag;
         for(auto &el : splitKey.aliases){
-            bool match = (el[0] == '-');
+            bool match = el[0] == '-';
             if (match != flag){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + ": cannot add alias " + el + ": different type");
             }
@@ -495,7 +500,7 @@ public:
         bool implicit = opts.size() == 0;
 
         if(func == nullptr){
-            if(implicit && !std::is_arithmetic<T>::value){ //typeid(T) != typeid(bool)
+            if(implicit && !std::is_arithmetic<T>::value){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for non-arithmetic arg with implicit option");
             }
             if(opts.size() > 1){
@@ -515,7 +520,7 @@ public:
             }
         }
         else if((sizeof...(args) - sizeof...(Targs)) != opts.size()){
-            throw std::invalid_argument(std::string(__func__) + " " + splitKey.key + " opts size != function arguments");
+            throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " opts size != function arguments");
         }
 
         auto x = new DerivedOption<T,Targs...>(func, targs);
@@ -567,8 +572,9 @@ public:
             vec.push_back(keys.substr(0, c));
             keys = keys.substr(c + strlen(KEY_ALIAS_DELIMITER));
         }
-
-        vec.push_back(keys);
+        // add last portion of the string if not empty
+        if(!keys.empty())
+            vec.push_back(keys);
 
         // strip from spaces
         for(auto & el : vec){
