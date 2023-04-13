@@ -560,12 +560,19 @@ public:
 
         std::string keys = key == nullptr ? "" : std::string(key);
         std::vector<std::string> vec;
-
+        std::string::iterator s;
         size_t c;
-        while((c = keys.find(KEY_ALIAS_DELIMITER)) != std::string::npos){
+
+        auto checkChars = [](int c) -> bool{
+            return std::isalnum(c) || std::isspace(c) || c == '-';
+        };
+
+        while((s = std::find_if_not(keys.begin(), keys.end(), checkChars)) != keys.end()){
+            c = s - keys.begin();
             vec.push_back(keys.substr(0, c));
-            keys = keys.substr(c + strlen(KEY_ALIAS_DELIMITER));
+            keys = keys.substr(c+1);
         }
+
         // add last portion of the string if not empty
         if(!keys.empty())
             vec.push_back(keys);

@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
     // bool is also considered arithmetic,
     // so parser will increment it, thus setting it to true.
     // again, it's NON-REPEATABLE
-    parser.addArgument<bool>("-b, --bool")
+    parser.addArgument<bool>("-b; --bool")
             .help("bool arbitrary argument with alias and implicit value (if set, returns true)");
 
     // REPEATABLE argument can be specified more than once,
