@@ -48,13 +48,13 @@ int main(int argc, char *argv[]) {
     // starting from 0 or default_value, if provided.
     // by default, the arguments are NON-REPEATABLE,
     // i.e. a call '-x -x' or '-xx' is NOT VALID and will cast an error
-    parser.addArgument<int>("-x")
+    parser.addArgument<int>("-x ")
             .help("int arbitrary argument with implicit value (if set, returns 1)");
 
     // bool is also considered arithmetic,
     // so parser will increment it, thus setting it to true.
     // again, it's NON-REPEATABLE
-    parser.addArgument<bool>("-b; --bool")
+    parser.addArgument<bool>("-b; --bool  ")
             .help("bool arbitrary argument with alias and implicit value (if set, returns true)");
 
     // REPEATABLE argument can be specified more than once,

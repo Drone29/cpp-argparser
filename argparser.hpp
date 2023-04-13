@@ -564,29 +564,22 @@ public:
         size_t c;
 
         auto checkChars = [](int c) -> bool{
-            return std::isalnum(c) || std::isspace(c) || c == '-';
+            return std::isalnum(c) || c == '-';
         };
 
+        // split string
         while((s = std::find_if_not(keys.begin(), keys.end(), checkChars)) != keys.end()){
             c = s - keys.begin();
-            vec.push_back(keys.substr(0, c));
+            auto t = keys.substr(0, c);
+            if(!t.empty()) {
+                vec.push_back(t);
+            }
             keys = keys.substr(c+1);
         }
 
         // add last portion of the string if not empty
-        if(!keys.empty())
+        if(!keys.empty()){
             vec.push_back(keys);
-
-        // strip from spaces
-        for(auto & el : vec){
-            // leading
-            while((c = el.rfind(' ', 0)) != std::string::npos){
-                el = el.substr(c+1);
-            }
-            // trailing
-            if((c = el.find(' ')) != std::string::npos){
-                el = el.substr(0, c);
-            }
         }
 
         return addArgument(vec, opts, func, targs);
