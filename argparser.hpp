@@ -91,6 +91,90 @@ struct are_same <T, T, Ts...> : are_same<T, Ts...> {};
 template <typename ... Ts>
 inline constexpr bool are_same_v = are_same<Ts...>::value;
 
+// visible only for current file
+namespace{
+    /// format is applicable only to date_t type
+    std::any scan(std::type_index type, const char *arg, const char *date_format = nullptr) {
+
+        std::string temp = (arg == nullptr) ? "" : std::string(arg);
+
+        if(type == GET_TYPE(char*) || type == GET_TYPE(const char*)){
+            return arg;
+        }else if(type == GET_TYPE(std::string)){
+            return temp;
+        }else if(type == GET_TYPE(bool)){
+            auto isTrue = [func=__func__](const char *s){
+                const char *pos_buf[] = {BOOL_POSITIVES, nullptr};
+                const char *neg_buf[] = {BOOL_NEGATIVES, nullptr};
+                for(auto &i : pos_buf){
+                    if(i == nullptr) break;
+                    if(!strcmp(s, i)) return true;
+                }
+                for(auto &i : neg_buf){
+                    if(i == nullptr) break;
+                    if(!strcmp(s, i)) return false;
+                }
+                throw std::runtime_error(std::string(func) + ": unable to convert " + s + " to bool");
+            };
+
+            std::string lVal;
+            //convert to lower case
+            for(auto elem : temp) {
+                lVal += std::tolower(elem);
+            }
+            return isTrue(lVal.c_str());
+        }else if(type == GET_TYPE(date_t)){
+            date_t tt = {0};
+            if(date_format == nullptr){
+                date_format = DEFAULT_DATE_FORMAT;
+            }
+            std::stringstream ss(temp);
+            ss >> std::get_time(&tt, date_format);
+            if (ss.fail()){
+                throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date");
+            }
+            return tt;
+        }
+
+        ///numbers
+        char *tmp = (char*)temp.c_str();
+        std::any res;
+        if(type == GET_TYPE(int)){
+            res = (int)strtol(temp.c_str(), &tmp, 0);
+        }else if(type == GET_TYPE(char)){
+            res = (char)strtol(temp.c_str(), &tmp, 0);
+        }else if(type == GET_TYPE(short int)){
+            res = (short int)strtol(temp.c_str(), &tmp, 0);
+        }else if(type == GET_TYPE(long)){
+            res = strtol(temp.c_str(), &tmp, 0);
+        }else if(type == GET_TYPE(long long)){
+            res = strtoll(temp.c_str(), &tmp, 0);
+        }else if(type == GET_TYPE(unsigned int)){
+            res = (unsigned int)strtoul(temp.c_str(), &tmp, 0);
+        }else if(type == GET_TYPE(unsigned long)){
+            res = strtoul(temp.c_str(), &tmp, 0);
+        }else if(type == GET_TYPE(unsigned char)){
+            res = (unsigned char)strtoul(temp.c_str(), &tmp, 0);
+        }else if(type == GET_TYPE(short unsigned int)){
+            res = (short unsigned int)strtoul(temp.c_str(), &tmp, 0);
+        }else if(type == GET_TYPE(float)){
+            res = strtof(temp.c_str(), &tmp);
+        }else if(type == GET_TYPE(double)){
+            res = strtod(temp.c_str(), &tmp);
+        }else{
+            throw std::logic_error(std::string(__func__) + ": value of unknown type " + temp);
+        }
+
+        if (errno == ERANGE) {
+            throw std::range_error{std::string(__func__) + ": " + temp + " not representable"};
+        }
+        if(temp.c_str() == tmp || *tmp){
+            throw std::runtime_error(std::string(__func__) + ": could not convert " + temp);
+        }
+        return res;
+    }
+}
+
 class BaseOption{
 protected:
     friend class argParser;
@@ -98,40 +182,72 @@ protected:
     BaseOption() = default;
     virtual ~BaseOption() = default;
     virtual std::any action (const std::string *args, int size) = 0;
-    virtual std::any increment() = 0;
+    virtual std::any action () = 0;
+//    virtual std::any increment() = 0;
     virtual void set(std::any x) = 0;
     virtual std::string get_str_val() = 0;
     virtual void set_global_ptr(std::any ptr) = 0;
     virtual std::type_index get_type() = 0;
     std::any anyval;
     bool has_action = false;
+    bool infinite_options = false;
 };
 
 template <typename T, class...Targs>
 class DerivedOption : public BaseOption{
 private:
     friend class argParser;
-    std::any action(const std::string *args, int size) override{
-        const char *argvCpy[MAX_ARGS+1] = {nullptr};
-        const std::string *ptr = args;
-        for(int i=0; i<size;i++){
-            argvCpy[i] = (*ptr++).c_str();
-        }
-
-        auto cchar_tpl = std::make_tuple(UNPACK_ARGS(argvCpy));
-        auto tplres = std::tuple_cat(tpl, cchar_tpl);
-
-        if(t_action != nullptr){
-            value = std::apply(t_action, tplres);
+    std::any increment() {
+        if constexpr (std::is_arithmetic<T>::value){
+            value+=1;
         }
         set_global();
         anyval = value;
         return anyval;
     }
+    // parse infinite params. returns vector of Ts
+    std::any parse_infinite(const std::string *args, int size){
+        std::vector<T> res;
+        const std::string *ptr = args;
+        for(int i=0; i<size;i++){
+            // create tuple from side args + current const char* arg
+            auto cchar_tpl = std::make_tuple((*ptr).c_str());
+            auto tplres = std::tuple_cat(tpl, cchar_tpl);
+            //scan or apply action
+            T val = has_action
+                    ? std::apply(t_action, tplres)
+                    : std::any_cast<T>(scan(GET_TYPE(T), (*ptr).c_str())); //todo: date format?
+            res.push_back(val);
+            ptr++;
+        }
+        anyval = res;
+        return anyval;
+    }
+    // for implicit args only
+    std::any action() override{
+        if(!has_action){
+            return increment();
+        }
+        return action(nullptr, 0);
+    }
+    std::any action(const std::string *args, int size) override{
+        // for infinite options, call corresponding method
+        if(infinite_options){
+            return parse_infinite(args, size);
+        }
 
-    std::any increment() override {
-        if constexpr (std::is_arithmetic<T>::value){
-            value+=1;
+        const char *argvCpy[MAX_ARGS+1] = {nullptr};
+        const std::string *ptr = args;
+        for(int i=0; i<size;i++){
+            argvCpy[i] = (*ptr++).c_str();
+        }
+        // create resulting tuple
+        auto cchar_tpl = std::make_tuple(UNPACK_ARGS(argvCpy));
+        auto tplres = std::tuple_cat(tpl, cchar_tpl);
+
+        //t_action != nullptr
+        if(has_action){
+            value = std::apply(t_action, tplres);
         }
         set_global();
         anyval = value;
@@ -173,6 +289,7 @@ private:
     }
 
     void set_global_ptr(std::any ptr) override {
+        if(infinite_options) return;
         try{
             global = std::any_cast<T*>(ptr);
         }catch(std::bad_any_cast &e){
@@ -181,14 +298,14 @@ private:
     }
 
     void set_global(){
-        if(global != nullptr){
+        if(global != nullptr && !infinite_options){
             //set global
             *global = value;
         }
     }
 
     template <typename...args>
-    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs) { //Targs...targs
+    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs, bool infinite_opts = false) { //Targs...targs
 
         static_assert(sizeof...(args) < MAX_ARGS, " too many arguments");
         //check if args are const char*
@@ -198,6 +315,7 @@ private:
         anyval = value;
 
         tpl = targs;
+        infinite_options = infinite_opts;
     }
     ~DerivedOption() override = default;
 
@@ -325,6 +443,9 @@ struct ARG_DEFS{
     [[nodiscard]] auto options_size() const{
         return m_options.size();
     }
+    [[nodiscard]] bool has_infinite_options() const{
+        return m_infinite;
+    };
 
 private:
     std::string m_help;
@@ -351,6 +472,8 @@ private:
     bool m_implicit = false;
     //Non-repeatable
     bool m_repeatable = false;
+    // infinite opts
+    bool m_infinite = false;
     //If starts with minus
     bool m_starts_with_minus = false;
     //Date format (only for isodate_t type)
@@ -422,7 +545,7 @@ public:
 
     template <typename T, class...Targs, typename...args>
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
-                          const std::initializer_list<std::string>& opts = {},
+                          const std::initializer_list<std::string>& opts_lst = {},
                           T(*func)(args...) = nullptr,
                           std::tuple<Targs...> targs = std::tuple<>()){
 
@@ -450,10 +573,12 @@ public:
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
 
+        std::vector<std::string> opts = opts_lst;
         ///Check for invalid sequence order of arguments
         std::string last_arbitrary_arg;
         std::string last_mandatory_arg;
         int mnd_vals = 0;
+        bool infinite_opts = false;
 
         for(auto & sopt : opts){
             if(sopt.empty()){
@@ -461,6 +586,22 @@ public:
             }
             if(sopt.at(0) == ' ' || sopt.at(sopt.length()-1) == ' '){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " option " + sopt + " cannot begin or end with space");
+            }
+            // infinite options
+            if(sopt == "..."){
+                infinite_opts = true;
+                if(sopt != opts.back()){
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " '...' should be the last in the list");
+                }
+                if(sopt == opts.front()){
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " options list must have a name");
+                }
+                if(opts.size() > 2){
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " too many arguments");
+                }
+                // remove last ...
+                opts.pop_back();
+                break;
             }
 
             if(isOptMandatory(sopt)){
@@ -498,7 +639,7 @@ public:
             if(implicit && !std::is_arithmetic<T>::value){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for non-arithmetic arg with implicit option");
             }
-            if(opts.size() > 1){
+            if(!infinite_opts && opts.size() > 1){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
             }
             if(!implicit && last_mandatory_arg.empty()){
@@ -518,20 +659,20 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " opts size != function arguments");
         }
 
-        auto x = new DerivedOption<T,Targs...>(func, targs);
+        auto x = new DerivedOption<T,Targs...>(func, targs, infinite_opts);
         auto option = new ARG_DEFS();
         option->typeStr = strType;
         option->option = x;
         option->m_options = opts;
         option->m_arbitrary = flag;
         option->m_implicit = implicit;
+        option->m_infinite = infinite_opts;
         option->m_starts_with_minus = starts_with_minus;
         option->mandatory_options = mnd_vals;
         if(GET_TYPE(T) == GET_TYPE(date_t)
            && opts.size() == 1){
             option->m_date_format = DEFAULT_DATE_FORMAT;
         }
-
         argMap[splitKey.key] = option;
 
         // add aliases
@@ -670,7 +811,7 @@ public:
         mandatory_option &= !allow_zero_options;
 
         auto parseArgument = [this](const std::string &key, int start, int end){
-            if(argMap[key]->option->has_action){
+            if(argMap[key]->option->has_action || argMap[key]->option->infinite_options){
                 argMap[key]->option->action(&argVec[start], end - start);
             }else{
                 argMap[key]->option->set(scan(argMap[key]->option->get_type(), argVec[start].c_str(), argMap[key]->m_date_format));
@@ -878,22 +1019,19 @@ public:
 
                 ///Parse arg with implicit option
                 if(argMap[pName]->m_implicit){
-                    if(argMap[pName]->option->has_action){
-                        argMap[pName]->option->action(nullptr, 0);
-                    }
-                    else{
-                        argMap[pName]->option->increment();
-                    }
+                    argMap[pName]->option->action(); //nullptr, 0
                     setArgument(pName);
                     continue;
                 }
 
                 int opts_cnt = 0;
                 auto cnt = index + 1;
-                bool arbitrary_values = false;
+                //bool arbitrary_values = false;
+                bool infinite_opts = argMap[pName]->has_infinite_options();
 
-                for(int j=0; j<argMap[pName]->m_options.size(); j++){
-                    if(cnt >= argVec.size()){
+                while(cnt < argVec.size()){
+
+                    if(!infinite_opts && opts_cnt >= argMap[pName]->m_options.size()){
                         break;
                     }
 
@@ -909,9 +1047,7 @@ public:
                         }
                     }
 
-                    if(next_is_key
-                       && argMap[pName]->mandatory_options != argMap[pName]->m_options.size()){
-                        arbitrary_values = true;
+                    if(next_is_key){
                         break;
                     }
                     cnt++;
@@ -923,16 +1059,7 @@ public:
                                              + std::to_string(argMap[pName]->mandatory_options) + " options, but " + std::to_string(opts_cnt) + " were provided");
                 }
 
-                if(arbitrary_values){
-                    ///parse arg with partial arbitrary values list
-                    if(argMap[pName]->option->has_action){
-                        argMap[pName]->option->action(&argVec[index+1], opts_cnt);
-                    }else{
-                        throw std::runtime_error(std::string(pName) + " arbitrary value conflicts with arg " + argVec[cnt]);
-                    }
-                }else{
-                    parseArgument(pName, index + 1, index + 1 + opts_cnt);
-                }
+                parseArgument(pName, index + 1, index + 1 + opts_cnt);
 
                 index += opts_cnt;
                 setArgument(pName);
@@ -1005,86 +1132,7 @@ private:
         }
         return y;
     }
-    /// format is applicable only to date_t type
-    static std::any scan(std::type_index type, const char *arg, const char *date_format = nullptr) {
 
-        std::string temp = (arg == nullptr) ? "" : std::string(arg);
-
-        if(type == GET_TYPE(char*) || type == GET_TYPE(const char*)){
-            return arg;
-        }else if(type == GET_TYPE(std::string)){
-            return temp;
-        }else if(type == GET_TYPE(bool)){
-            auto isTrue = [func=__func__](const char *s){
-                const char *pos_buf[] = {BOOL_POSITIVES, nullptr};
-                const char *neg_buf[] = {BOOL_NEGATIVES, nullptr};
-                for(auto &i : pos_buf){
-                    if(i == nullptr) break;
-                    if(!strcmp(s, i)) return true;
-                }
-                for(auto &i : neg_buf){
-                    if(i == nullptr) break;
-                    if(!strcmp(s, i)) return false;
-                }
-                throw std::runtime_error(std::string(func) + ": unable to convert " + s + " to bool");
-            };
-
-            std::string lVal;
-            //convert to lower case
-            for(auto elem : temp) {
-                lVal += std::tolower(elem);
-            }
-            return isTrue(lVal.c_str());
-        }else if(type == GET_TYPE(date_t)){
-            date_t tt = {0};
-            if(date_format == nullptr){
-                date_format = DEFAULT_DATE_FORMAT;
-            }
-            std::stringstream ss(temp);
-            ss >> std::get_time(&tt, date_format);
-            if (ss.fail()){
-                throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date");
-            }
-            return tt;
-        }
-
-        ///numbers
-        char *tmp = (char*)temp.c_str();
-        std::any res;
-        if(type == GET_TYPE(int)){
-            res = (int)strtol(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(char)){
-            res = (char)strtol(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(short int)){
-            res = (short int)strtol(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(long)){
-            res = strtol(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(long long)){
-            res = strtoll(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(unsigned int)){
-            res = (unsigned int)strtoul(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(unsigned long)){
-            res = strtoul(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(unsigned char)){
-            res = (unsigned char)strtoul(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(short unsigned int)){
-            res = (short unsigned int)strtoul(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(float)){
-            res = strtof(temp.c_str(), &tmp);
-        }else if(type == GET_TYPE(double)){
-            res = strtod(temp.c_str(), &tmp);
-        }else{
-            throw std::logic_error(std::string(__func__) + ": value of unknown type " + temp);
-        }
-
-        if (errno == ERANGE) {
-            throw std::range_error{std::string(__func__) + ": " + temp + " not representable"};
-        }
-        if(temp.c_str() == tmp || *tmp){
-            throw std::runtime_error(std::string(__func__) + ": could not convert " + temp);
-        }
-        return res;
-    }
 
     void parsedCheck(const char* func = nullptr) const{
 
@@ -1157,12 +1205,18 @@ private:
                 alias_str += alias + KEY_ALIAS_DELIMITER + " ";
             }
             std::cout <<  alias_str + j.first;
+            std::string opt;
             for(auto &x : j.second->m_options){
-                std::string opt = std::string(x);
-                if(isOptMandatory(opt))
-                    opt = "<" + opt + ">";
+                opt = std::string(x);
+                std::string tmp = opt;
+                if(isOptMandatory(tmp))
+                    tmp = "<" + tmp + ">";
 
-                std::cout << " " + opt;
+                std::cout << " " + tmp;
+            }
+
+            if(j.second->has_infinite_options()){
+                std::cout << " [" + opt + "...]";
             }
         };
         //check required: -1-don't check, 0-false, other-true

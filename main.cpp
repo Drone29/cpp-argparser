@@ -24,6 +24,13 @@ CL createStruct(const char *bl, const char *itgr = nullptr){
     return CL{b, i};
 }
 
+int infiniteFunc(const char *a){
+    if(a == nullptr){
+        a = "0";
+    }
+    return argParser::scanValue<int>(a);
+}
+
 int main(int argc, char *argv[]) {
 
     argParser parser;
@@ -190,6 +197,8 @@ int main(int argc, char *argv[]) {
             .date_format("%d.%m.%Y-%H:%M")
             .help("Converts date string to date struct");
 
+    parser.addArgument<int>("--infinite", {"[N]", "..."}, infiniteFunc)
+            .help("parses any number of integers. Result is std::vector<int>");
     // parseArgs accepts 3 parameters: argc, argv and optional bool 'allow_zero_options'
     // if allow_zero_options is true, it will not cast errors if required or mandatory arguments were not specified
     parser.parseArgs(argc, argv);
@@ -197,6 +206,8 @@ int main(int argc, char *argv[]) {
     // const methods of argument can be accessed via [ ]
     // here it returns true if argument 'v' was set by user
     auto isArgumentSet = parser["v"].is_set();
+
+    auto N = parser.getValue<std::vector<int>>("--infinite");
 
     // to get parsed value, use getValue, explicitly setting the type,
     // or set a global_ptr beforehand
