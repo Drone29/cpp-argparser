@@ -599,6 +599,9 @@ public:
                 if(opts.size() > 2){
                     throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " too many arguments");
                 }
+                if(!isOptMandatory(opts.front())){
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " options list name cannot be arbitrary");
+                }
                 // remove last ...
                 opts.pop_back();
                 break;
