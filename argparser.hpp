@@ -91,6 +91,8 @@ struct are_same <T, T, Ts...> : are_same<T, Ts...> {};
 template <typename ... Ts>
 inline constexpr bool are_same_v = are_same<Ts...>::value;
 
+
+
 // visible only for current file
 namespace{
     /// format is applicable only to date_t type
@@ -130,6 +132,7 @@ namespace{
             }
             std::stringstream ss(temp);
             ss >> std::get_time(&tt, date_format);
+            // todo: not all conversion errors handled
             if (ss.fail()){
                 throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date");
             }
@@ -183,6 +186,7 @@ protected:
     virtual ~BaseOption() = default;
     virtual std::any action (const std::string *args, int size) = 0;
     virtual std::any action () = 0;
+    virtual std::any action (const std::string *args, int size, const char *date_format) = 0;
 //    virtual std::any increment() = 0;
     virtual void set(std::any x) = 0;
     virtual std::string get_str_val() = 0;
@@ -205,10 +209,14 @@ private:
         anyval = value;
         return anyval;
     }
-    // parse infinite params. returns vector of Ts
-    std::any parse_infinite(const std::string *args, int size){
+    // parse infinite params and single scan. returns vector of Ts or single value
+    std::any action(const std::string *args, int size, const char *date_format) override{
         std::vector<T> res;
         const std::string *ptr = args;
+        if(!has_action && !infinite_options){
+            set(scan(GET_TYPE(T), (*ptr).c_str(), date_format));
+            return anyval;
+        }
         for(int i=0; i<size;i++){
             // create tuple from side args + current const char* arg
             auto cchar_tpl = std::make_tuple((*ptr).c_str());
@@ -216,7 +224,7 @@ private:
             //scan or apply action
             T val = has_action
                     ? std::apply(t_action, tplres)
-                    : std::any_cast<T>(scan(GET_TYPE(T), (*ptr).c_str())); //todo: date format?
+                    : std::any_cast<T>(scan(GET_TYPE(T), (*ptr).c_str(), date_format));
             res.push_back(val);
             ptr++;
         }
@@ -231,10 +239,6 @@ private:
         return action(nullptr, 0);
     }
     std::any action(const std::string *args, int size) override{
-        // for infinite options, call corresponding method
-        if(infinite_options){
-            return parse_infinite(args, size);
-        }
 
         const char *argvCpy[MAX_ARGS+1] = {nullptr};
         const std::string *ptr = args;
@@ -444,8 +448,12 @@ struct ARG_DEFS{
         return m_options.size();
     }
     [[nodiscard]] bool has_infinite_options() const{
-        return m_infinite;
+        return option == nullptr ? false : option->infinite_options;
     };
+    // get raw string parameters passed from cli
+    [[nodiscard]] std::vector<std::string> get_cli_params() const{
+        return m_cli_params;
+    }
 
 private:
     std::string m_help;
@@ -454,9 +462,11 @@ private:
     bool m_hidden = false;
     //list of options
     std::vector<std::string> m_options;
-
+    //raw cli parameters
+    std::vector<std::string> m_cli_params;
+    //stringified type
     std::string typeStr;
-    ///Option/flag
+    //Option/flag
     BaseOption* option = nullptr;
     //in use
     bool m_set = false;
@@ -470,13 +480,11 @@ private:
     bool m_required = false;
     //Implicit
     bool m_implicit = false;
-    //Non-repeatable
+    //repeatable
     bool m_repeatable = false;
-    // infinite opts
-    bool m_infinite = false;
     //If starts with minus
     bool m_starts_with_minus = false;
-    //Date format (only for isodate_t type)
+    //Date format (only for date_t type)
     const char *m_date_format = nullptr;
     //If needed to be shown in help
     bool m_hide_date_format = false;
@@ -594,13 +602,13 @@ public:
                     throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " '...' should be the last in the list");
                 }
                 if(sopt == opts.front()){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " options list must have a name");
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " infinite list must have a name");
                 }
                 if(opts.size() > 2){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " too many arguments");
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " infinite list must have exactly 2 arguments");
                 }
                 if(!isOptMandatory(opts.front())){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " options list name cannot be arbitrary");
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " infinite list name cannot be arbitrary");
                 }
                 // remove last ...
                 opts.pop_back();
@@ -642,7 +650,7 @@ public:
             if(implicit && !std::is_arithmetic<T>::value){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for non-arithmetic arg with implicit option");
             }
-            if(!infinite_opts && opts.size() > 1){
+            if(opts.size() > 1){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
             }
             if(!implicit && last_mandatory_arg.empty()){
@@ -669,7 +677,6 @@ public:
         option->m_options = opts;
         option->m_arbitrary = flag;
         option->m_implicit = implicit;
-        option->m_infinite = infinite_opts;
         option->m_starts_with_minus = starts_with_minus;
         option->mandatory_options = mnd_vals;
         if(GET_TYPE(T) == GET_TYPE(date_t)
@@ -762,6 +769,11 @@ public:
         }
     }
 
+    /// Get last unparsed argument
+    [[nodiscard]] const ARG_DEFS *getLastUnparsed() const{
+        return last_unparsed_arg;
+    }
+
     ///Set alias for option
     void setAlias(const std::string &key, const std::string &alias){
         if(argMap.find(key) == argMap.end()){
@@ -814,10 +826,18 @@ public:
         mandatory_option &= !allow_zero_options;
 
         auto parseArgument = [this](const std::string &key, int start, int end){
-            if(argMap[key]->option->has_action || argMap[key]->option->infinite_options){
-                argMap[key]->option->action(&argVec[start], end - start);
-            }else{
-                argMap[key]->option->set(scan(argMap[key]->option->get_type(), argVec[start].c_str(), argMap[key]->m_date_format));
+            try{
+                // save raw cli parameters
+                argMap[key]->m_cli_params = {&argVec[start], &argVec[end]};
+                if(argMap[key]->option->has_action && !argMap[key]->option->infinite_options){
+                    argMap[key]->option->action(&argVec[start], end - start);
+                }else{
+                    argMap[key]->option->action(&argVec[start], end - start, argMap[key]->m_date_format);
+                }
+            }catch(std::exception &e){
+                //save last unparsed arg
+                last_unparsed_arg = argMap[key];
+                throw unparsed_argument(e.what());
             }
         };
 
@@ -1029,12 +1049,15 @@ public:
 
                 int opts_cnt = 0;
                 auto cnt = index + 1;
-                //bool arbitrary_values = false;
                 bool infinite_opts = argMap[pName]->has_infinite_options();
 
                 while(cnt < argVec.size()){
 
                     if(!infinite_opts && opts_cnt >= argMap[pName]->m_options.size()){
+                        break;
+                    }
+                    // leave space for positionals
+                    if(infinite_opts && argVec.size() - cnt <= posMap.size()){
                         break;
                     }
 
@@ -1079,6 +1102,12 @@ public:
 
     const ARG_DEFS &operator [] (const std::string &key) const { return getArg(key); }
 
+    /// Custom exception class
+    class unparsed_argument : public std::runtime_error{
+    public:
+        unparsed_argument(const char *msg) : std::runtime_error(msg) {}
+    };
+
 private:
 
     struct KEY_ALIAS{
@@ -1096,6 +1125,7 @@ private:
     int positional_cnt = 0;
     int mandatory_args = 0;
     int required_args = 0;
+    ARG_DEFS *last_unparsed_arg = nullptr;
 
     [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
         std::string skey = key;

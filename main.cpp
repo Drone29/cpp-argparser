@@ -194,7 +194,29 @@ int main(int argc, char *argv[]) {
             .help("parses any number of integers. Result is std::vector<int>");
     // parseArgs accepts 3 parameters: argc, argv and optional bool 'allow_zero_options'
     // if allow_zero_options is true, it will not cast errors if required or mandatory arguments were not specified
-    parser.parseArgs(argc, argv);
+    try{
+        parser.parseArgs(argc, argv);
+        //catch argument parsing error
+    }catch(argParser::unparsed_argument &e){
+        std::cout << "Caught error: " + std::string(e.what()) << std::endl;
+        // check unparsed argument
+        auto last_unparsed = parser.getLastUnparsed();
+        if(last_unparsed != nullptr){
+            // get unparsed argument cli parameters and show them
+            std::cout << "Passed parameters:";
+            auto raw_params = last_unparsed->get_cli_params();
+            for(auto &el : raw_params){
+                std::cout << " " + el;
+            }
+            std::cout << std::endl;
+        }
+        return -1;
+        // catch other exceptions
+    }catch(std::exception &e){
+        std::cout << "Caught error: " + std::string(e.what()) << std::endl;
+        return -1;
+    }
+
 
     // const methods of argument can be accessed via [ ]
     // here it returns true if argument 'v' was set by user
