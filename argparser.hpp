@@ -715,7 +715,7 @@ public:
         size_t c;
 
         auto checkChars = [](int c) -> bool{
-            return std::isalnum(c) || c == '-';
+            return std::isalnum(c) || c == '-' || c == '_';
         };
 
         // split string
@@ -906,6 +906,7 @@ public:
             auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
                 argVec[index] = key;
                 argVec.insert(argVec.begin() + index + 1, val);
+                index--;
             };
             std::string pName = argVec[index];
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
@@ -922,7 +923,12 @@ public:
 
             if(argMap.find(pName) == argMap.end()){
                 ///Find alias
-                if(findKeyByAlias(pName).empty()){
+                std::string name = findKeyByAlias(pName);
+                if(!name.empty()){
+                    // change alias to key
+                    argVec[index] = name;
+                }
+                else{
                     ///check contiguous or combined arguments
                     bool contiguous = false;
                     for(auto &x : argMap){
@@ -970,9 +976,6 @@ public:
                         if(contiguous)
                             break;
                     }
-                    if(contiguous){
-                        continue;
-                    }
                 }
             }
         }
@@ -982,13 +985,6 @@ public:
 
             std::string pName = argVec[index];
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
-            ///Find alias
-            if(argMap.find(pName) == argMap.end()){
-                std::string newKey = findKeyByAlias(pName);
-                if(!newKey.empty()){
-                    pName = newKey;
-                }
-            }
 
             ///Try parsing positional args
             if(argMap.find(pName) == argMap.end()){
@@ -1042,42 +1038,31 @@ public:
 
                 ///Parse arg with implicit option
                 if(argMap[pName]->m_implicit){
-                    argMap[pName]->option->action(); //nullptr, 0
+                    argMap[pName]->option->action();
                     setArgument(pName);
                     continue;
                 }
 
                 int opts_cnt = 0;
-                auto cnt = index + 1;
+                auto cnt = index;
                 bool infinite_opts = argMap[pName]->has_infinite_options();
 
-                while(cnt < argVec.size()){
-
+                while(++cnt < argVec.size()){
+                    // if all options found, break
                     if(!infinite_opts && opts_cnt >= argMap[pName]->m_options.size()){
                         break;
                     }
                     // leave space for positionals
-                    if(infinite_opts && argVec.size() - cnt <= posMap.size()){
+                    if((infinite_opts || opts_cnt == argMap[pName]->mandatory_options)
+                    && argVec.size() - cnt <= posMap.size()){
                         break;
                     }
-
                     //check if next value is also a key
                     bool next_is_key = argMap.find(argVec[cnt]) != argMap.end();
-                    //find alias
-                    for(auto &x : argMap){
-                        for(auto &alias : x.second->m_aliases){
-                            next_is_key |= alias == argVec[cnt];
-                        }
-                        if(next_is_key){
-                            break;
-                        }
-                    }
-
                     if(next_is_key){
                         break;
                     }
-                    cnt++;
-                    opts_cnt++;
+                    ++opts_cnt;
                 }
 
                 if(opts_cnt < argMap[pName]->mandatory_options){

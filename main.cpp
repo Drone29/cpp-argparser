@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
     // func(int a, const char* b) is VALID,
     // func(const char*b, int a) is NOT VALID
     // side arguments should be passed to addArgument after function inside a tuple
-    parser.addArgument<int>("v", {"vv"}, tst, std::make_tuple(5))
+    parser.addArgument<int>("v, v_int", {"vv"}, tst, std::make_tuple(5))
             .help("mandatory arg with mandatory value and side argument 5 for function tst");
 
     // return type can be almost any type, all you need is a right function
