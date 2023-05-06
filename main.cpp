@@ -197,7 +197,7 @@ int main(int argc, char *argv[]) {
     try{
         parser.parseArgs(argc, argv);
         //catch argument parsing error
-    }catch(argParser::unparsed_argument &e){
+    }catch(argParser::unparsed_param &e){
         std::cout << "Caught error: " + std::string(e.what()) << std::endl;
         // check unparsed argument
         auto last_unparsed = parser.getLastUnparsed();
@@ -212,7 +212,7 @@ int main(int argc, char *argv[]) {
         }
         return -1;
         // catch other exceptions
-    }catch(std::exception &e){
+    }catch(argParser::parse_error &e){
         std::cout << "Caught error: " + std::string(e.what()) << std::endl;
         return -1;
     }
