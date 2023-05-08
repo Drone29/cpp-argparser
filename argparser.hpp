@@ -590,23 +590,23 @@ public:
             if(sopt.empty()){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " option name cannot be empty");
             }
-            if(sopt.at(0) == ' ' || sopt.at(sopt.length()-1) == ' '){
+            if(sopt.front() == ' ' || sopt.back() == ' '){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " option " + sopt + " cannot begin or end with space");
             }
             // variadic options
             if(sopt == "..."){
                 infinite_opts = true;
                 if(sopt != opts.back()){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " '...' should be the last in the list");
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic specifier '...' should be the last in the options list");
                 }
                 if(sopt == opts.front()){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list must have a name");
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list must have 1 mandatory option");
                 }
                 if(opts.size() > 2){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list must have exactly 2 arguments");
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list must have exactly 2 options");
                 }
                 if(!isOptMandatory(opts.front())){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list name cannot be arbitrary");
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list 1st option cannot be arbitrary");
                 }
                 // remove last ...
                 opts.pop_back();
@@ -852,16 +852,14 @@ public:
             if(compareWith.length() < compareWhat.length()){
                 return std::string::npos;
             }
-            while(tmpWhat.length() < compareWith.length()){
-                tmpWhat += ' ';
-            }
-            for(auto &x : compareWith){
-                auto remStr = compareWith.substr(idx+1);
+            //make string same length
+            tmpWhat += std::string(compareWith.length()-tmpWhat.length(), ' ');
+            for(auto x : compareWith){
                 char c = tmpWhat[idx++];
+                auto remStr = compareWith.substr(idx);
                 if(x != c){
-                    result++;
-                    if(remStr.find(c) != std::string::npos){
-                        result--;
+                    if(remStr.find(c) == std::string::npos){
+                        ++result;
                     }
                 }
             }
@@ -981,10 +979,11 @@ public:
             std::string pName = argVec[index];
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
 
-            ///Try parsing positional args
+            ///If found unknown key
             if(argMap.find(pName) == argMap.end()){
                 int pos_idx = index;
-                if(!posMap.empty()){
+                ///Try parsing positional args
+                if(positional_cnt < posMap.size()){
                     ///check if non-positional options were parsed
                     checkParsedNonPos();
                     for(auto &x : posMap){
@@ -995,7 +994,7 @@ public:
                         positional_cnt++;
                         pos_idx++;
                     }
-                    break;
+                    continue;
                 }
 
                 std::string thrError = "Unknown argument: " + std::string(pName);
@@ -1010,19 +1009,18 @@ public:
                     }
                 }
 
-                dummyFunc(nullptr);
+                dummyFunc();
                 if(mismatch < 2){
                     thrError += ". Did you mean " + proposed_value + "?";
                 }
                 throw parse_error(thrError);
             }
-
+            ///Show help
             if(argMap[pName]->typeStr == ARG_TYPE_HELP){
                 helpDefault(argv[0], pValue);
                 exit(0);
             }
-            else
-            {
+            else{
                 ///Parse other types
 
                 ///If non-repeatable and occurred again, throw error
@@ -1207,12 +1205,12 @@ private:
     }
 
     static bool isOptMandatory(const std::string &sopt){
-        return !sopt.empty() && (sopt.at(0) != '[')
-               && (sopt.at(sopt.length() - 1) != ']');
+        return !sopt.empty() && (sopt.front() != '[')
+               && (sopt.back() != ']');
     }
 
-    ///These are voids in case funcType is changed later
-    static void dummyFunc(void*...){
+    //summy function
+    static void dummyFunc(){
         std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
     }
 
