@@ -438,6 +438,9 @@ struct ARG_DEFS{
     [[nodiscard]] bool is_repeatable() const{
         return m_repeatable;
     }
+    [[nodiscard]] bool is_variadic() const{
+        return option == nullptr ? false : option->variadic;
+    };
     // applicable only for date_t type
     [[nodiscard]] const char *get_date_format() const{
         return m_date_format;
@@ -445,9 +448,6 @@ struct ARG_DEFS{
     [[nodiscard]] auto options_size() const{
         return m_options.size();
     }
-    [[nodiscard]] bool has_infinite_options() const{
-        return option == nullptr ? false : option->variadic;
-    };
     // get raw string parameters passed from cli
     [[nodiscard]] std::vector<std::string> get_cli_params() const{
         return m_cli_params;
@@ -1040,7 +1040,7 @@ public:
 
                 int opts_cnt = 0;
                 auto cnt = index;
-                bool infinite_opts = argMap[pName]->has_infinite_options();
+                bool infinite_opts = argMap[pName]->is_variadic();
 
                 while(++cnt < argVec.size()){
                     // if all options found, break
