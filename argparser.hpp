@@ -182,65 +182,67 @@ protected:
     friend struct ARG_DEFS;
     BaseOption() = default;
     virtual ~BaseOption() = default;
-    virtual std::any action () = 0; // for implicit args
-    virtual std::any action (const std::string *args, int size) = 0; // for common args
-    virtual std::any action (const std::string *args, int size, const char *date_format) = 0; // for infinite args
+    virtual void action () = 0; // for implicit args
+    virtual void action (const std::string *args, int size) = 0; // for common args
+    virtual void action (const std::string *args, int size, const char *date_format) = 0; // for variadic args
     virtual void set(std::any x) = 0;
     virtual std::string get_str_val() = 0;
     virtual void set_global_ptr(std::any ptr) = 0;
     virtual std::type_index get_type() = 0;
     std::any anyval;
     bool has_action = false;
-    bool infinite_options = false;
+    bool variadic = false;
 };
 
 template <typename T, class...Targs>
 class DerivedOption : public BaseOption{
 private:
     friend class argParser;
-    std::any increment() {
+    void increment() {
         if constexpr (std::is_arithmetic<T>::value){
             value+=1;
         }
         set_global();
         anyval = value;
-        return anyval;
     }
-    // parse infinite params and single scan. returns vector of Ts or single value
-    std::any action(const std::string *args, int size, const char *date_format) override{
+    // parse variadic params, single scan and common action
+    void action(const std::string *args, int size, const char *date_format) override{
         std::vector<T> res;
-        const std::string *ptr = args;
-        if(!has_action && !infinite_options){
-            set(scan(GET_TYPE(T), (*ptr).c_str(), date_format));
-            return anyval;
+        // non-variadic action
+        if(has_action && !variadic){
+            action(args, size);
+            return;
         }
-        for(int i=0; i<size;i++){
+        // simple scan of single value
+        if(!has_action && !variadic){
+            set(scan(GET_TYPE(T), args[0].c_str(), date_format));
+            return;
+        }
+        // variadic action
+        for(int i=0; i<size; ++i){
             // create tuple from side args + current const char* arg
-            auto cchar_tpl = std::make_tuple((*ptr).c_str());
+            auto cchar_tpl = std::make_tuple(args[i].c_str());
             auto tplres = std::tuple_cat(tpl, cchar_tpl);
             //scan or apply action
             T val = has_action
                     ? std::apply(t_action, tplres)
-                    : std::any_cast<T>(scan(GET_TYPE(T), (*ptr).c_str(), date_format));
+                    : std::any_cast<T>(scan(GET_TYPE(T), args[i].c_str(), date_format));
             res.push_back(val);
-            ptr++;
         }
         anyval = res;
-        return anyval;
     }
     // for implicit args only
-    std::any action() override{
+    void action() override{
         if(!has_action){
-            return increment();
+            increment();
+        }else{
+            action(nullptr, 0);
         }
-        return action(nullptr, 0);
     }
-    std::any action(const std::string *args, int size) override{
-
+    void action(const std::string *args, int size) override{
         const char *argvCpy[MAX_ARGS+1] = {nullptr};
-        const std::string *ptr = args;
-        for(int i=0; i<size;i++){
-            argvCpy[i] = (*ptr++).c_str();
+        for(int i=0; i<size; ++i){
+            argvCpy[i] = args[i].c_str();
         }
         // create resulting tuple
         auto cchar_tpl = std::make_tuple(UNPACK_ARGS(argvCpy));
@@ -252,7 +254,6 @@ private:
         }
         set_global();
         anyval = value;
-        return anyval;
     }
 
     std::string get_str_val() override{
@@ -290,7 +291,7 @@ private:
     }
 
     void set_global_ptr(std::any ptr) override {
-        if(infinite_options) return;
+        if(variadic) return;
         try{
             global = std::any_cast<T*>(ptr);
         }catch(std::bad_any_cast &e){
@@ -299,7 +300,7 @@ private:
     }
 
     void set_global(){
-        if(global != nullptr && !infinite_options){
+        if(global != nullptr && !variadic){
             //set global
             *global = value;
         }
@@ -316,7 +317,7 @@ private:
         anyval = value;
 
         tpl = targs;
-        infinite_options = infinite_opts;
+        variadic = infinite_opts;
     }
     ~DerivedOption() override = default;
 
@@ -445,7 +446,7 @@ struct ARG_DEFS{
         return m_options.size();
     }
     [[nodiscard]] bool has_infinite_options() const{
-        return option == nullptr ? false : option->infinite_options;
+        return option == nullptr ? false : option->variadic;
     };
     // get raw string parameters passed from cli
     [[nodiscard]] std::vector<std::string> get_cli_params() const{
@@ -592,20 +593,20 @@ public:
             if(sopt.at(0) == ' ' || sopt.at(sopt.length()-1) == ' '){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " option " + sopt + " cannot begin or end with space");
             }
-            // infinite options
+            // variadic options
             if(sopt == "..."){
                 infinite_opts = true;
                 if(sopt != opts.back()){
                     throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " '...' should be the last in the list");
                 }
                 if(sopt == opts.front()){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " infinite list must have a name");
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list must have a name");
                 }
                 if(opts.size() > 2){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " infinite list must have exactly 2 arguments");
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list must have exactly 2 arguments");
                 }
                 if(!isOptMandatory(opts.front())){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " infinite list name cannot be arbitrary");
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list name cannot be arbitrary");
                 }
                 // remove last ...
                 opts.pop_back();
@@ -826,11 +827,7 @@ public:
             try{
                 // save raw cli parameters
                 argMap[key]->m_cli_params = {&argVec[start], &argVec[end]};
-                if(argMap[key]->option->has_action && !argMap[key]->option->infinite_options){
-                    argMap[key]->option->action(&argVec[start], end - start);
-                }else{
-                    argMap[key]->option->action(&argVec[start], end - start, argMap[key]->m_date_format);
-                }
+                argMap[key]->option->action(&argVec[start], end - start, argMap[key]->m_date_format);
             }catch(std::exception &e){
                 //save last unparsed arg
                 last_unparsed_arg = argMap[key];
