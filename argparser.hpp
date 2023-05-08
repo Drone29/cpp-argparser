@@ -1236,7 +1236,7 @@ private:
                 std::cout << " " + tmp;
             }
 
-            if(j.second->has_infinite_options()){
+            if(j.second->is_variadic()){
                 std::cout << " [" + opt + "...]";
             }
         };
