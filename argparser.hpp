@@ -91,8 +91,6 @@ struct are_same <T, T, Ts...> : are_same<T, Ts...> {};
 template <typename ... Ts>
 inline constexpr bool are_same_v = are_same<Ts...>::value;
 
-
-
 // visible only for current file
 namespace{
     /// format is applicable only to date_t type
@@ -184,10 +182,9 @@ protected:
     friend struct ARG_DEFS;
     BaseOption() = default;
     virtual ~BaseOption() = default;
-    virtual std::any action (const std::string *args, int size) = 0;
-    virtual std::any action () = 0;
-    virtual std::any action (const std::string *args, int size, const char *date_format) = 0;
-//    virtual std::any increment() = 0;
+    virtual std::any action () = 0; // for implicit args
+    virtual std::any action (const std::string *args, int size) = 0; // for common args
+    virtual std::any action (const std::string *args, int size, const char *date_format) = 0; // for infinite args
     virtual void set(std::any x) = 0;
     virtual std::string get_str_val() = 0;
     virtual void set_global_ptr(std::any ptr) = 0;
@@ -890,12 +887,12 @@ public:
                 if(parsed_mnd_args != mandatory_args){
                     for(auto &x : argMap){
                         if(!x.second->m_arbitrary && !x.second->m_positional && !x.second->m_set){
-                            throw std::runtime_error(x.first + " not specified");
+                            throw parse_error(x.first + " not specified");
                         }
                     }
                 }
                 if(required_args > 0 && parsed_required_args < 1){
-                    throw std::runtime_error("Missing required option " + std::string(REQUIRED_OPTION_SIGN));
+                    throw parse_error("Missing required option " + std::string(REQUIRED_OPTION_SIGN));
                 }
             }
         };
@@ -980,113 +977,108 @@ public:
             }
         }
 
-        try{
-            /// Main parser loop
-            for(auto index = 0; index < argVec.size(); index++){
 
-                std::string pName = argVec[index];
-                std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
+        /// Main parser loop
+        for(auto index = 0; index < argVec.size(); index++){
 
-                ///Try parsing positional args
-                if(argMap.find(pName) == argMap.end()){
-                    int pos_idx = index;
-                    if(!posMap.empty()){
-                        ///check if non-positional options were parsed
-                        checkParsedNonPos();
-                        for(auto &x : posMap){
-                            if(pos_idx >= argVec.size()){
-                                break;
-                            }
-                            parseArgument(x, index, index+1);
-                            positional_cnt++;
-                            pos_idx++;
+            std::string pName = argVec[index];
+            std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
+
+            ///Try parsing positional args
+            if(argMap.find(pName) == argMap.end()){
+                int pos_idx = index;
+                if(!posMap.empty()){
+                    ///check if non-positional options were parsed
+                    checkParsedNonPos();
+                    for(auto &x : posMap){
+                        if(pos_idx >= argVec.size()){
+                            break;
                         }
+                        parseArgument(x, index, index+1);
+                        positional_cnt++;
+                        pos_idx++;
+                    }
+                    break;
+                }
+
+                std::string thrError = "Unknown argument: " + std::string(pName);
+                ///find closest key
+                auto proposed_value = argMap.begin()->first;
+                auto mismatch = strMismatch(pName, proposed_value);
+                for(auto &x : argMap){
+                    auto tmp = strMismatch(pName, x.first);
+                    if(tmp < mismatch){
+                        mismatch = tmp;
+                        proposed_value = x.first;
+                    }
+                }
+
+                dummyFunc(nullptr);
+                if(mismatch < 2){
+                    thrError += ". Did you mean " + proposed_value + "?";
+                }
+                throw parse_error(thrError);
+            }
+
+            if(argMap[pName]->typeStr == ARG_TYPE_HELP){
+                helpDefault(argv[0], pValue);
+                exit(0);
+            }
+            else
+            {
+                ///Parse other types
+
+                ///If non-repeatable and occurred again, throw error
+                if(argMap[pName]->m_set
+                   && !argMap[pName]->m_repeatable){
+                    throw parse_error("Error: redefinition of non-repeatable arg " + std::string(pName));
+                }
+
+                ///Parse arg with implicit option
+                if(argMap[pName]->m_implicit){
+                    argMap[pName]->option->action();
+                    setArgument(pName);
+                    continue;
+                }
+
+                int opts_cnt = 0;
+                auto cnt = index;
+                bool infinite_opts = argMap[pName]->has_infinite_options();
+
+                while(++cnt < argVec.size()){
+                    // if all options found, break
+                    if(!infinite_opts && opts_cnt >= argMap[pName]->m_options.size()){
                         break;
                     }
-
-                    std::string thrError = "Unknown argument: " + std::string(pName);
-                    ///find closest key
-                    auto proposed_value = argMap.begin()->first;
-                    auto mismatch = strMismatch(pName, proposed_value);
-                    for(auto &x : argMap){
-                        auto tmp = strMismatch(pName, x.first);
-                        if(tmp < mismatch){
-                            mismatch = tmp;
-                            proposed_value = x.first;
-                        }
+                    // leave space for positionals
+                    if((infinite_opts || opts_cnt == argMap[pName]->mandatory_options)
+                       && argVec.size() - cnt <= posMap.size()){
+                        break;
                     }
-
-                    dummyFunc(nullptr);
-                    if(mismatch < 2){
-                        thrError += ". Did you mean " + proposed_value + "?";
+                    //check if next value is also a key
+                    bool next_is_key = argMap.find(argVec[cnt]) != argMap.end();
+                    if(next_is_key){
+                        break;
                     }
-                    throw std::runtime_error(thrError);
+                    ++opts_cnt;
                 }
 
-                if(argMap[pName]->typeStr == ARG_TYPE_HELP){
-                    helpDefault(argv[0], pValue);
-                    exit(0);
+                if(opts_cnt < argMap[pName]->mandatory_options){
+                    throw parse_error(std::string(pName) + " requires "
+                                             + std::to_string(argMap[pName]->mandatory_options) + " options, but " + std::to_string(opts_cnt) + " were provided");
                 }
-                else
-                {
-                    ///Parse other types
 
-                    ///If non-repeatable and occurred again, throw error
-                    if(argMap[pName]->m_set
-                       && !argMap[pName]->m_repeatable){
-                        throw std::runtime_error("Error: redefinition of non-repeatable arg " + std::string(pName));
-                    }
+                parseArgument(pName, index + 1, index + 1 + opts_cnt);
 
-                    ///Parse arg with implicit option
-                    if(argMap[pName]->m_implicit){
-                        argMap[pName]->option->action();
-                        setArgument(pName);
-                        continue;
-                    }
-
-                    int opts_cnt = 0;
-                    auto cnt = index;
-                    bool infinite_opts = argMap[pName]->has_infinite_options();
-
-                    while(++cnt < argVec.size()){
-                        // if all options found, break
-                        if(!infinite_opts && opts_cnt >= argMap[pName]->m_options.size()){
-                            break;
-                        }
-                        // leave space for positionals
-                        if((infinite_opts || opts_cnt == argMap[pName]->mandatory_options)
-                           && argVec.size() - cnt <= posMap.size()){
-                            break;
-                        }
-                        //check if next value is also a key
-                        bool next_is_key = argMap.find(argVec[cnt]) != argMap.end();
-                        if(next_is_key){
-                            break;
-                        }
-                        ++opts_cnt;
-                    }
-
-                    if(opts_cnt < argMap[pName]->mandatory_options){
-                        throw std::runtime_error(std::string(pName) + " requires "
-                                                 + std::to_string(argMap[pName]->mandatory_options) + " options, but " + std::to_string(opts_cnt) + " were provided");
-                    }
-
-                    parseArgument(pName, index + 1, index + 1 + opts_cnt);
-
-                    index += opts_cnt;
-                    setArgument(pName);
-                }
+                index += opts_cnt;
+                setArgument(pName);
             }
-            args_parsed = true;
-            checkParsedNonPos();
+        }
+        args_parsed = true;
+        checkParsedNonPos();
 
-            if(positional_cnt < posMap.size()){
-                throw std::runtime_error("Not enough positional arguments provided");
-            }
-        }catch(std::runtime_error &e){
-            // rethrow as custom exception
-            throw parse_error(e.what());
-            return -1;
+        if(positional_cnt < posMap.size()){
+            throw parse_error("Not enough positional arguments provided");
         }
 
         return 0;
@@ -1097,12 +1089,14 @@ public:
     /// Custom exception class (unparsed parameters)
     class unparsed_param : public std::runtime_error{
     public:
-        unparsed_param(const char *msg) : std::runtime_error(msg) {}
+        explicit unparsed_param(const char *msg) : std::runtime_error(msg) {}
+        explicit unparsed_param(const std::string& s) : std::runtime_error(s){}
     };
     /// Custom exception class (other parse errors)
     class parse_error : public std::runtime_error{
     public:
-        parse_error(const char *msg) : std::runtime_error(msg) {}
+        explicit parse_error(const char *msg) : std::runtime_error(msg) {}
+        explicit parse_error(const std::string& s) : std::runtime_error(s){}
     };
 
 private:
