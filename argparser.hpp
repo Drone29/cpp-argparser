@@ -984,8 +984,6 @@ public:
                 int pos_idx = index;
                 ///Try parsing positional args
                 if(positional_cnt < posMap.size()){
-                    ///check if non-positional options were parsed
-                    checkParsedNonPos();
                     for(auto &x : posMap){
                         if(pos_idx >= argVec.size()){
                             break;
@@ -994,7 +992,15 @@ public:
                         positional_cnt++;
                         pos_idx++;
                     }
-                    continue;
+
+                    //if something left after positionals
+                    if(pos_idx < argVec.size()){
+                        throw parse_error("Positional arguments cannot be followed by " + argVec[pos_idx]);
+                    }
+                    if(positional_cnt < posMap.size()){
+                        throw parse_error("Not enough positional arguments provided");
+                    }
+                    break;
                 }
 
                 std::string thrError = "Unknown argument: " + std::string(pName);
@@ -1069,13 +1075,10 @@ public:
                 setArgument(pName);
             }
         }
-        args_parsed = true;
+
         checkParsedNonPos();
 
-        if(positional_cnt < posMap.size()){
-            throw parse_error("Not enough positional arguments provided");
-        }
-
+        args_parsed = true;
         return 0;
     }
 
