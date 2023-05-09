@@ -1000,10 +1000,6 @@ public:
                         positional_cnt++;
                         pos_idx++;
                     }
-
-                    if(positional_cnt < posMap.size()){
-                        throw parse_error("Not enough positional arguments provided");
-                    }
                     break;
                 }
 
@@ -1081,7 +1077,9 @@ public:
         }
 
         checkParsedNonPos();
-
+        if(positional_cnt < posMap.size()){
+            throw parse_error("Not enough positional arguments provided");
+        }
         args_parsed = true;
         return 0;
     }
