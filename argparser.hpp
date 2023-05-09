@@ -1001,10 +1001,6 @@ public:
                         pos_idx++;
                     }
 
-                    //if something left after positionals
-                    if(pos_idx < argVec.size()){
-                        throw parse_error("Positional arguments cannot be followed by " + argVec[pos_idx]);
-                    }
                     if(positional_cnt < posMap.size()){
                         throw parse_error("Not enough positional arguments provided");
                     }
