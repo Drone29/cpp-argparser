@@ -898,7 +898,6 @@ public:
             auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
                 argVec[index] = key;
                 argVec.insert(argVec.begin() + index + 1, val);
-                index--;
             };
             std::string pName = argVec[index];
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
@@ -910,6 +909,8 @@ public:
                 pName = pName.substr(0, c);
                 //change current key and insert value to vector
                 insertKeyValue(pName, pValue);
+                // check arg name on the next iteration
+                index--;
                 continue;
             }
 
@@ -924,14 +925,18 @@ public:
                     ///check contiguous or combined arguments
                     bool contiguous = false;
                     for(auto &x : argMap){
+                        /// Options without '-' cannot be combined
+                        /// Because v=vvv or -s=vvv will provide unexpected results if 'v' exists as key or alias
+                        if(!x.second->m_starts_with_minus){
+                            continue;
+                        }
                         if(contiguous){
                             break;
                         }
                         auto key = x.first;
                         std::string startsWith;
-                        int len = x.second->m_starts_with_minus ? 2 : 1;
                         std::string contKey = pName.substr(0, key.length());
-                        startsWith = pName.substr(0, len);
+                        startsWith = pName.substr(0, 2);
                         for(auto &alias : x.second->m_aliases){
                             std::string contAlias = pName.substr(0, alias.length());
                             std::string contig = (key == contKey)
@@ -939,17 +944,16 @@ public:
                                                  : (!contAlias.empty() && alias == contAlias
                                                     ? contAlias
                                                     : "");
-                            // if key or alias is len digits long arg with implicit value,
+                            // if key or alias is 2 digits long arg with implicit value,
                             // starts with '-' and matches first len digits,
                             // it's a combined (-vvv style) argument
-                            if(startsWith.length() == len
-                               && x.second->m_implicit
+                            if(x.second->m_implicit
+                               && startsWith.length() == 2
                                && (startsWith == key || startsWith == alias)){
-                                pValue = len > 1 ? "-" : "";
                                 //set '-' to other portion to extract it later
-                                pValue += pName.substr(startsWith.length());
+                                pValue = "-" + pName.substr(startsWith.length());
                                 pName = startsWith;
-                                insertKeyValue(pName, pValue);
+                                insertKeyValue(key, pValue);
                                 contiguous = true;
                                 break;
                             }
@@ -957,7 +961,7 @@ public:
                             if(!contig.empty()){
                                 pValue = pName.substr(contig.length());
                                 pName = contig;
-                                insertKeyValue(pName, pValue);
+                                insertKeyValue(key, pValue);
                                 contiguous = true;
                                 break;
                             }
