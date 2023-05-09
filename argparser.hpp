@@ -924,16 +924,14 @@ public:
                     ///check contiguous or combined arguments
                     bool contiguous = false;
                     for(auto &x : argMap){
-                        //contiguous format isn't allowed for options that doesn't start with '-'
-                        if(!x.second->m_starts_with_minus){
-                            continue;
-                        }
                         if(contiguous){
                             break;
                         }
                         auto key = x.first;
+                        std::string startsWith;
+                        int len = x.second->m_starts_with_minus ? 2 : 1;
                         std::string contKey = pName.substr(0, key.length());
-                        std::string first2dig = pName.substr(0,2); //first 2 digits of current key
+                        startsWith = pName.substr(0, len);
                         for(auto &alias : x.second->m_aliases){
                             std::string contAlias = pName.substr(0, alias.length());
                             std::string contig = (key == contKey)
@@ -941,15 +939,16 @@ public:
                                                  : (!contAlias.empty() && alias == contAlias
                                                     ? contAlias
                                                     : "");
-                            // if key or alias is 2 digits long arg with implicit value,
-                            // starts with '-' and matches first 2 digits,
+                            // if key or alias is len digits long arg with implicit value,
+                            // starts with '-' and matches first len digits,
                             // it's a combined (-vvv style) argument
-                            if(first2dig.length() == 2
+                            if(startsWith.length() == len
                                && x.second->m_implicit
-                               && (first2dig == key || first2dig == alias)){
+                               && (startsWith == key || startsWith == alias)){
+                                pValue = len > 1 ? "-" : "";
                                 //set '-' to other portion to extract it later
-                                pValue = "-" + pName.substr(first2dig.length());
-                                pName = first2dig;
+                                pValue += pName.substr(startsWith.length());
+                                pName = startsWith;
                                 insertKeyValue(pName, pValue);
                                 contiguous = true;
                                 break;
