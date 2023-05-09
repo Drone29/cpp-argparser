@@ -330,6 +330,9 @@ private:
 
 struct ARG_DEFS{
 
+    ARG_DEFS(const std::string &name){
+        m_name = name;
+    }
     ~ARG_DEFS() {
         delete option;
     }
@@ -452,8 +455,12 @@ struct ARG_DEFS{
     [[nodiscard]] std::vector<std::string> get_cli_params() const{
         return m_cli_params;
     }
+    [[nodiscard]] std::string get_name() const{
+        return m_name;
+    }
 
 private:
+    std::string m_name;
     std::string m_help;
     std::string m_advanced_help;
     //hidden option
@@ -496,7 +503,7 @@ class argParser
 {
 public:
     argParser(){
-        argMap[HELP_NAME] = new ARG_DEFS();
+        argMap[HELP_NAME] = new ARG_DEFS(HELP_NAME);
         argMap[HELP_NAME]->typeStr = ARG_TYPE_HELP;
         argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
         argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
@@ -534,7 +541,7 @@ public:
         }
 
         auto x = new DerivedOption<T,Targs...>(func, targs); //std::make_tuple(targs...)
-        auto option = new ARG_DEFS();
+        auto option = new ARG_DEFS(key);
         option->typeStr = strType;
         option->m_options = {};
         option->option = x;
@@ -669,7 +676,7 @@ public:
         }
 
         auto x = new DerivedOption<T,Targs...>(func, targs, infinite_opts);
-        auto option = new ARG_DEFS();
+        auto option = new ARG_DEFS(splitKey.key);
         option->typeStr = strType;
         option->option = x;
         option->m_options = opts;
@@ -930,6 +937,7 @@ public:
                         if(!x.second->m_starts_with_minus){
                             continue;
                         }
+                        // break if found contiguous key/alias
                         if(contiguous){
                             break;
                         }
@@ -965,10 +973,10 @@ public:
                                 contiguous = true;
                                 break;
                             }
-                        }
-                    }
-                }
-            }
+                        } //for &alias : x.second->m_aliases
+                    } //for &x : argMap
+                }//if name.empty()
+            } //argMap.find(pName) == argMap.end()
         }
 
 
@@ -982,7 +990,8 @@ public:
             if(argMap.find(pName) == argMap.end()){
                 int pos_idx = index;
                 ///Try parsing positional args
-                if(positional_cnt < posMap.size()){
+                ///If number of remaining args <= number of positionals
+                if(argVec.size() - index <= posMap.size()){
                     for(auto &x : posMap){
                         if(pos_idx >= argVec.size()){
                             break;

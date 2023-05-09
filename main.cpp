@@ -202,6 +202,7 @@ int main(int argc, char *argv[]) {
         // check unparsed argument
         auto last_unparsed = parser.getLastUnparsed();
         if(last_unparsed != nullptr){
+            std::cout << "Last unparsed arg: " << last_unparsed->get_name() << std::endl;
             // get unparsed argument cli parameters and show them
             std::cout << "Passed parameters:";
             auto raw_params = last_unparsed->get_cli_params();
