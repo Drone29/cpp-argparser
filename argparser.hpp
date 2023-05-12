@@ -35,8 +35,8 @@
 /// additional key/option delimiter (default is space)
 #define KEY_OPTION_DELIMITER "="
 /// bool parsable strings
-#define BOOL_POSITIVES "true", "1", "yes", "on"
-#define BOOL_NEGATIVES "false", "0", "no", "off"
+#define BOOL_POSITIVES "true", "1", "yes", "on", "enable"
+#define BOOL_NEGATIVES "false", "0", "no", "off", "disable"
 
 #define REQUIRED_OPTION_SIGN "(*)"
 
@@ -130,7 +130,7 @@ namespace{
             }
             std::stringstream ss(temp);
             ss >> std::get_time(&tt, date_format);
-            // todo: not all conversion errors handled
+            // ss.fail() does not cover all possible errors
             if (ss.fail()){
                 throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date");
             }
@@ -307,9 +307,9 @@ private:
     }
 
     template <typename...args>
-    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs, bool infinite_opts = false) { //Targs...targs
+    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs, bool variadic_ = false) { //Targs...targs
 
-        static_assert(sizeof...(args) < MAX_ARGS, " too many arguments");
+        static_assert(sizeof...(args) < MAX_ARGS, "Error: too many function arguments");
         //check if args are const char*
         static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
         t_action = reinterpret_cast<T (*)(Targs...,const char *...)>(func);
@@ -317,7 +317,7 @@ private:
         anyval = value;
 
         tpl = targs;
-        variadic = infinite_opts;
+        variadic = variadic_;
     }
     ~DerivedOption() override = default;
 
@@ -511,7 +511,6 @@ public:
         setAlias(HELP_NAME, {HELP_ALIAS});
     }
     ~argParser(){
-        std::vector<std::string> aliases;
         for (auto &x : argMap){
             delete x.second;
         }
@@ -558,7 +557,7 @@ public:
 
     template <typename T, class...Targs, typename...args>
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
-                          const std::initializer_list<std::string>& opts_lst = {},
+                          std::vector<std::string>&& opts = {},
                           T(*func)(args...) = nullptr,
                           std::tuple<Targs...> targs = std::tuple<>()){
 
@@ -586,12 +585,11 @@ public:
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
 
-        std::vector<std::string> opts = opts_lst;
         ///Check for invalid sequence order of arguments
         std::string last_arbitrary_arg;
         std::string last_mandatory_arg;
         int mnd_vals = 0;
-        bool infinite_opts = false;
+        bool variadic_arg = false;
 
         for(auto & sopt : opts){
             if(sopt.empty()){
@@ -602,7 +600,7 @@ public:
             }
             // variadic options
             if(sopt == "..."){
-                infinite_opts = true;
+                variadic_arg = true;
                 if(sopt != opts.back()){
                     throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic specifier '...' should be the last in the options list");
                 }
@@ -649,7 +647,7 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " should have at least 1 mandatory parameter");
         }
 
-        bool implicit = opts.size() == 0;
+        bool implicit = opts.empty();
 
         if(func == nullptr){
             if(implicit && !std::is_arithmetic<T>::value){
@@ -675,7 +673,7 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " opts size != function arguments");
         }
 
-        auto x = new DerivedOption<T,Targs...>(func, targs, infinite_opts);
+        auto x = new DerivedOption<T,Targs...>(func, targs, variadic_arg);
         auto option = new ARG_DEFS(splitKey.key);
         option->typeStr = strType;
         option->option = x;
@@ -775,8 +773,9 @@ public:
     }
 
     /// Get last unparsed argument
-    [[nodiscard]] const ARG_DEFS *getLastUnparsed() const{
-        return last_unparsed_arg;
+    [[nodiscard]] const ARG_DEFS &getLastUnparsed() const{
+        static ARG_DEFS dummy("");
+        return last_unparsed_arg == nullptr ? dummy : *last_unparsed_arg;
     }
 
     ///Set alias for option
@@ -1205,7 +1204,7 @@ private:
             throw std::invalid_argument(std::string(func) + ": " + key + " cannot begin or end with =");
         }
         if(s != std::string::npos){
-            throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot contain spaces");
+            throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain spaces");
         }
     }
 
