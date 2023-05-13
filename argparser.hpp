@@ -129,9 +129,14 @@ namespace{
                 date_format = DEFAULT_DATE_FORMAT;
             }
             std::stringstream ss(temp);
+            std::stringstream chk; //check
             ss >> std::get_time(&tt, date_format);
+            chk << std::put_time(&tt, date_format);
+            auto s = ss.str();
+            auto t = chk.str();
             // ss.fail() does not cover all possible errors
-            if (ss.fail()){
+            // so we're also checking equality of strings before and after conversion
+            if (ss.fail() || chk.fail() || s != t){
                 throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date");
             }
             return tt;
