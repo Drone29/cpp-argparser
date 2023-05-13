@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
             .date_format("%d.%m.%Y-%H:%M")
             .help("Converts date string to date struct");
 
-    parser.addArgument<int>("--infinite", {"N", "..."})
+    parser.addArgument<int>("--infinite, -inf", {"N", "..."})
             .help("parses any number of integers. Result is std::vector<int>");
     // parseArgs accepts 3 parameters: argc, argv and optional bool 'allow_zero_options'
     // if allow_zero_options is true, it will not cast errors if required or mandatory arguments were not specified

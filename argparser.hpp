@@ -926,56 +926,41 @@ public:
                 if(!name.empty()){
                     // change alias to key
                     argVec[index] = name;
+                    index += argMap[name]->mandatory_options; //skip mandatory opts
                 }
                 else{
                     ///check contiguous or combined arguments
-                    bool contiguous = false;
-                    for(auto &x : argMap){
-                        /// Options without '-' cannot be combined
-                        /// Because v=vvv or -s=vvv will provide unexpected results if 'v' exists as key or alias
-                        if(!x.second->m_starts_with_minus){
-                            continue;
+                    int len = pName.front() == '-' ? 2 : 1;
+                    std::string startsWith = pName.substr(0, len);
+                    if(argMap.find(startsWith) != argMap.end()){
+                        name = startsWith;
+                    }else{
+                        name = findKeyByAlias(startsWith);
+                    }
+
+                    if(!name.empty()){
+                        auto &x = argMap[name];
+                        // implicit contiguous (-vvv/-it or vvv/it style) argument
+                        if(x->m_implicit){
+                            //set '-' to other portion to extract it later
+                            pValue = x->m_starts_with_minus ? "-" : "";
+                            pValue += pName.substr(startsWith.length());
+                            insertKeyValue(name, pValue);
                         }
-                        // break if found contiguous key/alias
-                        if(contiguous){
-                            break;
+                        //check if it's a contiguous keyValue or aliasValue pair (-k123 or k123 style)
+                        //only for args with 1 option
+                        else if(x->m_options.size() == 1){
+                            pValue = pName.substr(startsWith.length());
+                            pName = name;
+                            insertKeyValue(name, pValue);
+                            index++; //skip pValue
                         }
-                        auto key = x.first;
-                        std::string startsWith;
-                        std::string contKey = pName.substr(0, key.length());
-                        startsWith = pName.substr(0, 2);
-                        for(auto &alias : x.second->m_aliases){
-                            std::string contAlias = pName.substr(0, alias.length());
-                            std::string contig = (key == contKey)
-                                                 ? contKey
-                                                 : (!contAlias.empty() && alias == contAlias
-                                                    ? contAlias
-                                                    : "");
-                            // if key or alias is 2 digits long arg with implicit value,
-                            // starts with '-' and matches first len digits,
-                            // it's a combined (-vvv style) argument
-                            if(x.second->m_implicit
-                               && startsWith.length() == 2
-                               && (startsWith == key || startsWith == alias)){
-                                //set '-' to other portion to extract it later
-                                pValue = "-" + pName.substr(startsWith.length());
-                                pName = startsWith;
-                                insertKeyValue(key, pValue);
-                                contiguous = true;
-                                break;
-                            }
-                            //check if it's a contiguous keyValue or aliasValue pair (-k123 style)
-                            if(!contig.empty()){
-                                pValue = pName.substr(contig.length());
-                                pName = contig;
-                                insertKeyValue(key, pValue);
-                                contiguous = true;
-                                break;
-                            }
-                        } //for &alias : x.second->m_aliases
-                    } //for &x : argMap
+                    }
                 }//if name.empty()
             } //argMap.find(pName) == argMap.end()
+            else{
+                index += argMap[pName]->mandatory_options; //skip mandatory opts
+            }
         }
 
 
