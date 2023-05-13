@@ -129,9 +129,9 @@ namespace{
                 date_format = DEFAULT_DATE_FORMAT;
             }
             std::stringstream ss(temp);
-            std::stringstream chk; //check
-            ss >> std::get_time(&tt, date_format);
-            chk << std::put_time(&tt, date_format);
+            std::stringstream chk; //check stream
+            ss >> std::get_time(&tt, date_format); //convert string to time
+            chk << std::put_time(&tt, date_format); //convert result to string with the same format
             // ss.fail() does not cover all possible errors
             // so we're also checking equality of strings before and after conversion
             if (ss.fail() || chk.fail() || ss.str() != chk.str()){
