@@ -842,8 +842,9 @@ public:
         mandatory_option = mandatory_args || required_args;
         mandatory_option &= !allow_zero_options;
 
-        auto parseArgument = [this](const std::string &key, int start, int end){
+        auto parseArgument = [this](const std::string &key, int start, int end) -> int{
             try{
+                // end not included
                 // remove spaces added while preparing
                 for(auto it = argVec.begin() + start; it != argVec.begin() + end; it++){
                     if((*it).front() == ' '){
@@ -858,6 +859,7 @@ public:
                 last_unparsed_arg = argMap[key];
                 throw unparsed_param(e.what());
             }
+            return end-start;
         };
 
         auto setArgument = [this, &parsed_mnd_args, &parsed_required_args](const std::string &pName){
@@ -994,23 +996,18 @@ public:
                 ///Try parsing positional args
                 ///If number of remaining args <= number of positionals
 
-                if(!posMap.empty()){ //argVec.size() - index <= posMap.size()
+                if(!posMap.empty()){
                     for(auto &x : posMap){
                         if(pos_idx >= argVec.size()){
                             break;
                         }
-
                         // check if pos arg is variadic
                         if(argMap[x]->is_variadic()){
-                            parseArgument(x, pos_idx, argVec.size());
-                            positional_cnt++;
-                            pos_idx = argVec.size();
-                            break;
+                            pos_idx += parseArgument(x, pos_idx, argVec.size());
+                        }else{
+                            pos_idx += parseArgument(x, pos_idx, pos_idx+1);
                         }
-
-                        parseArgument(x, pos_idx, pos_idx+1);
                         positional_cnt++;
-                        pos_idx++;
                     }
                     if(pos_idx < argVec.size()){
                         throw parse_error("Error: trailing argument after positionals: " + argVec[pos_idx]);
