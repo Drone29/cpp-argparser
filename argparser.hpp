@@ -177,6 +177,11 @@ namespace{
         }
         return res;
     }
+
+    bool isOptMandatory(const std::string &sopt){
+        return !sopt.empty() && (sopt.front() != '[')
+               && (sopt.back() != ']');
+    }
 }
 
 class BaseOption{
@@ -310,7 +315,7 @@ private:
     }
 
     template <typename...args>
-    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs, bool variadic_ = false) { //Targs...targs
+    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs) { //Targs...targs
 
         static_assert(sizeof...(args) < MAX_ARGS, "Error: too many function arguments");
         //check if args are const char*
@@ -320,7 +325,6 @@ private:
         anyval = value;
 
         tpl = targs;
-        variadic = variadic_;
     }
     ~DerivedOption() override = default;
 
@@ -408,7 +412,7 @@ struct ARG_DEFS{
                 //check if contains spaces
                 for(auto &c : std::string(format)){
                     if(c == ' '){
-                        throw std::logic_error(std::string(__func__) + ": invalid date format " + format + " (cannot contain spaces)");
+                        throw std::logic_error(std::string(__func__) + ": " + m_name + " invalid date format " + format + " (cannot contain spaces)");
                     }
                 }
                 time_t t = 0;
@@ -417,11 +421,24 @@ struct ARG_DEFS{
                 ss << std::put_time(&tt, format);
                 ss >> std::get_time(&tt, format);
                 if (ss.fail()){
-                    throw std::logic_error(std::string(__func__) + ": invalid date format " + format);
+                    throw std::logic_error(std::string(__func__) + ": " + m_name + " invalid date format " + format);
                 }
                 m_date_format = format;
             }
             m_hide_date_format = hide_in_help;
+        }
+        return *this;
+    }
+    ///make arg variadic
+    ARG_DEFS &variadic(){
+        if(option != nullptr){
+            if(!m_positional && m_options.size() != 1){
+                throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list must have exactly 1 mandatory option");
+            }
+            if(!m_options.empty() && !isOptMandatory(m_options.front())){
+                throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list 1st option cannot be arbitrary");
+            }
+            option->variadic = true;
         }
         return *this;
     }
@@ -528,6 +545,19 @@ public:
 
         static_assert((sizeof...(args) - sizeof...(Targs)) <= 1, " too many arguments in function");
 
+        /// check if variadic pos already defined
+        for(auto &p : posMap){
+            auto &x = argMap[p];
+            if(x->is_variadic()){
+                throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after variadic positional argument " + p);
+            }
+        }
+        // check if positional name is valid
+        checkForbiddenSymbols(key, __func__);
+        if(!isOptMandatory(key)){
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot be arbitrary");
+        }
+
         /// get template type string
         auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
 
@@ -592,7 +622,6 @@ public:
         std::string last_arbitrary_arg;
         std::string last_mandatory_arg;
         int mnd_vals = 0;
-        bool variadic_arg = false;
 
         for(auto & sopt : opts){
             if(sopt.empty()){
@@ -600,25 +629,6 @@ public:
             }
             if(sopt.front() == ' ' || sopt.back() == ' '){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " option " + sopt + " cannot begin or end with space");
-            }
-            // variadic options
-            if(sopt == "..."){
-                variadic_arg = true;
-                if(sopt != opts.back()){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic specifier '...' should be the last in the options list");
-                }
-                if(sopt == opts.front()){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list must have 1 mandatory option");
-                }
-                if(opts.size() > 2){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list must have exactly 2 options");
-                }
-                if(!isOptMandatory(opts.front())){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " variadic list 1st option cannot be arbitrary");
-                }
-                // remove last ...
-                opts.pop_back();
-                break;
             }
 
             if(isOptMandatory(sopt)){
@@ -676,7 +686,7 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " opts size != function arguments");
         }
 
-        auto x = new DerivedOption<T,Targs...>(func, targs, variadic_arg);
+        auto x = new DerivedOption<T,Targs...>(func, targs);
         auto option = new ARG_DEFS(splitKey.key);
         option->typeStr = strType;
         option->option = x;
@@ -834,6 +844,12 @@ public:
 
         auto parseArgument = [this](const std::string &key, int start, int end){
             try{
+                // remove spaces added while preparing
+                for(auto it = argVec.begin() + start; it != argVec.begin() + end; it++){
+                    if((*it).front() == ' '){
+                        *it = (*it).substr(1);
+                    }
+                }
                 // save raw cli parameters
                 argMap[key]->m_cli_params = {&argVec[start], &argVec[end]};
                 argMap[key]->option->action(&argVec[start], end - start, argMap[key]->m_date_format);
@@ -914,7 +930,7 @@ public:
             ///Handle '='
             auto c = pName.find(KEY_OPTION_DELIMITER);
             if(c != std::string::npos){
-                pValue = pName.substr(c+1);
+                pValue = " " + pName.substr(c+1); //treat string after '=' as value anyway
                 pName = pName.substr(0, c);
                 //change current key and insert value to vector
                 insertKeyValue(pName, pValue);
@@ -953,10 +969,9 @@ public:
                         //check if it's a contiguous keyValue or aliasValue pair (-k123 or k123 style)
                         //only for args with 1 option
                         else if(x->m_options.size() == 1){
-                            pValue = pName.substr(startsWith.length());
+                            pValue = " " + pName.substr(startsWith.length()); //treat as value
                             pName = name;
                             insertKeyValue(name, pValue);
-                            index++; //skip pValue
                         }
                     }
                 }//if name.empty()
@@ -978,14 +993,27 @@ public:
                 int pos_idx = index;
                 ///Try parsing positional args
                 ///If number of remaining args <= number of positionals
-                if(argVec.size() - index <= posMap.size()){
+
+                if(!posMap.empty()){ //argVec.size() - index <= posMap.size()
                     for(auto &x : posMap){
                         if(pos_idx >= argVec.size()){
                             break;
                         }
-                        parseArgument(x, index, index+1);
+
+                        // check if pos arg is variadic
+                        if(argMap[x]->is_variadic()){
+                            parseArgument(x, pos_idx, argVec.size());
+                            positional_cnt++;
+                            pos_idx = argVec.size();
+                            break;
+                        }
+
+                        parseArgument(x, pos_idx, pos_idx+1);
                         positional_cnt++;
                         pos_idx++;
+                    }
+                    if(pos_idx < argVec.size()){
+                        throw parse_error("Error: trailing argument after positionals: " + argVec[pos_idx]);
                     }
                     break;
                 }
@@ -1196,11 +1224,6 @@ private:
         }
     }
 
-    static bool isOptMandatory(const std::string &sopt){
-        return !sopt.empty() && (sopt.front() != '[')
-               && (sopt.back() != ']');
-    }
-
     //summy function
     static void dummyFunc(){
         std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
@@ -1312,6 +1335,9 @@ private:
         std::string positional;
         for (auto &x : posMap){
             positional += " <" + x + ">";
+            if(argMap[x]->is_variadic()){
+                positional += " [" + x + "...]";
+            }
         }
 
         int flag_cnt = 0, opt_cnt = 0;

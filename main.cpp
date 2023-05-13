@@ -173,25 +173,33 @@ int main(int argc, char *argv[]) {
                                                  }))
             .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
 
-    // positional arguments should be specified after all other arguments
-    // they cannot be hidden or made arbitrary
+    // there's an date_t type which is an alias for std::tm struct
+    parser.addArgument<date_t>("date", {"date_str"})
+                    // date_format can be specified for date_t type.
+                    // Format shouldn't contain any spaces and must correspond to strptime() format, otherwise std::logic_error is thrown
+                    // If format not specified or specified as nullptr, default format used (defined as DEFAULT_DATE_FORMAT)
+                    // date_format takes optional bool argument hide_in_help.
+                    // If set to true, the format will not be shown in help.
+                    // Otherwise it'll be shown in {} brackets exactly as it's specified in the 1st argument
+            .date_format("%d.%m.%Y-%H:%M")
+            .help("Converts date string to date struct");
+
+    // positional arguments cannot be hidden or made arbitrary
     parser.addPositional<int>("pos")
             .global_ptr(&pos_val)
             .help("Positional int argument with global variable");
 
-    // there's an date_t type which is an alias for std::tm struct
-    parser.addArgument<date_t>("date", {"date_str"})
-            // date_format can be specified for date_t type.
-            // Format shouldn't contain any spaces and must correspond to strptime() format, otherwise std::logic_error is thrown
-            // If format not specified or specified as nullptr, default format used (defined as DEFAULT_DATE_FORMAT)
-            // date_format takes optional bool argument hide_in_help.
-            // If set to true, the format will not be shown in help.
-            // Otherwise it'll be shown in {} brackets exactly as it's specified in the 1st argument
-            .date_format("%d.%m.%Y-%H:%M")
-            .help("Converts date string to date struct");
+    // add variadic positional arg
+    parser.addPositional<int>("var_pos")
+            .variadic()
+            .help("Variadic pos argument of type int");
 
-    parser.addArgument<int>("--infinite, -inf", {"N", "..."})
+    // add variadic non-positional argument
+    parser.addArgument<int>("--variadic, -var", {"N"})
+            .variadic()
             .help("parses any number of integers. Result is std::vector<int>");
+
+
     // parseArgs accepts 3 parameters: argc, argv and optional bool 'allow_zero_options'
     // if allow_zero_options is true, it will not cast errors if required or mandatory arguments were not specified
     try{
@@ -221,7 +229,8 @@ int main(int argc, char *argv[]) {
     // here it returns true if argument 'v' was set by user
     auto isArgumentSet = parser["v"].is_set();
 
-    auto N = parser.getValue<std::vector<int>>("--infinite");
+    auto N = parser.getValue<std::vector<int>>("-var");
+    auto var_pos = parser.getValue<std::vector<int>>("var_pos");
 
     // to get parsed value, use getValue, explicitly setting the type,
     // or set a global_ptr beforehand
