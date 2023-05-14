@@ -79,20 +79,21 @@ constexpr int countChars( const char* s, char c ){
 // isodate special type
 using date_t = std::tm;
 
-template <typename ...>
-struct are_same : std::true_type {};
-
-template <typename S, typename T, typename ... Ts>
-struct are_same <S, T, Ts...> : std::false_type {};
-
-template <typename T, typename ... Ts>
-struct are_same <T, T, Ts...> : are_same<T, Ts...> {};
-
-template <typename ... Ts>
-inline constexpr bool are_same_v = are_same<Ts...>::value;
 
 // visible only for current file
 namespace{
+    template <typename ...>
+    struct are_same : std::true_type {};
+
+    template <typename S, typename T, typename ... Ts>
+    struct are_same <S, T, Ts...> : std::false_type {};
+
+    template <typename T, typename ... Ts>
+    struct are_same <T, T, Ts...> : are_same<T, Ts...> {};
+
+    template <typename ... Ts>
+    inline constexpr bool are_same_v = are_same<Ts...>::value;
+
     /// format is applicable only to date_t type
     std::any scan(std::type_index type, const char *arg, const char *date_format = nullptr) {
 
@@ -360,13 +361,13 @@ struct ARG_DEFS{
         return *this;
     }
     ARG_DEFS &repeatable(){
-        if(!m_positional)
+        if(!m_positional && !is_variadic())
             m_repeatable = true;
         return *this;
     }
     ARG_DEFS &default_value(std::any val, bool hide_in_help = false){
         try{
-            if(m_arbitrary && !m_positional){
+            if(m_arbitrary && !m_positional && !is_variadic()){
                 option->set(std::move(val));
                 show_default = !hide_in_help;
             }
@@ -431,7 +432,7 @@ struct ARG_DEFS{
     }
     ///make arg variadic
     ARG_DEFS &variadic(){
-        if(option != nullptr){
+        if(option != nullptr && !m_repeatable){
             if(!m_positional && m_options.size() != 1){
                 throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list must have exactly 1 mandatory option");
             }
