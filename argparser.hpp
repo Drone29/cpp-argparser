@@ -101,14 +101,16 @@ namespace{
 #ifdef __GNUC__
                 //For GCC
                 std::string y = __PRETTY_FUNCTION__;
-                std::string ref = std::string("TypeToStringify") + " = ";
-                y = y.substr(y.find(ref) + ref.length());
+                std::string start = std::string("TypeToStringify") + " = ";
+                if(y.find(start) == std::string::npos) return "";
+                y = y.substr(y.find(start) + start.length());
                 y = y.substr(0, y.find(';'));
 #elif defined _MSC_VER
                 //For MSVC
                 std::string y = __FUNCTION__;
                 std::string start = "internal::GetTypeNameHelper<";
                 std::string end = ">::GetTypeName";
+                if(y.find(start) == std::string::npos) return "";
                 y = y.substr(y.find(start) + start.length());
                 y = y.substr(0, y.find(end));
 #else
