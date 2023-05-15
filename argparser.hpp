@@ -79,7 +79,6 @@ constexpr int countChars( const char* s, char c ){
 // isodate special type
 using date_t = std::tm;
 
-
 // visible only for current file
 namespace{
     template <typename ...>
@@ -93,6 +92,37 @@ namespace{
 
     template <typename ... Ts>
     inline constexpr bool are_same_v = are_same<Ts...>::value;
+
+    namespace internal
+    {
+        template <typename TypeToStringify>
+        struct GetTypeNameHelper{
+            static std::string GetTypeName(){
+#ifdef __GNUC__
+                //For GCC
+                std::string y = __PRETTY_FUNCTION__;
+                std::string ref = std::string("TypeToStringify") + " = ";
+                y = y.substr(y.find(ref) + ref.length());
+                y = y.substr(0, y.find(';'));
+#elif defined _MSC_VER
+                //For MSVC
+                std::string y = __FUNCTION__;
+                std::string start = "internal::GetTypeNameHelper<";
+                std::string end = ">::GetTypeName";
+                y = y.substr(y.find(start) + start.length());
+                y = y.substr(0, y.find(end));
+#else
+                //For unsupported compilers return empty string
+                return "";
+#endif
+                return y;
+            }
+        };
+    }
+    template <typename T>
+    std::string GetTypeName(){
+        return internal::GetTypeNameHelper<T>::GetTypeName();
+    }
 
     /// format is applicable only to date_t type
     std::any scan(std::type_index type, const char *arg, const char *date_format = nullptr) {
@@ -560,7 +590,7 @@ public:
         }
 
         /// get template type string
-        auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
+        auto strType = GetTypeName<T>();
 
         ///check if default parser for this type is present
         if(func == nullptr){
@@ -617,8 +647,7 @@ public:
         splitKey.aliases.erase(idx);
 
         /// get template type string
-        auto strType = getFuncTemplateType(__PRETTY_FUNCTION__, "T");
-
+        auto strType = GetTypeName<T>();
         ///Check for invalid sequence order of arguments
         std::string last_arbitrary_arg;
         std::string last_mandatory_arg;
@@ -756,7 +785,7 @@ public:
     template <typename T>
     T getValue(const std::string &key){
         parsedCheck(__func__);
-        auto strType = getFuncTemplateType(__PRETTY_FUNCTION__);
+        auto strType = GetTypeName<T>();
         auto &r = getArg(key);
         try{
             auto base_opt = r.option;
@@ -777,7 +806,7 @@ public:
         if(value == nullptr){
             return T{};
         }
-        auto strType = getFuncTemplateType(__PRETTY_FUNCTION__);
+        auto strType = GetTypeName<T>();
         try{
             std::any val = scan(GET_TYPE(T), value, date_format);
             return std::any_cast<T>(val);
@@ -1152,22 +1181,6 @@ private:
         }
 
         throw std::invalid_argument(key + " not defined");
-    }
-
-    static std::string getFuncTemplateType(const char *pretty_func, const char *specifier = "T"){
-        std::string ref = std::string(specifier) + " = ";
-        std::string y = pretty_func;
-        if(y.find(ref)){
-            y = y.substr(y.find(ref) + ref.length());
-            auto semi = y.find(';');
-            if(semi == std::string::npos){
-                semi = y.find(']');
-            }
-            y = y.substr(0, semi);
-        }else{
-            y = "";
-        }
-        return y;
     }
 
 
