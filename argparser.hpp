@@ -2,8 +2,7 @@
 // Created by andrey on 17.12.2021.
 //
 
-#ifndef VALLAB_PRINTER_ARGPARSER_H
-#define VALLAB_PRINTER_ARGPARSER_H
+#pragma once
 
 #include <map>
 #include <iostream>
@@ -79,8 +78,7 @@ constexpr int countChars( const char* s, char c ){
 // isodate special type
 using date_t = std::tm;
 
-// visible only for current file
-namespace{
+namespace parser_internal{
     // fold expression to check if pack parameters are of the same type S
     template <typename S, typename ...T>
     inline constexpr bool are_same_type = (std::is_same_v<S, T> && ...);
@@ -101,6 +99,7 @@ namespace{
                 std::string start = "internal::GetTypeNameHelper<";
                 std::string end = ">::GetTypeName";
 #else
+#warning "Unsupported compiler. Cannot stringify type"
                 //For unsupported compilers return empty string
                 std::string y = "";
                 std::string start = "";
@@ -114,12 +113,12 @@ namespace{
         };
     }
     template <typename T>
-    std::string GetTypeName(){
+    inline std::string GetTypeName(){
         return internal::GetTypeNameHelper<T>::GetTypeName();
     }
 
     /// format is applicable only to date_t type
-    std::any scan(std::type_index type, const char *arg, const char *date_format = nullptr) {
+    inline std::any scan(std::type_index type, const char *arg, const char *date_format = nullptr) {
 
         std::string temp = (arg == nullptr) ? "" : std::string(arg);
 
@@ -203,7 +202,7 @@ namespace{
         return res;
     }
 
-    bool isOptMandatory(const std::string &sopt){
+    inline bool isOptMandatory(const std::string &sopt){
         return !sopt.empty() && (sopt.front() != '[')
                && (sopt.back() != ']');
     }
@@ -248,7 +247,7 @@ private:
         }
         // simple scan of single value
         if(!has_action && !variadic){
-            set(scan(GET_TYPE(T), args[0].c_str(), date_format));
+            set(parser_internal::scan(GET_TYPE(T), args[0].c_str(), date_format));
             return;
         }
         // variadic action
@@ -259,7 +258,7 @@ private:
             //scan or apply action
             T val = has_action
                     ? std::apply(t_action, tplres)
-                    : std::any_cast<T>(scan(GET_TYPE(T), args[i].c_str(), date_format));
+                    : std::any_cast<T>(parser_internal::scan(GET_TYPE(T), args[i].c_str(), date_format));
             res.push_back(val);
         }
         anyval = res;
@@ -344,7 +343,7 @@ private:
 
         static_assert(sizeof...(args) < MAX_ARGS, "Error: too many function arguments");
         //check if args are const char*
-        static_assert(are_same_type<const char*, args...>, "Error: only const char* allowed");
+        static_assert(parser_internal::are_same_type<const char*, args...>, "Error: only const char* allowed");
         t_action = reinterpret_cast<T (*)(Targs...,const char *...)>(func);
         has_action = func != nullptr;
         anyval = value;
@@ -359,7 +358,6 @@ private:
     T *global = nullptr;
 };
 
-
 struct ARG_DEFS{
 
     ARG_DEFS(const std::string &name){
@@ -368,7 +366,6 @@ struct ARG_DEFS{
     ~ARG_DEFS() {
         delete option;
     }
-    friend class argParser;
 
     ARG_DEFS &help(std::string hlp){
         m_help = std::move(hlp);
@@ -460,7 +457,7 @@ struct ARG_DEFS{
             if(!m_positional && m_options.size() != 1){
                 throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list must have exactly 1 mandatory option");
             }
-            if(!m_options.empty() && !isOptMandatory(m_options.front())){
+            if(!m_options.empty() && !parser_internal::isOptMandatory(m_options.front())){
                 throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list 1st option cannot be arbitrary");
             }
             option->variadic = true;
@@ -505,6 +502,7 @@ struct ARG_DEFS{
     }
 
 private:
+    friend class argParser;
     std::string m_name;
     std::string m_help;
     std::string m_advanced_help;
@@ -579,17 +577,17 @@ public:
         }
         // check if positional name is valid
         checkForbiddenSymbols(key, __func__);
-        if(!isOptMandatory(key)){
+        if(!parser_internal::isOptMandatory(key)){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot be arbitrary");
         }
 
         /// get template type string
-        auto strType = GetTypeName<T>();
+        auto strType = parser_internal::GetTypeName<T>();
 
         ///check if default parser for this type is present
         if(func == nullptr){
             try{
-                scan(GET_TYPE(T), nullptr);
+                parser_internal::scan(GET_TYPE(T), nullptr);
             }catch(std::logic_error &e){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no default parser for " + strType);
             }catch(std::runtime_error &){
@@ -641,7 +639,7 @@ public:
         splitKey.aliases.erase(idx);
 
         /// get template type string
-        auto strType = GetTypeName<T>();
+        auto strType = parser_internal::GetTypeName<T>();
         ///Check for invalid sequence order of arguments
         std::string last_arbitrary_arg;
         std::string last_mandatory_arg;
@@ -655,7 +653,7 @@ public:
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " option " + sopt + " cannot begin or end with space");
             }
 
-            if(isOptMandatory(sopt)){
+            if(parser_internal::isOptMandatory(sopt)){
                 mnd_vals++;
                 last_mandatory_arg = sopt;
                 if(!last_arbitrary_arg.empty()){
@@ -699,7 +697,7 @@ public:
 
             ///check if default parser for this type is present
             try{
-                scan(GET_TYPE(T), nullptr);
+                parser_internal::scan(GET_TYPE(T), nullptr);
             }catch(std::logic_error &e){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no default parser for " + strType);
             }catch(std::runtime_error &){
@@ -779,7 +777,7 @@ public:
     template <typename T>
     T getValue(const std::string &key){
         parsedCheck(__func__);
-        auto strType = GetTypeName<T>();
+        auto strType = parser_internal::GetTypeName<T>();
         auto &r = getArg(key);
         try{
             auto base_opt = r.option;
@@ -800,9 +798,9 @@ public:
         if(value == nullptr){
             return T{};
         }
-        auto strType = GetTypeName<T>();
+        auto strType = parser_internal::GetTypeName<T>();
         try{
-            std::any val = scan(GET_TYPE(T), value, date_format);
+            std::any val = parser_internal::scan(GET_TYPE(T), value, date_format);
             return std::any_cast<T>(val);
         }catch(const std::bad_any_cast& e){
             throw std::invalid_argument(std::string(__func__) + ": cannot cast to " + strType);
@@ -1248,7 +1246,7 @@ private:
             for(auto &x : j.second->m_options){
                 opt = std::string(x);
                 std::string tmp = opt;
-                if(isOptMandatory(tmp))
+                if(parser_internal::isOptMandatory(tmp))
                     tmp = "<" + tmp + ">";
 
                 std::cout << " " + tmp;
@@ -1387,6 +1385,3 @@ private:
         }
     }
 };
-
-
-#endif //VALLAB_PRINTER_ARGPARSER_H
