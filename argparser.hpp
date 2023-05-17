@@ -81,17 +81,9 @@ using date_t = std::tm;
 
 // visible only for current file
 namespace{
-    template <typename ...>
-    struct are_same : std::true_type {};
-
-    template <typename S, typename T, typename ... Ts>
-    struct are_same <S, T, Ts...> : std::false_type {};
-
-    template <typename T, typename ... Ts>
-    struct are_same <T, T, Ts...> : are_same<T, Ts...> {};
-
-    template <typename ... Ts>
-    inline constexpr bool are_same_v = are_same<Ts...>::value;
+    // fold expression to check if pack parameters are of the same type S
+    template <typename S, typename ...T>
+    inline constexpr bool are_same_type = (std::is_same_v<S, T> && ...);
 
     namespace internal
     {
@@ -352,7 +344,7 @@ private:
 
         static_assert(sizeof...(args) < MAX_ARGS, "Error: too many function arguments");
         //check if args are const char*
-        static_assert(are_same_v<const char*, args...>, "Error: only const char* allowed");
+        static_assert(are_same_type<const char*, args...>, "Error: only const char* allowed");
         t_action = reinterpret_cast<T (*)(Targs...,const char *...)>(func);
         has_action = func != nullptr;
         anyval = value;
