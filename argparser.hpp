@@ -783,6 +783,7 @@ public:
      * @param func function pointer or nullptr
      * @return
      */
+    // another implementation of addArgument with const char *key
     template <typename T, class...Targs, typename...args, size_t OPT_SZ = OPTS_SZ_MAGIC>
     ARG_DEFS &addArgument(const char *key,
                           const std::string (&opts_arr)[OPT_SZ] = {},
