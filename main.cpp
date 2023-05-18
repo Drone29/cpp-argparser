@@ -200,8 +200,6 @@ int main(int argc, char *argv[]) {
             .help("parses any number of integers. Result is std::vector<int>");
 
 
-    // parseArgs accepts 3 parameters: argc, argv and optional bool 'allow_zero_options'
-    // if allow_zero_options is true, it will not cast errors if required or mandatory arguments were not specified
     try{
         parser.parseArgs(argc, argv);
         //catch argument parsing error
