@@ -36,6 +36,11 @@ int main(int argc, char *argv[]){
     parser.addArgument<int>("--variadic, -var", {"N"})
             .variadic();
 
+    parser.addArgument<float>("-f", {"float_value"});
+
+    parser.addArgument<date_t>("-d", {"date_value"})
+        .date_format("%d.%m.%Y-%H:%M");
+
     parser.parseArgs(argc, argv);
 
     if(parser["-i"].is_set()){
@@ -64,6 +69,10 @@ int main(int argc, char *argv[]){
         std::cout << std::endl;
         if(var.empty())
             throw std::runtime_error("Argument -var cannot be empty");
+    }
+    if(parser["-f"].is_set()){
+        auto f = parser.getValue<float>("-f");
+        std::cout << "-f value: " << f << std::endl;
     }
 
     return 0;

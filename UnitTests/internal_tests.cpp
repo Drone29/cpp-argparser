@@ -136,7 +136,6 @@ void check_complex(){
         throw std::runtime_error("-var size should be 3");
     }
 }
-
 void check_complex_2(){
 
     auto test = [](const char* a){
@@ -162,6 +161,82 @@ void check_complex_2(){
         throw std::runtime_error("-var size should be 3");
     }
 }
+void check_single_char(){
+    HIGHLIGHT_TEST
+    argParser parser;
+    parser.addArgument<char>("-c", {"char_value"});
+    call_parser(parser, {"-c", "A"});
+    if(parser.getValue<char>("-c") != 'A'){
+        throw std::runtime_error("should parse single char");
+    }
+}
+void check_char_number(){
+    HIGHLIGHT_TEST
+    argParser parser;
+    parser.addArgument<char>("-c", {"char_value"});
+    call_parser(parser, {"-c", "123"});
+    if(parser.getValue<char>("-c") != 123){
+        throw std::runtime_error("should parse multiple digits as char number");
+    }
+}
+void check_format_invalid_dec(){
+    HIGHLIGHT_TEST
+    argParser parser;
+    parser.addArgument<int>("-i", {"int_value"});
+    try{
+        call_parser(parser, {"-i", "1abc"});
+    }catch(std::runtime_error &e){
+        return;
+    }
+    throw std::runtime_error("1abc should not be convertible to int");
+}
+void check_format_hex(){
+    HIGHLIGHT_TEST
+    argParser parser;
+    parser.addArgument<int>("-i", {"int_value"});
+    call_parser(parser, {"-i", "0x12"});
+    if(parser.getValue<int>("-i") != 0x12){
+        throw std::runtime_error("should parse hex numbers");
+    }
+}
+void check_format_float(){
+    HIGHLIGHT_TEST
+    argParser parser;
+    parser.addArgument<float>("-f", {"float_value"});
+    call_parser(parser, {"-f", "0.123"});
+    auto f = parser.getValue<float>("-f");
+    char tmp[32];
+    sprintf(tmp, "%.3f", f);
+    auto f_str = std::string(tmp);
+    if(f_str != "0.123"){
+        throw std::runtime_error("should parse float numbers");
+    }
+}
+void check_format_scientific(){
+    HIGHLIGHT_TEST
+    argParser parser;
+    parser.addArgument<float>("-f", {"float_value"});
+    call_parser(parser, {"-f", "1.000000e-05"});
+    auto f = parser.getValue<float>("-f");
+    char tmp[32];
+    sprintf(tmp, "%.5f", f);
+    auto f_str = std::string(tmp);
+    if(f_str != "0.00001"){
+        throw std::runtime_error("should parse scientific float numbers");
+    }
+}
+void check_invalid_date_format(){
+    HIGHLIGHT_TEST
+    try{
+        argParser parser;
+        parser.addArgument<date_t>("date", {"date_str"})
+                .date_format("%d.%m.%");
+    }catch(std::logic_error &e){
+        return;
+    }
+    throw std::runtime_error("should throw if invalid date format");
+}
+
 
 int main(){
     std::cout << "Internal tests started" << std::endl;
@@ -174,5 +249,12 @@ int main(){
     check_variadic_pos_throw();
     check_complex();
     check_complex_2();
+    check_format_invalid_dec();
+    check_format_hex();
+    check_format_float();
+    check_format_scientific();
+    check_single_char();
+    check_char_number();
+    check_invalid_date_format();
     return 0;
 }

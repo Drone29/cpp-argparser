@@ -112,9 +112,46 @@ namespace parser_internal{
             }
         };
     }
+
     template <typename T>
     inline std::string GetTypeName(){
         return internal::GetTypeNameHelper<T>::GetTypeName();
+    }
+
+    inline bool starts_with(const std::string &prefix, const std::string &s) noexcept{
+        return s.substr(0, prefix.size()) == prefix;
+    }
+
+    template<typename T>
+    inline T scan_number(const std::string &s){
+        T res = 0;
+        // string stream to parse numbers in different notations
+        std::stringstream ss(s);
+        auto pos = ss.tellg();
+        // parse hex (no hexfloat)
+        if(starts_with("0x", s) || starts_with("0X", s)){
+            ss.str(s.substr(2));
+            pos = ss.tellg();
+            ss >> std::hex >> res;
+        }else{
+            // parse regular
+            ss >> res;
+        }
+
+        auto distance = ss.tellg() - pos;
+        bool fail = ss.fail() && !ss.eof();
+        if(fail || distance > 0){
+            throw std::runtime_error(std::string(__func__) + ": could not convert " + s + " to " + GetTypeName<T>());
+        }
+        return res;
+    }
+    template<class Target, class Source>
+    Target narrow_cast(Source v, const std::string &s = ""){
+        auto r = static_cast<Target>(v); // convert the value to the target type
+        if (static_cast<Source>(r) != v){
+            throw std::runtime_error{std::string(__func__) + ": " + s + " not representable as " + GetTypeName<Target>()};
+        }
+        return r;
     }
 
     /// format is applicable only to date_t type
@@ -165,40 +202,44 @@ namespace parser_internal{
         }
 
         ///numbers
-        char *tmp = (char*)temp.c_str();
         std::any res;
         if(type == GET_TYPE(int)){
-            res = (int)strtol(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(char)){
-            res = (char)strtol(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(short int)){
-            res = (short int)strtol(temp.c_str(), &tmp, 0);
+            res = scan_number<int>(temp);
         }else if(type == GET_TYPE(long)){
-            res = strtol(temp.c_str(), &tmp, 0);
+            res = scan_number<long>(temp);
         }else if(type == GET_TYPE(long long)){
-            res = strtoll(temp.c_str(), &tmp, 0);
+            res = scan_number<long long>(temp);
         }else if(type == GET_TYPE(unsigned int)){
-            res = (unsigned int)strtoul(temp.c_str(), &tmp, 0);
+            res = scan_number<unsigned int>(temp);
         }else if(type == GET_TYPE(unsigned long)){
-            res = strtoul(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(unsigned char)){
-            res = (unsigned char)strtoul(temp.c_str(), &tmp, 0);
-        }else if(type == GET_TYPE(short unsigned int)){
-            res = (short unsigned int)strtoul(temp.c_str(), &tmp, 0);
+            res = scan_number<unsigned long>(temp);
+        }else if(type == GET_TYPE(unsigned long long)){
+            res = scan_number<unsigned long long>(temp);
         }else if(type == GET_TYPE(float)){
-            res = strtof(temp.c_str(), &tmp);
+            res = scan_number<float>(temp);
         }else if(type == GET_TYPE(double)){
-            res = strtod(temp.c_str(), &tmp);
-        }else{
+            res = scan_number<double>(temp);
+        }
+        /// narrow cast
+        else if(type == GET_TYPE(char)){
+            // special - if single char, treat as symbol
+            if(temp.length() == 1){
+                res = temp[0];
+            }else{
+                res = narrow_cast<char>(scan_number<int>(temp), temp);
+            }
+        }else if(type == GET_TYPE(unsigned char)){
+            res = narrow_cast<unsigned char>(scan_number<unsigned int>(temp), temp);
+        }else if(type == GET_TYPE(short int)){
+            res = narrow_cast<short int>(scan_number<int>(temp), temp);
+        }else if(type == GET_TYPE(short unsigned int)){
+            res = narrow_cast<short unsigned int>(scan_number<unsigned int>(temp), temp);
+        }
+        /// not convertible
+        else{
             throw std::logic_error(std::string(__func__) + ": value of unknown type " + temp);
         }
 
-        if (errno == ERANGE) {
-            throw std::range_error{std::string(__func__) + ": " + temp + " not representable"};
-        }
-        if(temp.c_str() == tmp || *tmp){
-            throw std::runtime_error(std::string(__func__) + ": could not convert " + temp);
-        }
         return res;
     }
 
