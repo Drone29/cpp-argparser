@@ -534,14 +534,14 @@ struct ARG_DEFS{
     [[nodiscard]] std::string get_name() const{
         return m_name;
     }
-
-private:
-    ARG_DEFS(std::string name)
-    : m_name(std::move(name)){}
-
     ~ARG_DEFS() {
         delete option;
     }
+private:
+
+    explicit ARG_DEFS(std::string name)
+    : m_name(std::move(name)){}
+
     friend class argParser;
     std::string m_name;
     std::string m_help;
@@ -586,7 +586,7 @@ class argParser
 {
 public:
     argParser(){
-        argMap[HELP_NAME] = new ARG_DEFS(HELP_NAME);
+        argMap[HELP_NAME] = std::move(std::unique_ptr<ARG_DEFS>(new ARG_DEFS(HELP_NAME)));
         argMap[HELP_NAME]->typeStr = ARG_TYPE_HELP;
         argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
         argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
@@ -594,9 +594,6 @@ public:
         setAlias(HELP_NAME, {HELP_ALIAS});
     }
     ~argParser(){
-        for (auto &x : argMap){
-            delete x.second;
-        }
         argMap.clear();
         argVec.clear();
     }
@@ -635,20 +632,19 @@ public:
             }
         }
 
-        auto x = new DerivedOption<T,Targs...>(func, targs); //std::make_tuple(targs...)
-        auto option = new ARG_DEFS(key);
-        option->typeStr = strType;
-        option->m_options = {};
-        option->option = x;
-        option->m_positional = true;
+        auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(key));
+        arg->typeStr = strType;
+        arg->m_options = {};
+        arg->option = new DerivedOption<T,Targs...>(func, targs);
+        arg->m_positional = true;
         if(GET_TYPE(T) == GET_TYPE(date_t)){
-            option->m_date_format = DEFAULT_DATE_FORMAT;
+            arg->m_date_format = DEFAULT_DATE_FORMAT;
         }
 
-        argMap[key] = option;
+        argMap[key] = std::move(arg);
         posMap.emplace_back(key);
 
-        return *option;
+        return *argMap[key];
     }
 
     template <typename T, class...Targs, typename...args>
@@ -748,27 +744,26 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " opts size != function arguments");
         }
 
-        auto x = new DerivedOption<T,Targs...>(func, targs);
-        auto option = new ARG_DEFS(splitKey.key);
-        option->typeStr = strType;
-        option->option = x;
-        option->m_options = opts;
-        option->m_arbitrary = flag;
-        option->m_implicit = implicit;
-        option->m_starts_with_minus = starts_with_minus;
-        option->mandatory_options = mnd_vals;
+        auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(splitKey.key));
+        arg->typeStr = strType;
+        arg->option = new DerivedOption<T,Targs...>(func, targs);
+        arg->m_options = opts;
+        arg->m_arbitrary = flag;
+        arg->m_implicit = implicit;
+        arg->m_starts_with_minus = starts_with_minus;
+        arg->mandatory_options = mnd_vals;
         if(GET_TYPE(T) == GET_TYPE(date_t)
            && opts.size() == 1){
-            option->m_date_format = DEFAULT_DATE_FORMAT;
+            arg->m_date_format = DEFAULT_DATE_FORMAT;
         }
-        argMap[splitKey.key] = option;
+        argMap[splitKey.key] = std::move(arg);
 
         // add aliases
         for(auto &alias : splitKey.aliases){
             setAlias(splitKey.key, alias);
         }
 
-        return *option;
+        return *argMap[splitKey.key];
     }
 
     /**
@@ -820,8 +815,7 @@ public:
         auto strType = parser_internal::GetTypeName<T>();
         auto &r = getArg(key);
         try{
-            auto base_opt = r.option;
-            return std::any_cast<T>(base_opt->anyval);
+            return std::any_cast<T>(r.option->anyval);
         }catch(const std::bad_any_cast& e){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot cast to " + strType);
         }
@@ -917,7 +911,7 @@ public:
                 argMap[key]->option->action(&argVec[start], end - start, argMap[key]->m_date_format);
             }catch(std::exception &e){
                 //save last unparsed arg
-                last_unparsed_arg = argMap[key];
+                last_unparsed_arg = argMap[key].get();
                 throw unparsed_param(e.what());
             }
             return end-start;
@@ -1179,7 +1173,7 @@ private:
         std::vector<std::string> aliases;
     };
 
-    std::map<std::string, ARG_DEFS*> argMap;
+    std::map<std::string, std::unique_ptr<ARG_DEFS>> argMap;
     std::vector<std::string>posMap;
     std::vector<std::string> argVec;
 
@@ -1275,7 +1269,7 @@ private:
 
         bool advanced = false;
 
-        auto printParam = [](auto j, bool notab = false){
+        auto printParam = [](auto &j, bool notab = false){
             std::string alias_str = notab ? "" : "\t";
             for(auto &alias : j.second->m_aliases){
                 alias_str += alias + KEY_ALIAS_DELIMITER + " ";
@@ -1298,7 +1292,7 @@ private:
         //check required: -1-don't check, 0-false, other-true
         auto sorted_usage = [this, &advanced, &printParam](bool flag, bool hidden, int check_required = -1){
 
-            auto print_usage = [&advanced, &printParam, this](auto j){
+            auto print_usage = [&advanced, &printParam, this](auto &j){
                 //skip already printed
                 if(j.second->m_set){
                     return;
