@@ -401,13 +401,6 @@ private:
 
 struct ARG_DEFS{
 
-    ARG_DEFS(const std::string &name){
-        m_name = name;
-    }
-    ~ARG_DEFS() {
-        delete option;
-    }
-
     ARG_DEFS &help(std::string hlp){
         m_help = std::move(hlp);
         return *this;
@@ -543,6 +536,12 @@ struct ARG_DEFS{
     }
 
 private:
+    ARG_DEFS(std::string name)
+    : m_name(std::move(name)){}
+
+    ~ARG_DEFS() {
+        delete option;
+    }
     friend class argParser;
     std::string m_name;
     std::string m_help;
