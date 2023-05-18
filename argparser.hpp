@@ -69,6 +69,7 @@ constexpr int countChars( const char* s, char c ){
 #define ARG_STRING STRINGIFY(ARGS_LIST)
 //count max function arguments provided by UNPACK_ARGUMENTS
 #define MAX_ARGS countChars(ARG_STRING, ']')
+#define OPTS_SZ_MAGIC (MAX_ARGS + 1)
 //get type index
 #define GET_TYPE(x) std::type_index(typeid(std::remove_cv_t<x>))
 
@@ -313,7 +314,7 @@ private:
         }
     }
     void action(const std::string *args, int size) override{
-        const char *argvCpy[MAX_ARGS+1] = {nullptr};
+        const char *argvCpy[MAX_ARGS] = {nullptr};
         for(int i=0; i<size; ++i){
             argvCpy[i] = args[i].c_str();
         }
@@ -603,7 +604,7 @@ public:
                             T(*func)(args...) = nullptr,
                             std::tuple<Targs...> targs = std::tuple<>()){
 
-        static_assert((sizeof...(args) - sizeof...(Targs)) <= 1, " too many arguments in function");
+        static_assert((sizeof...(args) - sizeof...(Targs)) <= 1, "Too many string arguments in function");
 
         /// check if variadic pos already defined
         for(auto &p : posMap){
@@ -637,7 +638,7 @@ public:
         arg->m_options = {};
         arg->option = new DerivedOption<T,Targs...>(func, targs);
         arg->m_positional = true;
-        if(GET_TYPE(T) == GET_TYPE(date_t)){
+        if(parser_internal::are_same_type<date_t, T>){
             arg->m_date_format = DEFAULT_DATE_FORMAT;
         }
 
@@ -646,12 +647,25 @@ public:
 
         return *argMap[key];
     }
-
-    template <typename T, class...Targs, typename...args>
+    //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
+    template <typename T, class...Targs, typename...args, size_t OPT_SZ = OPTS_SZ_MAGIC>
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
-                          std::vector<std::string>&& opts = {},
+                          const std::string (&opts_arr)[OPT_SZ] = {},
                           T(*func)(args...) = nullptr,
                           std::tuple<Targs...> targs = std::tuple<>()){
+
+        constexpr int opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
+        constexpr int func_str_opt_size = sizeof...(args) - sizeof...(Targs); //number of function string arguments
+        constexpr bool implicit = opt_size == 0; //implicit arg has 0 options
+        // check number of args in compile-time
+        // except for the case when func args = 0 and opts_size = 1
+        if constexpr(opt_size > 0){
+            // if number of function string arguments > 0,
+            // check if number of string arguments == number of options
+            static_assert(sizeof...(args) == 0 || func_str_opt_size == opt_size, "Options size != function string parameters");
+            // if more than 1 option, func must be present anyway
+            static_assert(opt_size == 1 || func_str_opt_size == opt_size, "Arguments with more than 1 option must have a function with corresponding number of string arguments");
+        }
 
         if(names.empty()){
             throw std::invalid_argument(std::string(__func__) + ": argument must have a name");
@@ -674,6 +688,8 @@ public:
         // remove key from aliases vector
         splitKey.aliases.erase(idx);
 
+        /// create opts vector
+        std::vector<std::string> opts = {opts_arr, opts_arr + opt_size};
         /// get template type string
         auto strType = parser_internal::GetTypeName<T>();
         ///Check for invalid sequence order of arguments
@@ -718,19 +734,13 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " should have at least 1 mandatory parameter");
         }
 
-        bool implicit = opts.empty();
-
         if(func == nullptr){
-            if(implicit && !std::is_arithmetic<T>::value){
+            if(implicit && !std::is_arithmetic_v<T>){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for non-arithmetic arg with implicit option");
-            }
-            if(opts.size() > 1){
-                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for arg with " + std::to_string(opts.size()) + " options");
             }
             if(!implicit && last_mandatory_arg.empty()){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for arg with arbitrary options");
             }
-
             ///check if default parser for this type is present
             try{
                 parser_internal::scan(GET_TYPE(T), nullptr);
@@ -739,9 +749,6 @@ public:
             }catch(std::runtime_error &){
                 //do nothing
             }
-        }
-        else if((sizeof...(args) - sizeof...(Targs)) != opts.size()){
-            throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " opts size != function arguments");
         }
 
         auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(splitKey.key));
@@ -752,8 +759,8 @@ public:
         arg->m_implicit = implicit;
         arg->m_starts_with_minus = starts_with_minus;
         arg->mandatory_options = mnd_vals;
-        if(GET_TYPE(T) == GET_TYPE(date_t)
-           && opts.size() == 1){
+        if(parser_internal::are_same_type<date_t, T>
+           && opt_size == 1){
             arg->m_date_format = DEFAULT_DATE_FORMAT;
         }
         argMap[splitKey.key] = std::move(arg);
@@ -776,9 +783,9 @@ public:
      * @param func function pointer or nullptr
      * @return
      */
-    template <typename T, class...Targs, typename...args>
+    template <typename T, class...Targs, typename...args, size_t OPT_SZ = OPTS_SZ_MAGIC>
     ARG_DEFS &addArgument(const char *key,
-                          const std::initializer_list<std::string>& opts = {},
+                          const std::string (&opts_arr)[OPT_SZ] = {},
                           T(*func)(args...) = nullptr,
                           std::tuple<Targs...> targs = std::tuple<>()){
 
@@ -806,7 +813,7 @@ public:
             vec.push_back(keys);
         }
 
-        return addArgument(vec, opts, func, targs);
+        return addArgument(vec, opts_arr, func, targs);
     }
 
     template <typename T>

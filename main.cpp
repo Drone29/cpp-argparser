@@ -12,6 +12,10 @@ int tst(int a, const char* a1){
     return a + (int)strtol(a1, nullptr, 0);
 }
 
+int erroneous_func(){
+    return 23;
+}
+
 struct CL{
     bool a = false;
     int b = 0;
