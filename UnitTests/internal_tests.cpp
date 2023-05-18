@@ -236,6 +236,17 @@ void check_invalid_date_format(){
     }
     throw std::runtime_error("should throw if invalid date format");
 }
+void check_invalid_date_format_2(){
+    HIGHLIGHT_TEST
+    try{
+        argParser parser;
+        parser.addArgument<date_t>("date", {"date_str"})
+                .date_format("%d.%m.%Y %H:%M");
+    }catch(std::logic_error &e){
+        return;
+    }
+    throw std::runtime_error("should throw if invalid date format (spaces)");
+}
 
 
 int main(){
@@ -256,5 +267,6 @@ int main(){
     check_single_char();
     check_char_number();
     check_invalid_date_format();
+    check_invalid_date_format_2();
     return 0;
 }
