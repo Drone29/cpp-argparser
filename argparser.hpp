@@ -840,7 +840,7 @@ public:
     }
 
     /// Parse arguments
-    int parseArgs(int argc, char *argv[], bool allow_zero_options = false)
+    int parseArgs(int argc, char *argv[])
     {
         argVec = {argv + 1, argv + argc};
         ///Retrieve binary self-name
@@ -862,7 +862,6 @@ public:
         }
 
         mandatory_option = mandatory_args || required_args;
-        mandatory_option &= !allow_zero_options;
 
         auto parseArgument = [this](const std::string &key, int start, int end) -> int{
             try{
