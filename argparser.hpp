@@ -586,7 +586,7 @@ class argParser
 {
 public:
     argParser(){
-        argMap[HELP_NAME] = std::move(std::unique_ptr<ARG_DEFS>(new ARG_DEFS(HELP_NAME)));
+        argMap[HELP_NAME] = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(HELP_NAME));
         argMap[HELP_NAME]->typeStr = ARG_TYPE_HELP;
         argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
         argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
