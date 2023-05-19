@@ -222,8 +222,6 @@ protected:
     friend struct ARG_DEFS;
     BaseOption() = default;
     virtual ~BaseOption() = default;
-    virtual void action () = 0; // for implicit args
-    virtual void action (const std::string *args, int size) = 0; // for common args
     virtual void action (const std::string *args, int size, const char *date_format) = 0; // for variadic args
     virtual void set(std::any x) = 0;
     virtual std::string get_str_val() = 0;
@@ -247,13 +245,13 @@ private:
     void action(const std::string *args, int size, const char *date_format) override{
         // if implicit
         if constexpr(STR_ARGS == 0){
-            action();
+            parse_implicit();
             return;
         }
         if(!variadic){
             // non-variadic action
             if constexpr(has_action()){
-                action(args, size);
+                parse_common(args, size);
                 return;
             }else{
                 // simple scan of single value
@@ -267,7 +265,7 @@ private:
             // variadic action
             for(int i=0; i<size; ++i){
                 if constexpr(has_action()){
-                    action(&args[i], 1);
+                    parse_common(&args[i], 1);
                 }else{
                     value = parser_internal::scan<T>(args[i].c_str(), date_format);
                 }
@@ -277,14 +275,14 @@ private:
         }
     }
     // for implicit args only
-    void action() override{
+    void parse_implicit(){
         if(!has_action()){
             increment();
         }else{
-            action(nullptr, 0);
+            parse_common(nullptr, 0);
         }
     }
-    void action(const std::string *args, int size) override{
+    void parse_common(const std::string *args, int size){
         if constexpr(not_void() && has_action()){
             if constexpr(STR_ARGS > 0){
                 // create array of STR_ARGS size
@@ -311,7 +309,6 @@ private:
         set_global();
         anyval = value;
     }
-
     void increment() {
         if constexpr (std::is_arithmetic_v<T>){
             value+=1;
