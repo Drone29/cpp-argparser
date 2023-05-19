@@ -5,7 +5,7 @@ project(${TEST_NAME})
 # include directory with files to be tested
 include_directories(../)
 add_executable(internal_tests internal_tests.cpp)
-#add_executable(cli_tests cli_tests.cpp)
+add_executable(cli_tests cli_tests.cpp)
 
 add_test(NAME internal_tests COMMAND internal_tests)
 

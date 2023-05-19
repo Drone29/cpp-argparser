@@ -39,37 +39,8 @@
 
 #define REQUIRED_OPTION_SIGN "(*)"
 
-///// list of arguments to unpack starting from x index (ONLY TRIVIAL TYPES)
-//#define UNPACK_ARGUMENTS(arg,x) \
-//(arg)[(x)],                                 \
-//(arg)[(x)+1],                               \
-//(arg)[(x)+2],                               \
-//(arg)[(x)+3],                               \
-//(arg)[(x)+4],                               \
-//(arg)[(x)+5],                               \
-//(arg)[(x)+6],                               \
-//(arg)[(x)+7],                               \
-//(arg)[(x)+8],                               \
-//(arg)[(x)+9]
-///// short version, with index=0
-//#define UNPACK_ARGS(arg) UNPACK_ARGUMENTS(arg,0)
-
-//Need 2 macros to first evaluate expression and then stringify
-//#define STRINGIFY_IMPL(z) #z
-//#define STRINGIFY(z) STRINGIFY_IMPL(z)
-////temporary value to store arguments
-//#define ARGS_LIST (UNPACK_ARGUMENTS(arg,x))
-////Turn arguments list into string
-//#define ARG_STRING STRINGIFY(ARGS_LIST)
-
-////Count certain chars in string at compile-time
-//constexpr int countChars( const char* s, char c ){
-//    return *s == '\0' ? 0
-//                      : countChars( s + 1, c) + (*s == c);
-//}
-////count max function arguments provided by UNPACK_ARGUMENTS
-//constexpr size_t MAX_ARGS = countChars(ARG_STRING, ']');
 constexpr size_t OPTS_SZ_MAGIC = 10;
+const std::string EMPTY_OPTS[OPTS_SZ_MAGIC] = {};
 
 #define ARG_TYPE_HELP "HELP"
 //date format by default
@@ -605,7 +576,16 @@ public:
         argMap.clear();
         argVec.clear();
     }
-
+    /**
+     *
+     * @tparam T
+     * @tparam Callable - func/func ptr/lambda (CANNOT RETURN VOID)
+     * @tparam Targs
+     * @param key
+     * @param func
+     * @param targs
+     * @return
+     */
     template <typename T, class Callable = decltype(parser_internal::dummy), class...Targs>
     ARG_DEFS &addPositional(const std::string &key,
                             Callable &&func = parser_internal::dummy,
@@ -651,6 +631,18 @@ public:
 
         return *argMap[key];
     }
+    /**
+     *
+     * @tparam T - return type
+     * @tparam Callable - func/func_ptr/lambda type (CANNOT RETURN VOID)
+     * @tparam OPT_SZ - size of options array (aka function string args) (CANNOT BE MORE THAN OPTS_SZ_MAGIC)
+     * @tparam Targs - side arguments' types for function/lambda
+     * @param names - argument name + aliases
+     * @param opts_arr - array of string options
+     * @param func - callable itself
+     * @param targs - tuple with side arguments
+     * @return - reference to ARG_DEFS struct
+     */
     //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
     template <typename T, class Callable = decltype(parser_internal::dummy), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
@@ -767,16 +759,6 @@ public:
         return *argMap[splitKey.key];
     }
 
-    /**
-     *
-     * @tparam T function return type
-     * @tparam Targs function side arguments (any)
-     * @tparam args function arguments (const char*)
-     * @param key argument key ("-f" adds arbitrary argument, "f" adds mandatory argument)
-     * @param opts list of options ({"foo"} - mandatory, {"[foo]"} = arbitrary). {} treated as implicit argument
-     * @param func function pointer or nullptr
-     * @return
-     */
     // another implementation of addArgument with const char *key
     template <typename T, class Callable = decltype(parser_internal::dummy), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
     ARG_DEFS &addArgument(const char *key,
