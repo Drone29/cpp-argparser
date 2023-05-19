@@ -154,7 +154,7 @@ void check_complex(){
     };
     HIGHLIGHT_TEST
     argParser parser;
-    parser.addArgument<std::string>("-p", {"[str_value]"}, *test);
+    parser.addArgument<std::string>("-p", {"[str_value]"}, test);
 
     parser.addArgument<int>("--variadic, -var", {"N"})
             .variadic();
@@ -180,7 +180,7 @@ void check_complex_2(){
     };
     HIGHLIGHT_TEST
     argParser parser;
-    parser.addArgument<std::string>("-p", {"[str_value]"}, *test);
+    parser.addArgument<std::string>("-p", {"[str_value]"}, test);
 
     parser.addArgument<int>("--variadic, -var", {"N"})
             .variadic();
