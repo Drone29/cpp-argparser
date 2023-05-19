@@ -89,14 +89,7 @@ namespace parser_internal{
     inline constexpr bool are_same_type = (std::is_same_v<S, T> && ...);
 
     // dummy function for default template parameter
-    template<typename T>
-    T dummy(){
-        if constexpr(std::is_void_v<T>){
-            return;
-        }else{
-            return T{};
-        }
-    }
+    void dummy(){}
 
     namespace internal
     {
@@ -272,6 +265,12 @@ template <typename T, class Callable, size_t STR_ARGS, class...Targs>
 class DerivedOption : public BaseOption{
 private:
     friend class argParser;
+    [[nodiscard]] static constexpr bool has_action(){
+        return !std::is_same_v<Callable, decltype(parser_internal::dummy)>;
+    }
+    [[nodiscard]] static constexpr bool not_void(){
+        return !std::is_void_v<T>;
+    }
     void increment() {
         if constexpr (std::is_arithmetic_v<T>){
             value+=1;
@@ -282,42 +281,35 @@ private:
     // parse variadic params, single scan and common action
     void action(const std::string *args, int size, const char *date_format) override{
 
-        // non-variadic action
-        if(has_action && !variadic){
-            action(args, size);
-            return;
-        }
-        // simple scan of single value
-        if(!has_action && !variadic){
-            set(parser_internal::scan<T>(args[0].c_str(), date_format));
-            return;
+        if(!variadic){
+            // non-variadic action
+            if constexpr(has_action()){
+                action(args, size);
+                return;
+            }else{
+                // simple scan of single value
+                set(parser_internal::scan<T>(args[0].c_str(), date_format));
+                return;
+            }
         }
         // only for non-void
-        if constexpr(!std::is_void_v<T>){
+        if constexpr(not_void() && STR_ARGS > 0){
             std::vector<T> res;
             // variadic action
             for(int i=0; i<size; ++i){
-                // create tuple from side args + current const char* arg
-                auto tpl_str = std::make_tuple(args[i].c_str());
-                auto tpl_res = std::tuple_cat(tpl, tpl_str);
-
-                T val = parser_internal::scan<T>(args[i].c_str(), date_format);
-#warning "Variadic arguments are parsed only by scan. NEED TO FIX!"
-                // todo: return apply
-                // says 'no matching function for call to ‘__invoke(tm (*&)(), const char*&)’'
-//                auto v2 = std::apply(func, tpl_res);
-//                //scan or apply action
-//                T val = has_action
-//                        ? std::apply(func, tplres)
-//                        : parser_internal::scan<T>(args[i].c_str(), date_format);
-                res.push_back(val);
+                if constexpr(has_action()){
+                    action(&args[i], 1);
+                }else{
+                    value = parser_internal::scan<T>(args[i].c_str(), date_format);
+                }
+                res.push_back(value);
             }
             anyval = res;
         }
     }
     // for implicit args only
     void action() override{
-        if(!has_action){
+        if(!has_action()){
             increment();
         }else{
             action(nullptr, 0);
@@ -325,14 +317,7 @@ private:
     }
     void action(const std::string *args, int size) override{
         if constexpr(STR_ARGS > 0){
-            // if dummy function used, call it with empty arg list
-            if constexpr(std::is_same_v<Callable, decltype(parser_internal::dummy<T>)>){
-                if constexpr(std::is_void_v<T>){
-                    std::apply(parser_internal::dummy<T>, std::tuple<>());
-                }else{
-                    value = std::apply(parser_internal::dummy<T>, std::tuple<>());
-                }
-            }else{
+            if constexpr(has_action()){
                 // create array of STR_ARGS size
                 std::array<const char*, STR_ARGS> str_arr {};
                 // fill array with vector values
@@ -347,17 +332,13 @@ private:
                 // resulting tuple
                 auto tpl_res = std::tuple_cat(tpl, tpl_str);
                 // call function with resulting tuple
-                if constexpr(std::is_void_v<T>){
-                    std::apply(func, tpl_res);
-                }else{
+                if constexpr(not_void()){
                     value = std::apply(func, tpl_res);
                 }
             }
-        }else{
+        }else if constexpr(has_action()){
             // call function with initial tuple
-            if constexpr(std::is_void_v<T>){
-                std::apply(func, tpl); //just call, no return
-            }else{
+            if constexpr(not_void()){
                 value = std::apply(func, tpl);
             }
         }
@@ -414,18 +395,18 @@ private:
     DerivedOption(Callable &&func_, std::tuple<Targs...> targs) :
             func(func_),
             tpl(std::move(targs)){
-                has_action = !std::is_same_v<Callable, decltype(parser_internal::dummy<T>)>;
-                anyval = value;
-            }
+
+        static_assert(!std::is_void_v<T>, "Argument type cannot be void");
+        anyval = value;
+    }
 
     ~DerivedOption() override = default;
 
-    RETURN_TYPE(T) value {};
+    T value {};
     // func stores functions, function ptrs, lambdas, functors
     CALLABLE(Callable) func;
     std::tuple<Targs...> tpl;
     T *global = nullptr;
-    bool has_action = false;
 };
 
 struct ARG_DEFS{
@@ -627,9 +608,9 @@ public:
         argVec.clear();
     }
 
-    template <typename T, class Callable = decltype(parser_internal::dummy<T>), class...Targs>
+    template <typename T, class Callable = decltype(parser_internal::dummy), class...Targs>
     ARG_DEFS &addPositional(const std::string &key,
-                            Callable &&func = parser_internal::dummy<T>,
+                            Callable &&func = parser_internal::dummy,
                             std::tuple<Targs...> targs = std::tuple<>()){
 
         /// check if variadic pos already defined
@@ -649,7 +630,7 @@ public:
         auto strType = parser_internal::GetTypeName<T>();
 
         ///check if default parser for this type is present
-        if constexpr(std::is_same_v<Callable, decltype(parser_internal::dummy<T>)>){
+        if constexpr(std::is_same_v<Callable, decltype(parser_internal::dummy)>){
             try{
                 parser_internal::scan<T>(nullptr);
             }catch(std::logic_error &e){
@@ -673,10 +654,10 @@ public:
         return *argMap[key];
     }
     //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
-    template <typename T, class Callable = decltype(parser_internal::dummy<T>), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
+    template <typename T, class Callable = decltype(parser_internal::dummy), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
                           const std::string (&opts_arr)[OPT_SZ] = {},
-                          Callable &&func = parser_internal::dummy<T>,
+                          Callable &&func = parser_internal::dummy,
                           std::tuple<Targs...> targs = std::tuple<>()){
 
         constexpr int opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
@@ -749,7 +730,7 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " should have at least 1 mandatory parameter");
         }
 
-        if constexpr(std::is_same_v<Callable, decltype(parser_internal::dummy<T>)>){
+        if constexpr(std::is_same_v<Callable, decltype(parser_internal::dummy)>){
             if(implicit && !std::is_arithmetic_v<T>){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for non-arithmetic arg with implicit option");
             }
@@ -799,10 +780,10 @@ public:
      * @return
      */
     // another implementation of addArgument with const char *key
-    template <typename T, class Callable = decltype(parser_internal::dummy<T>), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
+    template <typename T, class Callable = decltype(parser_internal::dummy), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
     ARG_DEFS &addArgument(const char *key,
                           const std::string (&opts_arr)[OPT_SZ] = {},
-                          Callable &&func = parser_internal::dummy<T>,
+                          Callable &&func = parser_internal::dummy,
                           std::tuple<Targs...> targs = std::tuple<>()){
 
         std::string keys = key == nullptr ? "" : std::string(key);

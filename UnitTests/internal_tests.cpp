@@ -101,7 +101,7 @@ void check_variadic_opt(){
         throw std::runtime_error("Should parse 3 digits to variadic argument");
     }
 }
-//todo: error here
+
 void check_variadic_pos(){
     HIGHLIGHT_TEST
     argParser parser;
@@ -114,9 +114,14 @@ void check_variadic_pos(){
         return res;
     };
 
+    auto pos_lmb = [](const char *a) -> int{
+        auto res = argParser::scanValue<int>(a);
+        return res;
+    };
+
     parser.addArgument<int>("-i", {"mnd", "[arb]"}, lmb);
 
-    parser.addPositional<int>("pos")
+    parser.addPositional<int>("pos", pos_lmb)
             .variadic();
     call_parser(parser, {"-i", "1", "2", "3", "4", "5"});
     // 1,2 should go to -i, the res - to positional arg
