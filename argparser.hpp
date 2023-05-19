@@ -54,12 +54,6 @@
 /// short version, with index=0
 #define UNPACK_ARGS(arg) UNPACK_ARGUMENTS(arg,0)
 
-//Count certain chars in string at compile-time
-constexpr int countChars( const char* s, char c ){
-    return *s == '\0' ? 0
-                      : countChars( s + 1, c) + (*s == c);
-}
-
 //Need 2 macros to first evaluate expression and then stringify
 #define STRINGIFY_IMPL(z) #z
 #define STRINGIFY(z) STRINGIFY_IMPL(z)
@@ -67,11 +61,15 @@ constexpr int countChars( const char* s, char c ){
 #define ARGS_LIST (UNPACK_ARGUMENTS(arg,x))
 //Turn arguments list into string
 #define ARG_STRING STRINGIFY(ARGS_LIST)
+
+//Count certain chars in string at compile-time
+constexpr int countChars( const char* s, char c ){
+    return *s == '\0' ? 0
+                      : countChars( s + 1, c) + (*s == c);
+}
 //count max function arguments provided by UNPACK_ARGUMENTS
-#define MAX_ARGS countChars(ARG_STRING, ']')
-#define OPTS_SZ_MAGIC (MAX_ARGS + 1)
-//get type index
-#define GET_TYPE(x) std::type_index(typeid(std::remove_cv_t<x>))
+constexpr size_t MAX_ARGS = countChars(ARG_STRING, ']');
+constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
 
 #define ARG_TYPE_HELP "HELP"
 //date format by default
@@ -154,17 +152,18 @@ namespace parser_internal{
         }
         return r;
     }
-
     /// format is applicable only to date_t type
-    inline std::any scan(std::type_index type, const char *arg, const char *date_format = nullptr) {
+    template<typename T>
+    T scan(const char* arg, const char* date_format = nullptr){
 
         std::string temp = (arg == nullptr) ? "" : std::string(arg);
+        T res;
 
-        if(type == GET_TYPE(char*) || type == GET_TYPE(const char*)){
+        if constexpr(std::is_convertible_v<T, const char*>){
             return arg;
-        }else if(type == GET_TYPE(std::string)){
+        }else if constexpr(std::is_same_v<T, std::string>){
             return temp;
-        }else if(type == GET_TYPE(bool)){
+        }else if constexpr(std::is_same_v<T, bool>){
             auto isTrue = [func=__func__](const char *s){
                 const char *pos_buf[] = {BOOL_POSITIVES, nullptr};
                 const char *neg_buf[] = {BOOL_NEGATIVES, nullptr};
@@ -185,7 +184,7 @@ namespace parser_internal{
                 lVal += std::tolower(elem);
             }
             return isTrue(lVal.c_str());
-        }else if(type == GET_TYPE(date_t)){
+        }else if constexpr(std::is_same_v<T, date_t>){
             date_t tt = {0};
             if(date_format == nullptr){
                 date_format = DEFAULT_DATE_FORMAT;
@@ -201,46 +200,33 @@ namespace parser_internal{
             }
             return tt;
         }
-
-        ///numbers
-        std::any res;
-        if(type == GET_TYPE(int)){
-            res = scan_number<int>(temp);
-        }else if(type == GET_TYPE(long)){
-            res = scan_number<long>(temp);
-        }else if(type == GET_TYPE(long long)){
-            res = scan_number<long long>(temp);
-        }else if(type == GET_TYPE(unsigned int)){
-            res = scan_number<unsigned int>(temp);
-        }else if(type == GET_TYPE(unsigned long)){
-            res = scan_number<unsigned long>(temp);
-        }else if(type == GET_TYPE(unsigned long long)){
-            res = scan_number<unsigned long long>(temp);
-        }else if(type == GET_TYPE(float)){
-            res = scan_number<float>(temp);
-        }else if(type == GET_TYPE(double)){
-            res = scan_number<double>(temp);
-        }
-        /// narrow cast
-        else if(type == GET_TYPE(char)){
-            // special - if single char, treat as symbol
-            if(temp.length() == 1){
-                res = temp[0];
-            }else{
-                res = narrow_cast<char>(scan_number<int>(temp), temp);
+        /// arithmetic
+        else if constexpr(std::is_arithmetic_v<T>){
+            /// char special
+            if constexpr(std::is_same_v<T, char>){
+                // special - if single char, treat as symbol
+                if(temp.length() == 1){
+                    res = temp[0];
+                }else{
+                    res = narrow_cast<char>(scan_number<int>(temp), temp);
+                }
             }
-        }else if(type == GET_TYPE(unsigned char)){
-            res = narrow_cast<unsigned char>(scan_number<unsigned int>(temp), temp);
-        }else if(type == GET_TYPE(short int)){
-            res = narrow_cast<short int>(scan_number<int>(temp), temp);
-        }else if(type == GET_TYPE(short unsigned int)){
-            res = narrow_cast<short unsigned int>(scan_number<unsigned int>(temp), temp);
+            // for types whose size less than int
+            else if constexpr(sizeof(T) < sizeof(int)){
+                if constexpr(std::is_signed_v<T>){
+                    res = narrow_cast<T>(scan_number<int>(temp), temp);
+                }else{
+                    res = narrow_cast<T>(scan_number<unsigned int>(temp), temp);
+                }
+            }else{
+                /// numbers
+                res = scan_number<T>(temp);
+            }
         }
         /// not convertible
         else{
-            throw std::logic_error(std::string(__func__) + ": value of unknown type " + temp);
+            throw std::logic_error(std::string(__func__) + ": no converter for " + temp + " of type " + GetTypeName<T>());
         }
-
         return res;
     }
 
@@ -262,7 +248,6 @@ protected:
     virtual void set(std::any x) = 0;
     virtual std::string get_str_val() = 0;
     virtual void set_global_ptr(std::any ptr) = 0;
-    virtual std::type_index get_type() = 0;
     std::any anyval;
     bool has_action = false;
     bool variadic = false;
@@ -273,7 +258,7 @@ class DerivedOption : public BaseOption{
 private:
     friend class argParser;
     void increment() {
-        if constexpr (std::is_arithmetic<T>::value){
+        if constexpr (std::is_arithmetic_v<T>){
             value+=1;
         }
         set_global();
@@ -289,7 +274,7 @@ private:
         }
         // simple scan of single value
         if(!has_action && !variadic){
-            set(parser_internal::scan(GET_TYPE(T), args[0].c_str(), date_format));
+            set(parser_internal::scan<T>(args[0].c_str(), date_format));
             return;
         }
         // variadic action
@@ -300,7 +285,7 @@ private:
             //scan or apply action
             T val = has_action
                     ? std::apply(t_action, tplres)
-                    : std::any_cast<T>(parser_internal::scan(GET_TYPE(T), args[i].c_str(), date_format));
+                    : parser_internal::scan<T>(args[i].c_str(), date_format);
             res.push_back(val);
         }
         anyval = res;
@@ -348,10 +333,6 @@ private:
         }
 
         return res;
-    }
-
-    std::type_index get_type() override{
-        return GET_TYPE(decltype(value));
     }
 
     void set(std::any x) override {
@@ -625,7 +606,7 @@ public:
         ///check if default parser for this type is present
         if(func == nullptr){
             try{
-                parser_internal::scan(GET_TYPE(T), nullptr);
+                parser_internal::scan<T>(nullptr);
             }catch(std::logic_error &e){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " no default parser for " + strType);
             }catch(std::runtime_error &){
@@ -743,7 +724,7 @@ public:
             }
             ///check if default parser for this type is present
             try{
-                parser_internal::scan(GET_TYPE(T), nullptr);
+                parser_internal::scan<T>(nullptr);
             }catch(std::logic_error &e){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no default parser for " + strType);
             }catch(std::runtime_error &){
@@ -840,13 +821,7 @@ public:
         if(value == nullptr){
             return T{};
         }
-        auto strType = parser_internal::GetTypeName<T>();
-        try{
-            std::any val = parser_internal::scan(GET_TYPE(T), value, date_format);
-            return std::any_cast<T>(val);
-        }catch(const std::bad_any_cast& e){
-            throw std::invalid_argument(std::string(__func__) + ": cannot cast to " + strType);
-        }
+        return parser_internal::scan<T>(value, date_format);
     }
 
     /// Get last unparsed argument
@@ -884,6 +859,9 @@ public:
     /// Parse arguments
     int parseArgs(int argc, char *argv[])
     {
+        if(args_parsed){
+            throw parse_error("Repeated attempt to run " + std::string(__func__));
+        }
         argVec = {argv + 1, argv + argc};
         ///Retrieve binary self-name
         std::string self_name = std::string(argv[0]);
@@ -1403,7 +1381,7 @@ private:
             std::cout << "Positional arguments:" << std::endl;
             for(auto &x : posMap){
                 std::string date_format = argMap[x]->m_date_format == nullptr ? "" : ("[" + std::string(argMap[x]->m_date_format) + "] ");
-                std::cout << "\t" + x + " : " + date_format + argMap[x]->m_help << std::endl;
+                std::cout << "\t" << x << " : " << date_format << argMap[x]->m_help << std::endl;
             }
         }
 

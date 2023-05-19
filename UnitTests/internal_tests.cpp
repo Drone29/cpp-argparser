@@ -19,6 +19,34 @@ void call_parser(argParser &parser, const char * const(&arr)[SIZE]){
     parser.parseArgs(SIZE+1, const_cast<char **>(a));
 }
 
+void check_negative_int(){
+    HIGHLIGHT_TEST
+    argParser parser;
+    parser.addArgument<int>("-i", {"int_value"});
+    call_parser(parser, {"-i", "-123"});
+    if(parser.getValue<int>("-i") != -123){
+        throw std::runtime_error("Should parse -123 into int");
+    }
+}
+void check_long_long(){
+    HIGHLIGHT_TEST
+    argParser parser;
+    parser.addArgument<unsigned long long>("-l", {"long_long_value"});
+    call_parser(parser, {"-l", "4000000000"});
+    if(parser.getValue<unsigned long long>("-l") != 4000000000){
+        throw std::runtime_error("Should convert long long");
+    }
+}
+void check_invalid_pointer(){
+    HIGHLIGHT_TEST
+    try{
+        argParser parser;
+        parser.addArgument<int *>("-i", {"int_ptr"});
+    }catch(std::invalid_argument &e){
+        return;
+    }
+    throw std::runtime_error("Should throw error as no scan provided for int*");
+}
 void check_repeating(){
     HIGHLIGHT_TEST
     try{
@@ -170,6 +198,26 @@ void check_single_char(){
         throw std::runtime_error("should parse single char");
     }
 }
+void check_int8_single_invalid_char(){
+    HIGHLIGHT_TEST
+    try{
+        argParser parser;
+        parser.addArgument<int8_t>("-i", {"int8_value"});
+        call_parser(parser, {"-i", "A"});
+    }catch(std::runtime_error &){
+        return;
+    }
+    throw std::runtime_error("Should throw error for non-char single digit");
+}
+void check_int8_single_char(){
+    HIGHLIGHT_TEST
+    argParser parser;
+    parser.addArgument<int8_t>("-i", {"int8_value"});
+    call_parser(parser, {"-i", "9"});
+    if(parser.getValue<int8_t>("-i") != 9){
+        throw std::runtime_error("Should parse 9 into int8");
+    }
+}
 void check_char_number(){
     HIGHLIGHT_TEST
     argParser parser;
@@ -248,9 +296,12 @@ void check_invalid_date_format_2(){
     throw std::runtime_error("should throw if invalid date format (spaces)");
 }
 
-
 int main(){
+
     std::cout << "Internal tests started" << std::endl;
+    check_long_long();
+    check_negative_int();
+    check_invalid_pointer();
     check_repeating();
     check_composite();
     check_key_similar_eq();
@@ -264,6 +315,8 @@ int main(){
     check_format_hex();
     check_format_float();
     check_format_scientific();
+    check_int8_single_invalid_char();
+    check_int8_single_char();
     check_single_char();
     check_char_number();
     check_invalid_date_format();
