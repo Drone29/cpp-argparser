@@ -316,25 +316,23 @@ private:
         }
     }
     void action(const std::string *args, int size) override{
-        if constexpr(STR_ARGS > 0){
-            if constexpr(has_action()){
-                // create array of STR_ARGS size
-                std::array<const char*, STR_ARGS> str_arr {};
-                // fill array with vector values
-                for(int i=0; i<size; ++i){
-                    if(i >= STR_ARGS){
-                        throw std::runtime_error("Too many arguments");
-                    }
-                    str_arr[i] = args[i].c_str();
+        if constexpr(STR_ARGS > 0 && has_action()){
+            // create array of STR_ARGS size
+            std::array<const char*, STR_ARGS> str_arr {nullptr};
+            // fill array with vector values
+            for(int i=0; i<size; ++i){
+                if(i >= STR_ARGS){
+                    throw std::runtime_error("Too many arguments");
                 }
-                // create tuple from array
-                auto tpl_str = std::tuple_cat(str_arr);
-                // resulting tuple
-                auto tpl_res = std::tuple_cat(tpl, tpl_str);
-                // call function with resulting tuple
-                if constexpr(not_void()){
-                    value = std::apply(func, tpl_res);
-                }
+                str_arr[i] = args[i].c_str();
+            }
+            // create tuple from array
+            auto tpl_str = std::tuple_cat(str_arr);
+            // resulting tuple
+            auto tpl_res = std::tuple_cat(tpl, tpl_str);
+            // call function with resulting tuple
+            if constexpr(not_void()){
+                value = std::apply(func, tpl_res);
             }
         }else if constexpr(has_action()){
             // call function with initial tuple
