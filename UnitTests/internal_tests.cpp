@@ -18,7 +18,6 @@ void call_parser(argParser &parser, const char * const(&arr)[SIZE]){
     std::cout << std::endl;
     parser.parseArgs(SIZE+1, const_cast<char **>(a));
 }
-
 void check_negative_int(){
     HIGHLIGHT_TEST
     argParser parser;
@@ -47,7 +46,7 @@ void check_invalid_pointer(){
     }
     throw std::runtime_error("Should throw error as no scan provided for int*");
 }
-void check_repeating(){
+void check_repeating_throw(){
     HIGHLIGHT_TEST
     try{
         argParser parser;
@@ -309,7 +308,7 @@ int main(){
     check_negative_int();
     check_long_long();
     check_invalid_pointer();
-    check_repeating();
+    check_repeating_throw();
     check_composite();
     check_key_similar_eq();
     check_key_similar_composite();

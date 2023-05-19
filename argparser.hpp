@@ -242,16 +242,14 @@ private:
     [[nodiscard]] static constexpr bool not_void(){
         return !std::is_void_v<T>;
     }
-    void increment() {
-        if constexpr (std::is_arithmetic_v<T>){
-            value+=1;
-        }
-        set_global();
-        anyval = value;
-    }
+
     // parse variadic params, single scan and common action
     void action(const std::string *args, int size, const char *date_format) override{
-
+        // if implicit
+        if constexpr(STR_ARGS == 0){
+            action();
+            return;
+        }
         if(!variadic){
             // non-variadic action
             if constexpr(has_action()){
@@ -287,29 +285,36 @@ private:
         }
     }
     void action(const std::string *args, int size) override{
-        if constexpr(STR_ARGS > 0 && has_action()){
-            // create array of STR_ARGS size
-            std::array<const char*, STR_ARGS> str_arr {nullptr};
-            // fill array with vector values
-            for(int i=0; i<size; ++i){
-                if(i >= STR_ARGS){
-                    throw std::runtime_error("Too many arguments");
+        if constexpr(not_void() && has_action()){
+            if constexpr(STR_ARGS > 0){
+                // create array of STR_ARGS size
+                std::array<const char*, STR_ARGS> str_arr {nullptr};
+                // fill array with vector values
+                for(int i=0; i<size; ++i){
+                    if(i >= STR_ARGS){
+                        throw std::runtime_error("Too many arguments");
+                    }
+                    str_arr[i] = args[i].c_str();
                 }
-                str_arr[i] = args[i].c_str();
-            }
-            // create tuple from array
-            auto tpl_str = std::tuple_cat(str_arr);
-            // resulting tuple
-            auto tpl_res = std::tuple_cat(tpl, tpl_str);
-            // call function with resulting tuple
-            if constexpr(not_void()){
+                // create tuple from array
+                auto tpl_str = std::tuple_cat(str_arr);
+                // resulting tuple
+                auto tpl_res = std::tuple_cat(tpl, tpl_str);
+                // call function with resulting tuple
                 value = std::apply(func, tpl_res);
-            }
-        }else if constexpr(has_action()){
-            // call function with initial tuple
-            if constexpr(not_void()){
+            }else{
+                // call function with initial tuple
                 value = std::apply(func, tpl);
             }
+        }
+
+        set_global();
+        anyval = value;
+    }
+
+    void increment() {
+        if constexpr (std::is_arithmetic_v<T>){
+            value+=1;
         }
         set_global();
         anyval = value;
@@ -1081,13 +1086,6 @@ public:
                 if(argMap[pName]->m_set
                    && !argMap[pName]->m_repeatable){
                     throw parse_error("Error: redefinition of non-repeatable arg " + std::string(pName));
-                }
-
-                ///Parse arg with implicit option
-                if(argMap[pName]->m_implicit){
-                    argMap[pName]->option->action();
-                    setArgument(pName);
-                    continue;
                 }
 
                 int opts_cnt = 0;
