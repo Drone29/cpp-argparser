@@ -39,8 +39,9 @@
 
 #define REQUIRED_OPTION_SIGN "(*)"
 
-constexpr size_t OPTS_SZ_MAGIC = 10;
-const std::string EMPTY_OPTS[OPTS_SZ_MAGIC] = {};
+constexpr size_t MAX_ARGS = 10;
+constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
+const std::string IMPLICIT_ARG[OPTS_SZ_MAGIC] = {};
 
 #define ARG_TYPE_HELP "HELP"
 //date format by default
@@ -646,7 +647,7 @@ public:
     //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
     template <typename T, class Callable = decltype(parser_internal::dummy), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
-                          const std::string (&opts_arr)[OPT_SZ] = {},
+                          const std::string (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
                           Callable &&func = parser_internal::dummy,
                           std::tuple<Targs...> targs = std::tuple<>()){
 
@@ -762,7 +763,7 @@ public:
     // another implementation of addArgument with const char *key
     template <typename T, class Callable = decltype(parser_internal::dummy), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
     ARG_DEFS &addArgument(const char *key,
-                          const std::string (&opts_arr)[OPT_SZ] = {},
+                          const std::string (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
                           Callable &&func = parser_internal::dummy,
                           std::tuple<Targs...> targs = std::tuple<>()){
 
