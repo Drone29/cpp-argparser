@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     // starting from 0 or default_value, if provided.
     // by default, the arguments are NON-REPEATABLE,
     // i.e. a call '-x -x' or '-xx' is NOT VALID and will cast an error
-    parser.addArgument<int>("-x ")
+    parser.addArgument<int>("-x")
             .help("int arbitrary argument with implicit value (if set, returns 1)");
 
     // bool is also considered arithmetic,
@@ -170,12 +170,12 @@ int main(int argc, char *argv[]) {
     // NOTE! '-a' alias conflicts with help's self key '-a', but it's not an error
     // Calling '--help -a' will list advanced options, but
     // '--help --array' will return help for --array argument
-    parser.addArgument<std::vector<const char*>>("-a, --array", {"a1", "[a2]"},
-                                                 *([](const char* a1, const char* a2) -> auto
-                                                 {
-                                                     return std::vector<const char*>{a1, a2==nullptr?"null":a2};
-                                                 }))
-            .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
+//    parser.addArgument<std::vector<const char*>>("-a, --array", {"a1", "[a2]"},
+//                                                 *([](const char* a1, const char* a2) -> auto
+//                                                 {
+//                                                     return std::vector<const char*>{a1, a2==nullptr?"null":a2};
+//                                                 }))
+//            .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
 
     // there's an date_t type which is an alias for std::tm struct
     parser.addArgument<date_t>("date", {"date_str"})

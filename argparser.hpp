@@ -39,48 +39,64 @@
 
 #define REQUIRED_OPTION_SIGN "(*)"
 
-/// list of arguments to unpack starting from x index (ONLY TRIVIAL TYPES)
-#define UNPACK_ARGUMENTS(arg,x) \
-(arg)[(x)],                                 \
-(arg)[(x)+1],                               \
-(arg)[(x)+2],                               \
-(arg)[(x)+3],                               \
-(arg)[(x)+4],                               \
-(arg)[(x)+5],                               \
-(arg)[(x)+6],                               \
-(arg)[(x)+7],                               \
-(arg)[(x)+8],                               \
-(arg)[(x)+9]
-/// short version, with index=0
-#define UNPACK_ARGS(arg) UNPACK_ARGUMENTS(arg,0)
+///// list of arguments to unpack starting from x index (ONLY TRIVIAL TYPES)
+//#define UNPACK_ARGUMENTS(arg,x) \
+//(arg)[(x)],                                 \
+//(arg)[(x)+1],                               \
+//(arg)[(x)+2],                               \
+//(arg)[(x)+3],                               \
+//(arg)[(x)+4],                               \
+//(arg)[(x)+5],                               \
+//(arg)[(x)+6],                               \
+//(arg)[(x)+7],                               \
+//(arg)[(x)+8],                               \
+//(arg)[(x)+9]
+///// short version, with index=0
+//#define UNPACK_ARGS(arg) UNPACK_ARGUMENTS(arg,0)
 
 //Need 2 macros to first evaluate expression and then stringify
-#define STRINGIFY_IMPL(z) #z
-#define STRINGIFY(z) STRINGIFY_IMPL(z)
-//temporary value to store arguments
-#define ARGS_LIST (UNPACK_ARGUMENTS(arg,x))
-//Turn arguments list into string
-#define ARG_STRING STRINGIFY(ARGS_LIST)
+//#define STRINGIFY_IMPL(z) #z
+//#define STRINGIFY(z) STRINGIFY_IMPL(z)
+////temporary value to store arguments
+//#define ARGS_LIST (UNPACK_ARGUMENTS(arg,x))
+////Turn arguments list into string
+//#define ARG_STRING STRINGIFY(ARGS_LIST)
 
-//Count certain chars in string at compile-time
-constexpr int countChars( const char* s, char c ){
-    return *s == '\0' ? 0
-                      : countChars( s + 1, c) + (*s == c);
-}
-//count max function arguments provided by UNPACK_ARGUMENTS
-constexpr size_t MAX_ARGS = countChars(ARG_STRING, ']');
-constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
+////Count certain chars in string at compile-time
+//constexpr int countChars( const char* s, char c ){
+//    return *s == '\0' ? 0
+//                      : countChars( s + 1, c) + (*s == c);
+//}
+////count max function arguments provided by UNPACK_ARGUMENTS
+//constexpr size_t MAX_ARGS = countChars(ARG_STRING, ']');
+constexpr size_t OPTS_SZ_MAGIC = 10;
 
 #define ARG_TYPE_HELP "HELP"
 //date format by default
 #define DEFAULT_DATE_FORMAT "%Y-%m-%dT%H:%M:%S"
+
+#define CALLABLE(Callable) std::conditional_t<std::is_function_v<Callable>, \
+        std::add_pointer_t<Callable>, Callable>
+// for void functions result is nullptr_t type
+#define RETURN_TYPE(Return) std::conditional_t<std::is_void_v<Return>, nullptr_t, Return>
+
 // isodate special type
 using date_t = std::tm;
 
 namespace parser_internal{
-    // fold expression to check if pack parameters are of the same type S
+    /// fold expression to check if pack parameters are of the same type S
     template <typename S, typename ...T>
     inline constexpr bool are_same_type = (std::is_same_v<S, T> && ...);
+
+    // dummy function for default template parameter
+    template<typename T>
+    T dummy(){
+        if constexpr(std::is_void_v<T>){
+            return;
+        }else{
+            return T{};
+        }
+    }
 
     namespace internal
     {
@@ -249,11 +265,10 @@ protected:
     virtual std::string get_str_val() = 0;
     virtual void set_global_ptr(std::any ptr) = 0;
     std::any anyval;
-    bool has_action = false;
     bool variadic = false;
 };
 
-template <typename T, class...Targs>
+template <typename T, class Callable, size_t STR_ARGS, class...Targs>
 class DerivedOption : public BaseOption{
 private:
     friend class argParser;
@@ -266,7 +281,7 @@ private:
     }
     // parse variadic params, single scan and common action
     void action(const std::string *args, int size, const char *date_format) override{
-        std::vector<T> res;
+
         // non-variadic action
         if(has_action && !variadic){
             action(args, size);
@@ -277,18 +292,28 @@ private:
             set(parser_internal::scan<T>(args[0].c_str(), date_format));
             return;
         }
-        // variadic action
-        for(int i=0; i<size; ++i){
-            // create tuple from side args + current const char* arg
-            auto cchar_tpl = std::make_tuple(args[i].c_str());
-            auto tplres = std::tuple_cat(tpl, cchar_tpl);
-            //scan or apply action
-            T val = has_action
-                    ? std::apply(t_action, tplres)
-                    : parser_internal::scan<T>(args[i].c_str(), date_format);
-            res.push_back(val);
+        // only for non-void
+        if constexpr(!std::is_void_v<T>){
+            std::vector<T> res;
+            // variadic action
+            for(int i=0; i<size; ++i){
+                // create tuple from side args + current const char* arg
+                auto tpl_str = std::make_tuple(args[i].c_str());
+                auto tpl_res = std::tuple_cat(tpl, tpl_str);
+
+                T val = parser_internal::scan<T>(args[i].c_str(), date_format);
+#warning "Variadic arguments are parsed only by scan. NEED TO FIX!"
+                // todo: return apply
+                // says 'no matching function for call to ‘__invoke(tm (*&)(), const char*&)’'
+//                auto v2 = std::apply(func, tpl_res);
+//                //scan or apply action
+//                T val = has_action
+//                        ? std::apply(func, tplres)
+//                        : parser_internal::scan<T>(args[i].c_str(), date_format);
+                res.push_back(val);
+            }
+            anyval = res;
         }
-        anyval = res;
     }
     // for implicit args only
     void action() override{
@@ -299,17 +324,42 @@ private:
         }
     }
     void action(const std::string *args, int size) override{
-        const char *argvCpy[MAX_ARGS] = {nullptr};
-        for(int i=0; i<size; ++i){
-            argvCpy[i] = args[i].c_str();
-        }
-        // create resulting tuple
-        auto cchar_tpl = std::make_tuple(UNPACK_ARGS(argvCpy));
-        auto tplres = std::tuple_cat(tpl, cchar_tpl);
-
-        //t_action != nullptr
-        if(has_action){
-            value = std::apply(t_action, tplres);
+        if constexpr(STR_ARGS > 0){
+            // if dummy function used, call it with empty arg list
+            if constexpr(std::is_same_v<Callable, decltype(parser_internal::dummy<T>)>){
+                if constexpr(std::is_void_v<T>){
+                    std::apply(parser_internal::dummy<T>, std::tuple<>());
+                }else{
+                    value = std::apply(parser_internal::dummy<T>, std::tuple<>());
+                }
+            }else{
+                // create array of STR_ARGS size
+                std::array<const char*, STR_ARGS> str_arr {};
+                // fill array with vector values
+                for(int i=0; i<size; ++i){
+                    if(i >= STR_ARGS){
+                        throw std::runtime_error("Too many arguments");
+                    }
+                    str_arr[i] = args[i].c_str();
+                }
+                // create tuple from array
+                auto tpl_str = std::tuple_cat(str_arr);
+                // resulting tuple
+                auto tpl_res = std::tuple_cat(tpl, tpl_str);
+                // call function with resulting tuple
+                if constexpr(std::is_void_v<T>){
+                    std::apply(func, tpl_res);
+                }else{
+                    value = std::apply(func, tpl_res);
+                }
+            }
+        }else{
+            // call function with initial tuple
+            if constexpr(std::is_void_v<T>){
+                std::apply(func, tpl); //just call, no return
+            }else{
+                value = std::apply(func, tpl);
+            }
         }
         set_global();
         anyval = value;
@@ -361,24 +411,21 @@ private:
         }
     }
 
-    template <typename...args>
-    DerivedOption(T(*func)(Targs..., args...), std::tuple<Targs...> targs) { //Targs...targs
+    DerivedOption(Callable &&func_, std::tuple<Targs...> targs) :
+            func(func_),
+            tpl(std::move(targs)){
+                has_action = !std::is_same_v<Callable, decltype(parser_internal::dummy<T>)>;
+                anyval = value;
+            }
 
-        static_assert(sizeof...(args) < MAX_ARGS, "Error: too many function arguments");
-        //check if args are const char*
-        static_assert(parser_internal::are_same_type<const char*, args...>, "Error: only const char* allowed");
-        t_action = reinterpret_cast<T (*)(Targs...,const char *...)>(func);
-        has_action = func != nullptr;
-        anyval = value;
-
-        tpl = targs;
-    }
     ~DerivedOption() override = default;
 
-    T(*t_action)(Targs...,const char*...) = nullptr;
-    T value {};
+    RETURN_TYPE(T) value {};
+    // func stores functions, function ptrs, lambdas, functors
+    CALLABLE(Callable) func;
     std::tuple<Targs...> tpl;
     T *global = nullptr;
+    bool has_action = false;
 };
 
 struct ARG_DEFS{
@@ -580,12 +627,10 @@ public:
         argVec.clear();
     }
 
-    template <typename T, class...Targs, typename...args>
+    template <typename T, class Callable = decltype(parser_internal::dummy<T>), class...Targs>
     ARG_DEFS &addPositional(const std::string &key,
-                            T(*func)(args...) = nullptr,
+                            Callable &&func = parser_internal::dummy<T>,
                             std::tuple<Targs...> targs = std::tuple<>()){
-
-        static_assert((sizeof...(args) - sizeof...(Targs)) <= 1, "Too many string arguments in function");
 
         /// check if variadic pos already defined
         for(auto &p : posMap){
@@ -604,7 +649,7 @@ public:
         auto strType = parser_internal::GetTypeName<T>();
 
         ///check if default parser for this type is present
-        if(func == nullptr){
+        if constexpr(std::is_same_v<Callable, decltype(parser_internal::dummy<T>)>){
             try{
                 parser_internal::scan<T>(nullptr);
             }catch(std::logic_error &e){
@@ -613,11 +658,10 @@ public:
                 //do nothing
             }
         }
-
         auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(key));
         arg->typeStr = strType;
         arg->m_options = {};
-        arg->option = new DerivedOption<T,Targs...>(func, targs);
+        arg->option = new DerivedOption<T, Callable, 1, Targs...>(func, targs);
         arg->m_positional = true;
         if(parser_internal::are_same_type<date_t, T>){
             arg->m_date_format = DEFAULT_DATE_FORMAT;
@@ -629,24 +673,14 @@ public:
         return *argMap[key];
     }
     //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
-    template <typename T, class...Targs, typename...args, size_t OPT_SZ = OPTS_SZ_MAGIC>
+    template <typename T, class Callable = decltype(parser_internal::dummy<T>), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
                           const std::string (&opts_arr)[OPT_SZ] = {},
-                          T(*func)(args...) = nullptr,
+                          Callable &&func = parser_internal::dummy<T>,
                           std::tuple<Targs...> targs = std::tuple<>()){
 
         constexpr int opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
-        constexpr int func_str_opt_size = sizeof...(args) - sizeof...(Targs); //number of function string arguments
         constexpr bool implicit = opt_size == 0; //implicit arg has 0 options
-        // check number of args in compile-time
-        // except for the case when func args = 0 and opts_size = 1
-        if constexpr(opt_size > 0){
-            // if number of function string arguments > 0,
-            // check if number of string arguments == number of options
-            static_assert(sizeof...(args) == 0 || func_str_opt_size == opt_size, "Options size != function string parameters");
-            // if more than 1 option, func must be present anyway
-            static_assert(opt_size == 1 || func_str_opt_size == opt_size, "Arguments with more than 1 option must have a function with corresponding number of string arguments");
-        }
 
         if(names.empty()){
             throw std::invalid_argument(std::string(__func__) + ": argument must have a name");
@@ -715,7 +749,7 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " should have at least 1 mandatory parameter");
         }
 
-        if(func == nullptr){
+        if constexpr(std::is_same_v<Callable, decltype(parser_internal::dummy<T>)>){
             if(implicit && !std::is_arithmetic_v<T>){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for non-arithmetic arg with implicit option");
             }
@@ -734,7 +768,7 @@ public:
 
         auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(splitKey.key));
         arg->typeStr = strType;
-        arg->option = new DerivedOption<T,Targs...>(func, targs);
+        arg->option = new DerivedOption<T, Callable, opt_size, Targs...>(func, targs); //, Callable, opt_size, Targs...
         arg->m_options = opts;
         arg->m_arbitrary = flag;
         arg->m_implicit = implicit;
@@ -765,10 +799,10 @@ public:
      * @return
      */
     // another implementation of addArgument with const char *key
-    template <typename T, class...Targs, typename...args, size_t OPT_SZ = OPTS_SZ_MAGIC>
+    template <typename T, class Callable = decltype(parser_internal::dummy<T>), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
     ARG_DEFS &addArgument(const char *key,
                           const std::string (&opts_arr)[OPT_SZ] = {},
-                          T(*func)(args...) = nullptr,
+                          Callable &&func = parser_internal::dummy<T>,
                           std::tuple<Targs...> targs = std::tuple<>()){
 
         std::string keys = key == nullptr ? "" : std::string(key);
@@ -795,7 +829,7 @@ public:
             vec.push_back(keys);
         }
 
-        return addArgument(vec, opts_arr, func, targs);
+        return addArgument<T, Callable, OPT_SZ, Targs...>(vec, opts_arr, func, targs);
     }
 
     template <typename T>

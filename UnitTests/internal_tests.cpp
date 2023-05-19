@@ -101,18 +101,21 @@ void check_variadic_opt(){
         throw std::runtime_error("Should parse 3 digits to variadic argument");
     }
 }
+//todo: error here
 void check_variadic_pos(){
     HIGHLIGHT_TEST
     argParser parser;
     //define lambda to parse int from 2 args
-    auto lmb = [](const char* mnd_, const char* arb_ = nullptr)->int{
+    auto lmb = [&](const char* mnd_, const char* arb_) -> int{
         auto res = argParser::scanValue<int>(mnd_);
         if(arb_ != nullptr){
             res += argParser::scanValue<int>(arb_);
         }
         return res;
     };
-    parser.addArgument<int>("-i", {"mnd", "[arb]"}, *lmb);
+
+    parser.addArgument<int>("-i", {"mnd", "[arb]"}, lmb);
+
     parser.addPositional<int>("pos")
             .variadic();
     call_parser(parser, {"-i", "1", "2", "3", "4", "5"});
@@ -137,7 +140,6 @@ void check_variadic_pos_throw(){
     }
     throw std::runtime_error("Show throw invalid arg error if variadic positional arg is followed by another one");
 }
-
 void check_complex(){
 
     auto test = [](const char* a){
@@ -299,8 +301,8 @@ void check_invalid_date_format_2(){
 int main(){
 
     std::cout << "Internal tests started" << std::endl;
-    check_long_long();
     check_negative_int();
+    check_long_long();
     check_invalid_pointer();
     check_repeating();
     check_composite();
