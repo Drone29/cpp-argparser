@@ -259,20 +259,18 @@ private:
                 return;
             }
         }
-        // only for non-void
-        if constexpr(not_void() && STR_ARGS > 0){
-            std::vector<T> res;
-            // variadic action
-            for(int i=0; i<size; ++i){
-                if constexpr(has_action()){
-                    parse_common(&args[i], 1);
-                }else{
-                    value = parser_internal::scan<T>(args[i].c_str(), date_format);
-                }
-                res.push_back(value);
+        // parse variadic
+        std::vector<T> res;
+        // variadic action
+        for(int i=0; i<size; ++i){
+            if constexpr(has_action()){
+                parse_common(&args[i], 1);
+            }else{
+                value = parser_internal::scan<T>(args[i].c_str(), date_format);
             }
-            anyval = res;
+            res.push_back(value);
         }
+        anyval = res;
     }
     // for implicit args only
     void parse_implicit(){
