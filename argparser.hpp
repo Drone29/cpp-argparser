@@ -19,9 +19,6 @@
 #include <sstream>
 #include <algorithm>
 
-/// help key
-#define HELP_NAME "--help"
-#define HELP_ALIAS "-h"
 /// advanced help option (show hidden)
 #define HELP_HIDDEN_OPT "-a"
 /// braced help option
@@ -29,30 +26,33 @@
 /// help self-explanation
 #define HELP_GENERIC_MESSAGE \
     "Show this message and exit. " HELP_HIDDEN_OPT " to list advanced options"
-/// delimiter for key aliases
-#define KEY_ALIAS_DELIMITER ","
-/// additional key/option delimiter (default is space)
-#define KEY_OPTION_DELIMITER "="
-/// bool parsable strings
-#define BOOL_POSITIVES "true", "1", "yes", "on", "enable"
-#define BOOL_NEGATIVES "false", "0", "no", "off", "disable"
-
-#define REQUIRED_OPTION_SIGN "(*)"
-
-constexpr size_t MAX_ARGS = 10;
-constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
-const std::string IMPLICIT_ARG[OPTS_SZ_MAGIC] = {};
-
-#define ARG_TYPE_HELP "HELP"
-//date format by default
-#define DEFAULT_DATE_FORMAT "%Y-%m-%dT%H:%M:%S"
-
+/// callable macro, handles both function pointers and lambdas
 #define CALLABLE(Callable) std::conditional_t<std::is_function_v<Callable>, \
         std::add_pointer_t<Callable>, Callable>
-// for void functions result is nullptr_t type
-#define RETURN_TYPE(Return) std::conditional_t<std::is_void_v<Return>, nullptr_t, Return>
+/// bool parsable strings
+constexpr const char* BOOL_POSITIVES[] = {"true", "1", "yes", "on", "enable"};
+constexpr const char* BOOL_NEGATIVES[] = {"false", "0", "no", "off", "disable"};
+/// mark for required options
+constexpr const char* REQUIRED_OPTION_SIGN  = "(*)";
+/// help key
+constexpr const char* HELP_NAME = "--help";
+constexpr const char* HELP_ALIAS = "-h";
+/// delimiter for key aliases
+constexpr const char* KEY_ALIAS_DELIMITER = ",";
+/// additional key/option delimiter (default is space)
+constexpr const char* KEY_OPTION_DELIMITER = "=";
+/// help argument identifier
+constexpr const char* ARG_TYPE_HELP = "HELP";
+/// date format by default
+constexpr const char* DEFAULT_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S";
+/// max size of function string arguments
+constexpr size_t MAX_ARGS = 10;
+/// magic number for options array in addArgument
+constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
+/// identifier for implicit argument
+static const std::string IMPLICIT_ARG[OPTS_SZ_MAGIC] = {};
 
-// isodate special type
+/// std::tm alias
 using date_t = std::tm;
 
 namespace parser_internal{
@@ -148,14 +148,10 @@ namespace parser_internal{
             return temp;
         }else if constexpr(std::is_same_v<T, bool>){
             auto isTrue = [func=__func__](const char *s){
-                const char *pos_buf[] = {BOOL_POSITIVES, nullptr};
-                const char *neg_buf[] = {BOOL_NEGATIVES, nullptr};
-                for(auto &i : pos_buf){
-                    if(i == nullptr) break;
+                for(auto &i : BOOL_POSITIVES){
                     if(!strcmp(s, i)) return true;
                 }
-                for(auto &i : neg_buf){
-                    if(i == nullptr) break;
+                for(auto &i : BOOL_NEGATIVES){
                     if(!strcmp(s, i)) return false;
                 }
                 throw std::runtime_error(std::string(func) + ": unable to convert " + s + " to bool");
@@ -365,7 +361,6 @@ private:
             func(func_),
             tpl(targs){
 
-        static_assert(!std::is_void_v<T>, "Argument type cannot be void");
         anyval = value;
     }
 
