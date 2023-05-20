@@ -363,7 +363,7 @@ private:
 
     DerivedOption(Callable &&func_, std::tuple<Targs...> targs) :
             func(func_),
-            tpl(std::move(targs)){
+            tpl(targs){
 
         static_assert(!std::is_void_v<T>, "Argument type cannot be void");
         anyval = value;
