@@ -439,12 +439,6 @@ struct ARG_DEFS{
            && (m_positional || m_options.size() == 1)){
 
             if(format != nullptr){
-                //check if contains spaces
-                for(auto &c : std::string(format)){
-                    if(c == ' '){
-                        throw std::logic_error(std::string(__func__) + ": " + m_name + " invalid date format " + format + " (cannot contain spaces)");
-                    }
-                }
                 time_t t = 0;
                 std::tm tt = *std::localtime(&t);
                 std::stringstream ss;

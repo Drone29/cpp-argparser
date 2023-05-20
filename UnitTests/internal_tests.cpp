@@ -13,7 +13,7 @@ void call_parser(argParser &parser, const char * const(&arr)[SIZE]){
     auto ptr = &a[1];
     for(auto &j : arr){
         *ptr++ = j;
-        std::cout << j << " ";
+        std::cout << "\"" << j << "\" ";
     }
     std::cout << std::endl;
     parser.parseArgs(SIZE+1, const_cast<char **>(a));
@@ -290,16 +290,25 @@ void check_invalid_date_format(){
     }
     throw std::runtime_error("should throw if invalid date format");
 }
-void check_invalid_date_format_2(){
+void check_date_with_spaces_separate(){
     HIGHLIGHT_TEST
-    try{
-        argParser parser;
-        parser.addArgument<date_t>("date", {"date_str"})
-                .date_format("%d.%m.%Y %H:%M");
-    }catch(std::logic_error &e){
-        return;
+    argParser parser;
+    parser.addArgument<date_t>("date", {"date_str"})
+            .date_format("%d.%m.%Y %H:%M");
+    call_parser(parser, {"date", "01.02.2022 12:34"});
+    if(parser.getValue<date_t>("date").tm_min != 34){
+        throw std::runtime_error("should parse date with space if defined as separate argument");
     }
-    throw std::runtime_error("should throw if invalid date format (spaces)");
+}
+void check_date_with_spaces_eq(){
+    HIGHLIGHT_TEST
+    argParser parser;
+    parser.addArgument<date_t>("date", {"date_str"})
+            .date_format("%d.%m.%Y %H:%M");
+    call_parser(parser, {"date=01.02.2022 12:34"});
+    if(parser.getValue<date_t>("date").tm_min != 34){
+        throw std::runtime_error("should parse date with space if defined after equals");
+    }
 }
 
 int main(){
@@ -326,6 +335,7 @@ int main(){
     check_single_char();
     check_char_number();
     check_invalid_date_format();
-    check_invalid_date_format_2();
+    check_date_with_spaces_separate();
+    check_date_with_spaces_eq();
     return 0;
 }
