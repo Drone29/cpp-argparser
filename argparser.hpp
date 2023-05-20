@@ -63,6 +63,8 @@ namespace parser_internal{
     // dummy function for default template parameter
     void dummy(){}
 
+    using no_action_t = decltype(dummy);
+
     namespace internal
     {
         template <typename TypeToStringify>
@@ -236,7 +238,7 @@ class DerivedOption : public BaseOption{
 private:
     friend class argParser;
     [[nodiscard]] static constexpr bool has_action(){
-        return !std::is_same_v<Callable, decltype(parser_internal::dummy)>;
+        return !std::is_same_v<Callable, parser_internal::no_action_t>;
     }
     [[nodiscard]] static constexpr bool not_void(){
         return !std::is_void_v<T>;
@@ -288,9 +290,6 @@ private:
                 std::array<const char*, STR_ARGS> str_arr {nullptr};
                 // fill array with vector values
                 for(int i=0; i<size; ++i){
-                    if(i >= STR_ARGS){
-                        throw std::runtime_error("Too many arguments");
-                    }
                     str_arr[i] = args[i].c_str();
                 }
                 // create tuple from array
@@ -587,7 +586,7 @@ public:
      * @param targs
      * @return
      */
-    template <typename T, class Callable = decltype(parser_internal::dummy), class...Targs>
+    template <typename T, class Callable = parser_internal::no_action_t, class...Targs>
     ARG_DEFS &addPositional(const std::string &key,
                             Callable &&func = parser_internal::dummy,
                             std::tuple<Targs...> targs = std::tuple<>()){
@@ -609,7 +608,7 @@ public:
         auto strType = parser_internal::GetTypeName<T>();
 
         ///check if default parser for this type is present
-        if constexpr(std::is_same_v<Callable, decltype(parser_internal::dummy)>){
+        if constexpr(std::is_same_v<Callable, parser_internal::no_action_t>){
             try{
                 parser_internal::scan<T>(nullptr);
             }catch(std::logic_error &e){
@@ -645,7 +644,7 @@ public:
      * @return - reference to ARG_DEFS struct
      */
     //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
-    template <typename T, class Callable = decltype(parser_internal::dummy), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
+    template <typename T, class Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
                           const std::string (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
                           Callable &&func = parser_internal::dummy,
@@ -653,6 +652,8 @@ public:
 
         constexpr int opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
         constexpr bool implicit = opt_size == 0; //implicit arg has 0 options
+
+        static_assert(opt_size < MAX_ARGS, "Too many string arguments");
 
         if(names.empty()){
             throw std::invalid_argument(std::string(__func__) + ": argument must have a name");
@@ -721,7 +722,7 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " should have at least 1 mandatory parameter");
         }
 
-        if constexpr(std::is_same_v<Callable, decltype(parser_internal::dummy)>){
+        if constexpr(std::is_same_v<Callable, parser_internal::no_action_t>){
             if(implicit && !std::is_arithmetic_v<T>){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for non-arithmetic arg with implicit option");
             }
@@ -761,7 +762,7 @@ public:
     }
 
     // another implementation of addArgument with const char *key
-    template <typename T, class Callable = decltype(parser_internal::dummy), size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
+    template <typename T, class Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
     ARG_DEFS &addArgument(const char *key,
                           const std::string (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
                           Callable &&func = parser_internal::dummy,
