@@ -641,7 +641,7 @@ public:
                           Callable &&func = parser_internal::dummy,
                           std::tuple<Targs...> &&targs = std::tuple<>()){
 
-        constexpr int opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
+        constexpr size_t opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
         constexpr bool implicit = opt_size == 0; //implicit arg has 0 options
 
         static_assert(!std::is_void_v<T>, "Return type cannot be void");
@@ -715,9 +715,7 @@ public:
         }
 
         if constexpr(std::is_same_v<Callable, parser_internal::no_action_t>){
-            if(implicit && !std::is_arithmetic_v<T>){
-                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for non-arithmetic arg with implicit option");
-            }
+            static_assert(!implicit || std::is_arithmetic_v<T>, "Function should be provided for non-arithmetic implicit arg");
             if(!implicit && last_mandatory_arg.empty()){
                 throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for arg with arbitrary options");
             }
