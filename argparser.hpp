@@ -730,7 +730,7 @@ public:
 
         auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(splitKey.key));
         arg->typeStr = strType;
-        arg->option = new DerivedOption<T, Callable, opt_size, Targs...>(func, std::forward<std::tuple<Targs...>>(targs)); //, Callable, opt_size, Targs...
+        arg->option = new DerivedOption<T, Callable, opt_size, Targs...>(func, std::forward<std::tuple<Targs...>>(targs));
         arg->m_options = opts;
         arg->m_arbitrary = flag;
         arg->m_implicit = implicit;
