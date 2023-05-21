@@ -611,7 +611,8 @@ public:
         auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(key));
         arg->typeStr = strType;
         arg->m_options = {};
-        arg->option = new DerivedOption<T, Callable, 1, Targs...>(func, std::forward<std::tuple<Targs...>>(targs));
+        arg->option = new DerivedOption<T, Callable, 1, Targs...>
+                (std::forward<Callable>(func), std::forward<std::tuple<Targs...>>(targs));
         arg->m_positional = true;
         if(parser_internal::are_same_type<date_t, T>){
             arg->m_date_format = DEFAULT_DATE_FORMAT;
@@ -731,7 +732,8 @@ public:
 
         auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(splitKey.key));
         arg->typeStr = strType;
-        arg->option = new DerivedOption<T, Callable, opt_size, Targs...>(func, std::forward<std::tuple<Targs...>>(targs));
+        arg->option = new DerivedOption<T, Callable, opt_size, Targs...>
+                (std::forward<Callable>(func), std::forward<std::tuple<Targs...>>(targs));
         arg->m_options = opts;
         arg->m_arbitrary = flag;
         arg->m_implicit = implicit;
@@ -782,7 +784,8 @@ public:
             vec.push_back(keys);
         }
 
-        return addArgument<T, Callable, OPT_SZ, Targs...>(vec, opts_arr, func, std::forward<std::tuple<Targs...>>(targs));
+        return addArgument<T, Callable, OPT_SZ, Targs...>
+                (vec, opts_arr, std::forward<Callable>(func), std::forward<std::tuple<Targs...>>(targs));
     }
 
     template <typename T>
