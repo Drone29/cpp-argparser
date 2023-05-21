@@ -29,6 +29,8 @@
 /// callable macro, handles both function pointers and lambdas
 #define CALLABLE(Callable) std::conditional_t<std::is_function_v<Callable>, \
         std::add_pointer_t<Callable>, Callable>
+// for void functions result is nullptr_t type
+#define RETURN_TYPE(Return) std::conditional_t<std::is_void_v<Return>, nullptr_t, Return>
 /// bool parsable strings
 constexpr const char* BOOL_POSITIVES[] = {"true", "1", "yes", "on", "enable"};
 constexpr const char* BOOL_NEGATIVES[] = {"false", "0", "no", "off", "disable"};
@@ -138,7 +140,6 @@ namespace parser_internal{
     /// format is applicable only to date_t type
     template<typename T>
     T scan(const char* arg, const char* date_format = nullptr){
-
         std::string temp = (arg == nullptr) ? "" : std::string(arg);
         T res;
 
@@ -360,7 +361,6 @@ private:
     DerivedOption(Callable &&func_, std::tuple<Targs...> &&targs) :
             func(func_),
             tpl(targs){
-
         anyval = value;
     }
 
@@ -580,6 +580,8 @@ public:
                             Callable &&func = parser_internal::dummy,
                             std::tuple<Targs...> &&targs = std::tuple<>()){
 
+        static_assert(!std::is_void_v<T>, "Return type cannot be void");
+
         /// check if variadic pos already defined
         for(auto &p : posMap){
             auto &x = argMap[p];
@@ -642,6 +644,7 @@ public:
         constexpr int opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
         constexpr bool implicit = opt_size == 0; //implicit arg has 0 options
 
+        static_assert(!std::is_void_v<T>, "Return type cannot be void");
         static_assert(opt_size < MAX_ARGS, "Too many string arguments");
 
         if(names.empty()){
