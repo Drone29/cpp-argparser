@@ -170,10 +170,6 @@ int main(int argc, char *argv[]) {
     // NOTE! '-a' alias conflicts with help's self key '-a', but it's not an error
     // Calling '--help -a' will list advanced options, but
     // '--help --array' will return help for --array argument
-    auto lmb = [](const char* a1, const char* a2){
-        return std::vector<const char*>{a1, a2==nullptr?"null":a2};
-    };
-
     parser.addArgument<std::vector<const char*>>("-a, --array", {"a1", "[a2]"},
                                                  [](const char* a1, const char* a2) -> auto{
                                                      return std::vector<const char*>{a1, a2==nullptr?"null":a2};
