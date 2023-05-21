@@ -357,7 +357,7 @@ private:
         }
     }
 
-    DerivedOption(Callable &&func_, std::tuple<Targs...> targs) :
+    DerivedOption(Callable &&func_, std::tuple<Targs...> &&targs) :
             func(func_),
             tpl(targs){
 
@@ -578,7 +578,7 @@ public:
     template <typename T, class Callable = parser_internal::no_action_t, class...Targs>
     ARG_DEFS &addPositional(const std::string &key,
                             Callable &&func = parser_internal::dummy,
-                            std::tuple<Targs...> targs = std::tuple<>()){
+                            std::tuple<Targs...> &&targs = std::tuple<>()){
 
         /// check if variadic pos already defined
         for(auto &p : posMap){
@@ -609,7 +609,7 @@ public:
         auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(key));
         arg->typeStr = strType;
         arg->m_options = {};
-        arg->option = new DerivedOption<T, Callable, 1, Targs...>(func, targs);
+        arg->option = new DerivedOption<T, Callable, 1, Targs...>(func, std::forward<std::tuple<Targs...>>(targs));
         arg->m_positional = true;
         if(parser_internal::are_same_type<date_t, T>){
             arg->m_date_format = DEFAULT_DATE_FORMAT;
@@ -637,7 +637,7 @@ public:
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
                           const std::string (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
                           Callable &&func = parser_internal::dummy,
-                          std::tuple<Targs...> targs = std::tuple<>()){
+                          std::tuple<Targs...> &&targs = std::tuple<>()){
 
         constexpr int opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
         constexpr bool implicit = opt_size == 0; //implicit arg has 0 options
@@ -730,7 +730,7 @@ public:
 
         auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(splitKey.key));
         arg->typeStr = strType;
-        arg->option = new DerivedOption<T, Callable, opt_size, Targs...>(func, targs); //, Callable, opt_size, Targs...
+        arg->option = new DerivedOption<T, Callable, opt_size, Targs...>(func, std::forward<std::tuple<Targs...>>(targs)); //, Callable, opt_size, Targs...
         arg->m_options = opts;
         arg->m_arbitrary = flag;
         arg->m_implicit = implicit;
@@ -755,7 +755,7 @@ public:
     ARG_DEFS &addArgument(const char *key,
                           const std::string (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
                           Callable &&func = parser_internal::dummy,
-                          std::tuple<Targs...> targs = std::tuple<>()){
+                          std::tuple<Targs...> &&targs = std::tuple<>()){
 
         std::string keys = key == nullptr ? "" : std::string(key);
         std::vector<std::string> vec;
@@ -781,7 +781,7 @@ public:
             vec.push_back(keys);
         }
 
-        return addArgument<T, Callable, OPT_SZ, Targs...>(vec, opts_arr, func, targs);
+        return addArgument<T, Callable, OPT_SZ, Targs...>(vec, opts_arr, func, std::forward<std::tuple<Targs...>>(targs));
     }
 
     template <typename T>

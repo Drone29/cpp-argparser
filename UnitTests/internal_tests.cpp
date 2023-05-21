@@ -310,7 +310,21 @@ void check_date_with_spaces_eq(){
         throw std::runtime_error("should parse date with space if defined after equals");
     }
 }
+void check_side_args_pos(){
+    HIGHLIGHT_TEST
+    argParser parser;
 
+    auto parse_pos = [](int g, const char* a){
+        auto a_ = argParser::scanValue<int>(a);
+        return g + a_;
+    };
+
+    parser.addPositional<int>("pos", parse_pos, std::make_tuple(34));
+    call_parser(parser, {"6"});
+    if(parser.getValue<int>("pos") != 40){
+        throw std::runtime_error("result should be 40");
+    }
+}
 int main(){
 
     std::cout << "Internal tests started" << std::endl;
@@ -337,5 +351,6 @@ int main(){
     check_invalid_date_format();
     check_date_with_spaces_separate();
     check_date_with_spaces_eq();
+    check_side_args_pos();
     return 0;
 }
