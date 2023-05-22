@@ -366,6 +366,8 @@ private:
 
     ~DerivedOption() override = default;
 
+    static_assert(not_void(), "Return type cannot be void");
+
     T value {};
     // func stores functions, function ptrs, lambdas, functors
     CALLABLE(Callable) func;
@@ -580,8 +582,6 @@ public:
                             Callable &&func = parser_internal::dummy,
                             std::tuple<Targs...> &&targs = std::tuple<>()){
 
-        static_assert(!std::is_void_v<T>, "Return type cannot be void");
-
         /// check if variadic pos already defined
         for(auto &p : posMap){
             auto &x = argMap[p];
@@ -645,7 +645,6 @@ public:
         constexpr size_t opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
         constexpr bool implicit = opt_size == 0; //implicit arg has 0 options
 
-        static_assert(!std::is_void_v<T>, "Return type cannot be void");
         static_assert(opt_size < MAX_ARGS, "Too many string arguments");
 
         if(names.empty()){
