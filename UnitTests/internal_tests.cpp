@@ -53,7 +53,7 @@ void check_invalid_pointer(){
     try{
         argParser parser;
         parser.addArgument<int *>("-i", {"int_ptr"});
-    }catch(std::invalid_argument &e){
+    }catch(std::invalid_argument &){
         return;
     }
     throw std::runtime_error("Should throw error as no scan provided for int*");
@@ -64,7 +64,7 @@ void check_repeating_throw(){
         argParser parser;
         parser.addArgument<int>("-i ");
         call_parser(parser, {"-i", "-i"});
-    }catch(argParser::parse_error &e){
+    }catch(argParser::parse_error &){
         return;
     }
     throw std::runtime_error("Non-repeatable argument should throw redefinition error");
@@ -151,7 +151,7 @@ void check_variadic_pos_throw(){
         parser.addPositional<int>("var_pos")
                 .variadic();
         parser.addPositional<int>("pos");
-    }catch(std::invalid_argument &e){
+    }catch(std::invalid_argument &){
         return;
     }
     throw std::runtime_error("Show throw invalid arg error if variadic positional arg is followed by another one");
@@ -251,7 +251,7 @@ void check_format_invalid_dec(){
     parser.addArgument<int>("-i", {"int_value"});
     try{
         call_parser(parser, {"-i", "1abc"});
-    }catch(std::runtime_error &e){
+    }catch(std::runtime_error &){
         return;
     }
     throw std::runtime_error("1abc should not be convertible to int");
@@ -297,7 +297,7 @@ void check_invalid_date_format(){
         argParser parser;
         parser.addArgument<date_t>("date", {"date_str"})
                 .date_format("%d.%m.%");
-    }catch(std::logic_error &e){
+    }catch(std::logic_error &){
         return;
     }
     throw std::runtime_error("should throw if invalid date format");
