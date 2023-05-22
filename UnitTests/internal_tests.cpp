@@ -2,8 +2,8 @@
 // Created by andrey on 17.05.2023.
 //
 
-#define START_TEST std::cout << "Starting test " << __func__ << std::endl;
-
+static int test_num = 0;
+#define START_TEST std::cout << "Starting test " << ++test_num << " " << __func__ << std::endl;
 #include "argparser.hpp"
 
 template <size_t SIZE>
