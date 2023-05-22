@@ -2,7 +2,7 @@
 // Created by andrey on 17.05.2023.
 //
 
-#define HIGHLIGHT_TEST std::cout << "Starting test " << __func__ << std::endl;
+#define START_TEST std::cout << "Starting test " << __func__ << std::endl;
 
 #include "argparser.hpp"
 
@@ -10,7 +10,7 @@ template <size_t SIZE>
 void call_parser(argParser &parser, const char * const(&arr)[SIZE]){
     const char* a[SIZE+1];
     a[0] = "binary_name"; // add dummy first argument
-    std::cout << "Passed args: ";
+    std::cout << "\tPassed args: ";
     auto ptr = &a[1];
     for(auto &j : arr){
         *ptr++ = j;
@@ -20,7 +20,7 @@ void call_parser(argParser &parser, const char * const(&arr)[SIZE]){
     parser.parseArgs(SIZE+1, const_cast<char **>(a));
 }
 void check_negative_int(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<int>("-i", {"int_value"});
     call_parser(parser, {"-i", "-123"});
@@ -29,7 +29,7 @@ void check_negative_int(){
     }
 }
 void check_long_long(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<unsigned long long>("-l", {"long_long_value"});
     call_parser(parser, {"-l", "4000000000"});
@@ -38,7 +38,7 @@ void check_long_long(){
     }
 }
 void check_overflow(){
-    HIGHLIGHT_TEST
+    START_TEST
     try{
         argParser parser;
         parser.addArgument<short int>("-i", {"short_value"});
@@ -49,7 +49,7 @@ void check_overflow(){
     throw std::runtime_error("Should throw error if overflow");
 }
 void check_invalid_pointer(){
-    HIGHLIGHT_TEST
+    START_TEST
     try{
         argParser parser;
         parser.addArgument<int *>("-i", {"int_ptr"});
@@ -59,7 +59,7 @@ void check_invalid_pointer(){
     throw std::runtime_error("Should throw error as no scan provided for int*");
 }
 void check_repeating_throw(){
-    HIGHLIGHT_TEST
+    START_TEST
     try{
         argParser parser;
         parser.addArgument<int>("-i ");
@@ -70,7 +70,7 @@ void check_repeating_throw(){
     throw std::runtime_error("Non-repeatable argument should throw redefinition error");
 }
 void check_composite(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     int i_val;
     parser.addArgument<int>("-i, --int")
@@ -83,7 +83,7 @@ void check_composite(){
     }
 }
 void check_key_similar_eq(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     std::string res;
     parser.addArgument<std::string>("--str", {"str_val"})
@@ -94,7 +94,7 @@ void check_key_similar_eq(){
     }
 }
 void check_key_similar_composite(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<std::string>("-s", {"str_val"});
     call_parser(parser, {"-s-sss"});
@@ -103,7 +103,7 @@ void check_key_similar_composite(){
     }
 }
 void check_variadic_opt(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<int>("--variadic, -var", {"N"})
             .variadic();
@@ -114,7 +114,7 @@ void check_variadic_opt(){
 }
 
 void check_variadic_pos(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     //define lambda to parse int from 2 args
     auto lmb = [&](const char* mnd_, const char* arb_) -> int{
@@ -144,7 +144,7 @@ void check_variadic_pos(){
     }
 }
 void check_variadic_pos_throw(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     try{
         // add variadic positional arg
@@ -164,7 +164,7 @@ void check_complex(){
         }
         return std::string(a);
     };
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<std::string>("-p", {"[str_value]"}, test);
 
@@ -190,7 +190,7 @@ void check_complex_2(){
         }
         return std::string(a);
     };
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<std::string>("-p", {"[str_value]"}, test);
 
@@ -208,7 +208,7 @@ void check_complex_2(){
     }
 }
 void check_single_char(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<char>("-c", {"char_value"});
     call_parser(parser, {"-c", "A"});
@@ -217,18 +217,19 @@ void check_single_char(){
     }
 }
 void check_int8_single_invalid_char(){
-    HIGHLIGHT_TEST
+    START_TEST
     try{
         argParser parser;
         parser.addArgument<int8_t>("-i", {"int8_value"});
         call_parser(parser, {"-i", "A"});
     }catch(std::runtime_error &){
+        
         return;
     }
     throw std::runtime_error("Should throw error for non-char single digit");
 }
 void check_int8_single_char(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<int8_t>("-i", {"int8_value"});
     call_parser(parser, {"-i", "9"});
@@ -237,7 +238,7 @@ void check_int8_single_char(){
     }
 }
 void check_char_number(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<char>("-c", {"char_value"});
     call_parser(parser, {"-c", "123"});
@@ -246,7 +247,7 @@ void check_char_number(){
     }
 }
 void check_format_invalid_dec(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<int>("-i", {"int_value"});
     try{
@@ -257,7 +258,7 @@ void check_format_invalid_dec(){
     throw std::runtime_error("1abc should not be convertible to int");
 }
 void check_format_hex(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<int>("-i", {"int_value"});
     call_parser(parser, {"-i", "0x12"});
@@ -266,7 +267,7 @@ void check_format_hex(){
     }
 }
 void check_format_float(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<float>("-f", {"float_value"});
     call_parser(parser, {"-f", "0.123"});
@@ -279,7 +280,7 @@ void check_format_float(){
     }
 }
 void check_format_scientific(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<float>("-f", {"float_value"});
     call_parser(parser, {"-f", "1.000000e-05"});
@@ -292,7 +293,7 @@ void check_format_scientific(){
     }
 }
 void check_invalid_date_format(){
-    HIGHLIGHT_TEST
+    START_TEST
     try{
         argParser parser;
         parser.addArgument<date_t>("date", {"date_str"})
@@ -303,7 +304,7 @@ void check_invalid_date_format(){
     throw std::runtime_error("should throw if invalid date format");
 }
 void check_date_with_spaces_separate(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<date_t>("date", {"date_str"})
             .date_format("%d.%m.%Y %H:%M");
@@ -313,7 +314,7 @@ void check_date_with_spaces_separate(){
     }
 }
 void check_date_with_spaces_eq(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
     parser.addArgument<date_t>("date", {"date_str"})
             .date_format("%d.%m.%Y %H:%M");
@@ -323,7 +324,7 @@ void check_date_with_spaces_eq(){
     }
 }
 void check_side_args_pos(){
-    HIGHLIGHT_TEST
+    START_TEST
     argParser parser;
 
     auto parse_pos = [](int g, const char* a){
