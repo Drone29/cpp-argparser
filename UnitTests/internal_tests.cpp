@@ -5,6 +5,7 @@
 #define HIGHLIGHT_TEST std::cout << "Starting test " << __func__ << std::endl;
 
 #include "argparser.hpp"
+
 template <size_t SIZE>
 void call_parser(argParser &parser, const char * const(&arr)[SIZE]){
     const char* a[SIZE+1];
@@ -35,6 +36,17 @@ void check_long_long(){
     if(parser.getValue<unsigned long long>("-l") != 4000000000){
         throw std::runtime_error("Should convert long long");
     }
+}
+void check_overflow(){
+    HIGHLIGHT_TEST
+    try{
+        argParser parser;
+        parser.addArgument<short int>("-i", {"short_value"});
+        call_parser(parser, {"-i", "70000"});
+    }catch (std::runtime_error &){
+        return;
+    }
+    throw std::runtime_error("Should throw error if overflow");
 }
 void check_invalid_pointer(){
     HIGHLIGHT_TEST
@@ -330,6 +342,7 @@ int main(){
     std::cout << "Internal tests started" << std::endl;
     check_negative_int();
     check_long_long();
+    check_overflow();
     check_invalid_pointer();
     check_repeating_throw();
     check_composite();
