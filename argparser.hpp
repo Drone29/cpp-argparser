@@ -230,7 +230,7 @@ protected:
     bool variadic = false;
 };
 
-template <typename T, typename Callable, size_t STR_ARGS, class...Targs>
+template <typename T, typename Callable, size_t STR_ARGS, typename...Targs>
 class DerivedOption : public BaseOption{
 private:
     friend class argParser;
@@ -577,7 +577,7 @@ public:
      * @param targs
      * @return
      */
-    template <typename T, typename Callable = parser_internal::no_action_t, class...Targs>
+    template <typename T, typename Callable = parser_internal::no_action_t, typename...Targs>
     ARG_DEFS &addPositional(const std::string &key,
                             Callable &&func = parser_internal::dummy,
                             std::tuple<Targs...> &&targs = std::tuple<>()){
@@ -636,7 +636,7 @@ public:
      * @return - reference to ARG_DEFS struct
      */
     //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
-    template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
+    template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
                           const std::string (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
                           Callable &&func = parser_internal::dummy,
@@ -753,7 +753,7 @@ public:
     }
 
     // another implementation of addArgument with const char *key
-    template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, class...Targs>
+    template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
     ARG_DEFS &addArgument(const char *key,
                           const std::string (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
                           Callable &&func = parser_internal::dummy,
