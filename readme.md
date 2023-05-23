@@ -36,7 +36,7 @@ Arguments can be:
 * `required` (at least one such argument should be set by user)
 * `positional`
 
-`arbitrary`, `mandatory` or `required` arguments can have up to 10 `parameters`
+`arbitrary`, `mandatory` or `required` arguments can have up to 9 `parameters`
 
 Arguments with no parameters are called `implicit`
 
@@ -67,10 +67,10 @@ Alias is specified by comma in the same string
 **NOTE:** Argument name and alias should be of the same type: 
 `if name starts with -, aliases should also start with -`:
 
-     parser.addArgument<int>("i, integer", {"v_int"}); //VALID
-     parser.addArgument<int>("-i, --integer", {"v_int"}); //VALID
-     parser.addArgument<int>("i, -integer", {"v_int"}); //NOT VALID
-     parser.addArgument<int>("-i, integer", {"v_int"}); //NOT VALID
+     parser.addArgument<int>("i, integer"); //VALID
+     parser.addArgument<int>("-i, --integer"); //VALID
+     parser.addArgument<int>("i, -integer"); //NOT VALID
+     parser.addArgument<int>("-i, integer"); //NOT VALID
 
 #### Arbitrary arguments
 
@@ -120,7 +120,7 @@ Mandatory arguments can be made required too:
      
 ### Parameters
 
-Non-positional arguments can have up to 10 `parameters`
+Non-positional arguments can have up to 9 `parameters`
 
 Parameters can also be `mandatory` or `arbitrary`
 
@@ -141,6 +141,30 @@ Arguments can also be made `repeatable`, which allows them to be set more than o
           .help("int arbitrary repeatable argument (implicit)");    
                 
     > ./app -jjj    - Repeatable argument, increments 3 times            
+                              
+If an argument can have an arbitrary number of parameters, it can be made `variadic`
+
+Here's an example of variadic argument:
+
+    parser.addArgument<int>("--variadic, -var", {"N"})
+                .variadic() // make argument variadic
+                .help("parses any number of integers. Result is std::vector<int>");
+                
+    > ./app -var 123 321 12     - stores 3 numbers as a vector
+    > ./app -var 123            - stores 1 number as a vector
+                              
+Variadic arguments should be declared with exactly 1 mandatory parameter, 
+otherwise an error is thrown
+
+The return type of variadic argument changes to `std::vector<argument_type>`
+
+Positional arguments can be variadic too:
+
+    parser.addPositional<int>("var_pos") 
+                .variadic() // make positional argument variadic
+                .help("Variadic pos argument of type int");
+                
+    > ./app 1 2 3 4 5       - stores 5 numbers as a vector                
                               
 An argument can be parsed by built-in parser only if
 it has `0 or 1 mandatory parameters` of `arithmetic` or `string` type:
@@ -207,18 +231,26 @@ the parsing function also needs to be specified:
     parser.addArgument<CL>("struct", {"bool", "[integer]"}, createStruct)
           .help("mandatory arg with 2 parameters: mandatory and arbitrary, returns result of function createStruct()");    
                 
+Lambdas can be used as parsing functions too:
+
+    parser.addArgument<std::vector<const char*>>("-a, --array", {"a1", "[a2]"},
+                                                     [](const char* a1, const char* a2) -> auto{
+                                                         return std::vector<const char*>{a1, a2==nullptr?"null":a2};
+                                                     })
+                .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
+
 
 Arguments and parameters are parsed according to the following logic:
 
 * Arguments are separated by `space`
-* Delimiters between argument and parameters can be: `space`, `=`, or `empty string` (if starts with `-`)
-* Short implicit arguments that start with '-' can be combined using single `-`
+* Delimiters between argument and parameters can be: `space`, `=`, or `empty string` (if argument has a short name/alias)
+* Short implicit arguments can be combined
 
 Here are some examples:
     
     > ./app -s aaa -string=aaa -p123    - OK
     > ./app -jjj m 123                  - OK
-    > ./app m123                        - ERROR, empty delimiter not allowed for args that don't start with '-'
+    > ./app m123                        - OK
     
 ### Obtaining parsed values
 
@@ -252,6 +284,18 @@ Obtaining value with `global_ptr()` modifier:
     parser.parseArgs(argc, argv);
     // after that, the parsed result will be stored in j variable
 
+NOTE: `variadic` arguments' values can be obtained only with `getValue()` method,
+with the type `std::vector<arg_type>`:
+    
+    // add variadic int argument
+    parser.addArgument<int>("--variadic, -var", {"N"})
+                .variadic() // make argument variadic
+                .help("parses any number of integers. Result is std::vector<int>");
+    // parse arguments
+    parser.parseArgs(argc, argv);  
+    // retrieve variadic arg value as a vector
+    auto x = parser.getValue<std::vector<int>>("-var");           
+
 ### Public parser methods
 
 A list of public parser methods:
@@ -264,12 +308,12 @@ with optional aliases, parameters, parser function and side arguments
 * `scanValue<T>(value, date_format)` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values and `date_t` type. 
 `date_format` - optional, applicable to `date_t` type only
+* `getLastUnparsed()` - get last unparsed argument (in case of argparser::unparsed_parameter error).
+Returns a reference to the instance of unparsed argument
 * `setAlias("name", "aliases")` - set aliases to argument name if wasn't set in addArgument
 * `getSelfName()` - get executable self name, applicable only after arguments are parsed
-* `parseArgs(argc, argv, allow_zero_options)` - parse arguments from command line. 
-`allow_zero_options` - optional, if set to true, 
-treats all `required` and `mandatory` arguments as arbitrary
-* `operator [] ("name or aliases")` - provides access to const methods of argument, such as `is_set()`
+* `parseArgs(argc, argv, allow_zero_options)` - parse arguments from command line
+* `operator [] ("name or alias")` - provides access to const methods of argument, such as `is_set()`
     
 ### addArgument and addPositional modifiers
 
@@ -286,16 +330,19 @@ will be shown if user calls `--help your_argument_here`
 value for argument. Only for `arbitrary` or `required` arguments. 
 `hide_in_help` - optional parameter, hides default value from help message if set to true
 * `global_ptr(pointer)` - specify pointer to 'global' variable. 
-Must point to the variable of corresponding type
+Must point to the variable of corresponding type.
+Not applicable to variadic arguments
 * `mandatory()` - make `arbitrary` or `required` argument `mandatory`. 
 Cannot be applied to `hidden` arguments
 * `required()` - make `arbitrary` or `mandatory` argument `required`.
 Cannot be applied to `hidden` arguments
+In that case, an arbitrary number (not less than 1) of parameters can be passed by the caller
 * `date_format("format", hide_in_help=false)` - special modifier, 
 applicable only to `positional` or `single-parameter` arguments whose type is `date_t` (alias for std::tm).
 `format` must be valid strptime() format `without spaces`, for example `%d.%m.%YT%H:%M`.
 If not set, `default format` is used: `%Y-%m-%dT%H:%M:%S`.
 `hide_in_help` - optional, set to true to hide format from help message
+* `variadic()` - make argument variadic
 
 There are also some useful const methods for arguments:
 
@@ -305,11 +352,55 @@ There are also some useful const methods for arguments:
 * `is_positional()` - returns `true` if argument is positional
 * `is_implicit()` - returns `true` if argument is implicit
 * `is_repeatable()` - returns `true` if argument is repeatable
+* `is_variadic()`   - returns `true` if argument is variadic
 * `get_date_format()` - returns `const char*` date format. 
 applicable only for `date_t` type, otherwise `nullptr` returned
 * `options_size()` - returns `size_t` size of argument parameters
+* `get_cli_params()` - returns an `std::vector<std::string>` of parameters passed by the caller.
+Applicable only after parseArgs is called
+* `get_name()` - returns `std::string` argument's name without aliases
 
 These methods can be called using [] overload:
 
     bool isArgumentSet = parser["v"].is_set();
+    bool isArbitrary = parser["v"].is_arbitrary();
+    ...
     
+### Parse errors    
+`parseArgs()` can throw 2 types of errors:
+* `argParser::unparsed_param` - if a certain argument could not be parsed.
+in that case, `getLastUnparsed()` method can be called to retrieve some info about that argument
+* `argParser::parse_error` - if case of unknown arguments and other errors
+
+Here's an example:
+
+        try{
+            // parse arguments
+            parser.parseArgs(argc, argv);
+        }catch(argParser::unparsed_param &e){
+            //catch argument parsing error
+            std::cout << "Caught error: " + std::string(e.what()) << std::endl;
+            // check unparsed argument
+            auto &last_unparsed = parser.getLastUnparsed();
+            std::cout << "Last unparsed arg: " << last_unparsed.get_name() << std::endl;
+            // get list of parameters that were provided by the caller
+            std::cout << "Passed parameters:";
+            auto raw_params = last_unparsed.get_cli_params();
+            for(auto &el : raw_params){
+                std::cout << " " + el;
+            }
+            std::cout << std::endl;
+            return -1;
+            
+        }catch(argParser::parse_error &e){
+            // catch other exceptions
+            std::cout << "Caught error: " + std::string(e.what()) << std::endl;
+            return -1;
+        }
+        
+        
+        > ./app date=01.34.22 
+        Output:
+        Caught error: scan: unable to convert 01.34.22 to date
+        Last unparsed arg: date
+        Passed parameters: 01.34.22
