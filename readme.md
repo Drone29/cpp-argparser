@@ -450,3 +450,6 @@ Here's an example:
         Caught error: scan: unable to convert 01.34.22 to date
         Last unparsed arg: date
         Passed parameters: 01.34.22
+        
+
+For more details, see example.cpp         
