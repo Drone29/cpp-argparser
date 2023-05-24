@@ -409,14 +409,14 @@ Some methods may throw exceptions on the stage where arguments are added if some
 
 * `std::logic_error` is thrown by arg modifiers like `default_value()`, `date_format()` and some others
 * `std::invalid_argument` is thrown by parser methods like `addArgument()`, `addPositional()`, `getValue()`, etc...        
-* `std::runtime_error` is thrown by `scanValue()` method along with some internal methods
-* `argParser::unparsed_param` and `argParser::parse_error` is thrown by `parseArgs()`        
+* `std::runtime_error` is thrown by `scanValue()` method along with some internal methods     
 
 ### Parse errors    
 
 `parseArgs()` can throw 2 types of errors:
 * `argParser::unparsed_param` - if a certain argument could not be parsed.
 in that case, `getLastUnparsed()` method can be called to retrieve some info about that argument
+* `argParser::parse_error` - if case of unknown arguments and other errors
 
 Here's an example:
 
