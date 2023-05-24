@@ -57,12 +57,24 @@ To specify a positional argument, use `addPositional` method:
 
 #### Aliases
 
-Non-positional arguments can have aliases. Here is a `--bool` argument with `-b` alias:
+Non-positional arguments can have aliases
+
+A string containing commas or other non-alphanumeric characters excluding '-' and '_',
+is treated as an alias list
+
+Here is a `--bool` argument with `-b` alias:
 
     parser.addArgument<bool>("-b, --bool")
-          .help("bool arbitrary argument with alias and implicit value");
+          .help("specifying name and alias in a single string");
 
-Alias is specified by comma in the same string
+Alternatively, an addArgument() overload can be used, 
+which takes `std::vector<std::string>` as its first argument:  
+
+    parser.addArgument<bool>({"-b", "--bool"})
+                .help("specifying name and alias as a vector");
+
+In either case, the longest string in a resulting list is considered argument's name,
+and other element are aliases
 
 **NOTE:** Argument name and alias should be of the same type: 
 `if name starts with -, aliases should also start with -`:
@@ -85,7 +97,7 @@ To specify an arbitrary argument, start it `with -`
  
 #### Mandatory arguments
 
-All `mandatory` arguments must be set by user, otherwise an error is generated
+All `mandatory` arguments must be set by the caller, otherwise an error is generated
 
 Mandatory argument should have `at least one mandatory parameter`, i.e. they `cannot be implicit`
 
@@ -94,9 +106,17 @@ To specify a mandatory argument, its name/aliases should start `without -`
     parser.addArgument<bool>("m", {"m_param"})
           .help("mandatory bool argument with mandatory parameter");
      
+Also, any `arbitrary` argument can be made `mandatory` using method `mandatory()`:
+    
+    parser.addArgument<bool>("-m", {"m_param"})
+          .mandatory()
+          .help("arbitrary argument made mandatory");    
+     
+**NOTE:** positional or hidden arguments cannot be made mandatory
+     
 #### Required arguments
 
-The logic behind `required` arguments is such that `at least one` required argument should be set by user
+The logic behind `required` arguments is such that `at least one` required argument should be set by the caller
 
 To specify a required argument, use method `required()`
 
@@ -110,7 +130,7 @@ Here we declare 2 arbitrary arguments `--req1` and `--req2` and then make them r
           .required()
           .help("required argument 2 with implicit value");    
 
-Now the user should set `either --req1 or --req2` or `both`, otherwise an error will be thrown
+Now the caller should set `either --req1 or --req2` or `both`, otherwise an error will be thrown
 
 Mandatory arguments can be made required too:
     
@@ -166,6 +186,8 @@ Positional arguments can be variadic too:
                 
     > ./app 1 2 3 4 5       - stores 5 numbers as a vector                
                               
+### Parsing function
+                                                            
 An argument can be parsed by built-in parser only if
 it has `0 or 1 mandatory parameters` of `arithmetic` or `string` type:
 * `bool`, `int`, `float`, `double`, `unsigned int`, ... (arithmetic types)
@@ -186,12 +208,24 @@ Otherwise, a `parsing function` should be specified
     parser.addArgument<std::string>("-p", {"[str_value]"}, test)
           .help("string arbitrary argument with arbitrary value and function test");  
                 
-A parsing function should return argument's type and 
-take as many `string parameters` (const char*) as there are `parameters` specified for argument
+A parsing function is called every time an argument is found in the command line,
+and its result is applied to the underlying argument's variable
 
-Parsing functions can also have `side parameters`. 
+The parsing function `must` be specified for an argument in the following cases:
+
+* The argument is `not of arithmetic or string` type
+* The argument has `more than 1 parameter`
+* The argument `has arbitrary parameters`
+                
+Here are some constraints for parsing functions:                
+                
+* A parsing function must return a value of argument's type and 
+take as many `string parameters` (const char*) as there are `parameters` specified for argument
+* Parsing function `cannot be void`
+* Parsing function can also have `side parameters`. 
 They need to be placed `before string parameters` in a function declaration,
 and corresponding values should be specified in a tuple in addArgument method:
+    
     
     // Function not valid, side parameters must be placed before string
     int func(const char* a, int i){...}
@@ -208,9 +242,8 @@ and corresponding values should be specified in a tuple in addArgument method:
     // specify parsing function and pass side parameter (x) in a tuple
     parser.addArgument<int>("v", {"str_val"}, tst, std::make_tuple(x))
           .help("mandatory arg with mandatory value and side argument for function tst");
-                
-If an argument is not of arithmetic or string type and thus cannot be parsed by built-in parser, 
-the parsing function also needs to be specified:
+
+Here's an example of an argument with custom type CL:                 
     
     // User-defined type
     struct CL{
@@ -239,6 +272,7 @@ Lambdas can be used as parsing functions too:
                                                      })
                 .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
 
+### Parsing logic
 
 Arguments and parameters are parsed according to the following logic:
 
@@ -248,9 +282,11 @@ Arguments and parameters are parsed according to the following logic:
 
 Here are some examples:
     
-    > ./app -s aaa -string=aaa -p123    - OK
-    > ./app -jjj m 123                  - OK
-    > ./app m123                        - OK
+    > ./app -s aaa          - classic way
+    > ./app -string=aaa     - using equals as delimiter between arg name and parameter
+    > ./app -p123           - using empty string delimiter for short alias
+    > ./app -jjj            - combining the same repeating short implicit arg
+    > ./app -ij             - combining different short implicit args                       
     
 ### Obtaining parsed values
 
@@ -284,7 +320,8 @@ Obtaining value with `global_ptr()` modifier:
     parser.parseArgs(argc, argv);
     // after that, the parsed result will be stored in j variable
 
-NOTE: `variadic` arguments' values can be obtained only with `getValue()` method,
+
+**NOTE:** `variadic` arguments' values can be obtained only with `getValue()` method,
 with the type `std::vector<arg_type>`:
     
     // add variadic int argument
@@ -304,7 +341,7 @@ A list of public parser methods:
 with optional parser function and side arguments
 * `addArgument<T>("name,aliases", {parameter_list}, parser_func, side_args)` - adds argument of type T
 with optional aliases, parameters, parser function and side arguments
-* `getValue<T>("name or aliases")` - returns value of type T of specified argument
+* `getValue<T>("name or alias")` - returns value of type T of specified argument
 * `scanValue<T>(value, date_format)` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values and `date_t` type. 
 `date_format` - optional, applicable to `date_t` type only
@@ -365,8 +402,18 @@ These methods can be called using [] overload:
     bool isArgumentSet = parser["v"].is_set();
     bool isArbitrary = parser["v"].is_arbitrary();
     ...
-    
+            
+### Exceptions
+
+Some methods may throw exceptions on the stage where arguments are added if some conditions are not met:
+
+* `std::logic_error` is thrown by arg modifiers like `default_value()`, `date_format()` and some others
+* `std::invalid_argument` is thrown by parser methods like `addArgument()`, `addPositional()`, `getValue()`, etc...        
+* `std::runtime_error` is thrown by `scanValue()` method along with some internal methods
+* `argParser::unparsed_param` and `argParser::parse_error` is thrown by `parseArgs()`        
+
 ### Parse errors    
+
 `parseArgs()` can throw 2 types of errors:
 * `argParser::unparsed_param` - if a certain argument could not be parsed.
 in that case, `getLastUnparsed()` method can be called to retrieve some info about that argument

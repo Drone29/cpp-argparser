@@ -3,7 +3,7 @@ project(argparser)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(argparser main.cpp)
+add_executable(argparser example.cpp)
 
 enable_testing()
 

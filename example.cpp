@@ -12,10 +12,6 @@ int tst(int a, const char* a1){
     return a + (int)strtol(a1, nullptr, 0);
 }
 
-int erroneous_func(){
-    return 23;
-}
-
 struct CL{
     bool a = false;
     int b = 0;
@@ -43,23 +39,24 @@ int main(int argc, char *argv[]) {
      *
      *  Arguments can be repeatable or non-repeatable (default)
      *
-     *  Short repeatable implicit arguments that start with '-' can be combined using single '-':
-     *  '-jjj', '-ij'
+     *  Short repeatable implicit arguments combined:
+     *  '-jjj', '-ij', 'vvv', etc...
      */
 
-    // for implicit values, if no function provided and the type is arithmetic,
+    // for implicit values, if no parsing function provided and the type is arithmetic,
     // parser will increment their value if called,
     // starting from 0 or default_value, if provided.
     // by default, the arguments are NON-REPEATABLE,
-    // i.e. a call '-x -x' or '-xx' is NOT VALID and will cast an error
+    // i.e. a call '-x -x' or '-xx' is NOT VALID and will cast an error in the following case
     parser.addArgument<int>("-x")
             .help("int arbitrary argument with implicit value (if set, returns 1)");
 
     // bool is also considered arithmetic,
     // so parser will increment it, thus setting it to true.
     // again, it's NON-REPEATABLE
-    parser.addArgument<bool>("-b; --bool  ")
-            .help("bool arbitrary argument with alias and implicit value (if set, returns true)");
+    // also, it has an alias -b
+    parser.addArgument<bool>("-b, --bool")
+            .help("bool arbitrary argument '--bool' with alias '-b' and implicit value (if set, returns true)");
 
     // REPEATABLE argument can be specified more than once,
     // in this case, due to implicit value, it will increment each time it's called
