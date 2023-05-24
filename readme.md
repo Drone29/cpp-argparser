@@ -417,7 +417,6 @@ Some methods may throw exceptions on the stage where arguments are added if some
 `parseArgs()` can throw 2 types of errors:
 * `argParser::unparsed_param` - if a certain argument could not be parsed.
 in that case, `getLastUnparsed()` method can be called to retrieve some info about that argument
-* `argParser::parse_error` - if case of unknown arguments and other errors
 
 Here's an example:
 
