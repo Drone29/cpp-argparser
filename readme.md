@@ -456,5 +456,5 @@ For more details, see example.cpp
 
 ## Environment
 
-Tested on GCC ver >= 8.3.0
-
+* GCC ver >= 8.3.0, Ubuntu 20.04
+* MSVC ver >= 16.0, Visual Studio 2019

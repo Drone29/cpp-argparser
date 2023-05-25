@@ -14,6 +14,7 @@
 #include <memory>
 #include <typeindex>
 #include <tuple>
+#include <array>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -29,8 +30,6 @@
 /// callable macro, handles both function pointers and lambdas
 #define CALLABLE(Callable) std::conditional_t<std::is_function_v<Callable>, \
         std::add_pointer_t<Callable>, Callable>
-// for void functions result is nullptr_t type
-#define RETURN_TYPE(Return) std::conditional_t<std::is_void_v<Return>, nullptr_t, Return>
 /// bool parsable strings
 constexpr const char* BOOL_POSITIVES[] = {"true", "1", "yes", "on", "enable"};
 constexpr const char* BOOL_NEGATIVES[] = {"false", "0", "no", "off", "disable"};
@@ -51,9 +50,10 @@ constexpr const char* DEFAULT_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S";
 constexpr size_t MAX_ARGS = 10;
 /// magic number for options array in addArgument
 constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
+
+/// Useful aliases ///
 /// identifier for implicit argument
 static const std::string IMPLICIT_ARG[OPTS_SZ_MAGIC] = {};
-
 /// std::tm alias
 using date_t = std::tm;
 
@@ -172,15 +172,19 @@ namespace parser_internal{
             std::stringstream ss(temp);
             std::stringstream chk; //check stream
             ss >> std::get_time(&tt, date_format); //convert string to time
-            chk << std::put_time(&tt, date_format); //convert result to string with the same format
             // ss.fail() does not cover all possible errors
             // so we're also checking equality of strings before and after conversion
-            if (ss.fail() || chk.fail() || ss.str() != chk.str()){
+            if (ss.fail()){
+                throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date");
+            }
+            // std::put_time is not good with empty strings, so we're checking it after ss.fail()
+            chk << std::put_time(&tt, date_format); //convert result to string with the same format
+            if (chk.fail() || ss.str() != chk.str()){
                 throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date");
             }
             return tt;
         }
-        /// arithmetic
+            /// arithmetic
         else if constexpr(std::is_arithmetic_v<T>){
             /// char special
             if constexpr(std::is_same_v<T, char>){
@@ -191,7 +195,7 @@ namespace parser_internal{
                     res = narrow_cast<char>(scan_number<int>(temp), temp);
                 }
             }
-            // for types whose size less than int
+                // for types whose size less than int
             else if constexpr(sizeof(T) < sizeof(int)){
                 if constexpr(std::is_signed_v<T>){
                     res = narrow_cast<T>(scan_number<int>(temp), temp);
@@ -203,7 +207,7 @@ namespace parser_internal{
                 res = scan_number<T>(temp);
             }
         }
-        /// not convertible
+            /// not convertible
         else{
             throw std::logic_error(std::string(__func__) + ": no converter for " + temp + " of type " + GetTypeName<T>());
         }
@@ -284,7 +288,7 @@ private:
         if constexpr(not_void() && has_action()){
             if constexpr(STR_ARGS > 0){
                 // create array of STR_ARGS size
-                std::array<const char*, STR_ARGS> str_arr {nullptr};
+                std::array<const char*, STR_ARGS> str_arr {};
                 // fill array with vector values
                 for(int i=0; i<size; ++i){
                     str_arr[i] = args[i].c_str();
@@ -306,7 +310,13 @@ private:
     }
     void increment() {
         if constexpr (std::is_arithmetic_v<T>){
-            value+=1;
+            if constexpr(std::is_same_v<T, bool>){
+                // treat bool as special type an toggle value
+                value = !value;
+            }else{
+                // increment other arithmetic types
+                value += 1;
+            }
         }
         set_global();
         anyval = value;
@@ -441,6 +451,8 @@ struct ARG_DEFS{
 
             if(format != nullptr){
                 time_t t = 0;
+                // Microsoft marks localtime as deprecated for some reason,
+                // but localtime_s is not portable, so I'll leave it as it is
                 std::tm tt = *std::localtime(&t);
                 std::stringstream ss;
                 ss << std::put_time(&tt, format);
@@ -509,7 +521,7 @@ struct ARG_DEFS{
 private:
 
     explicit ARG_DEFS(std::string name)
-    : m_name(std::move(name)){}
+            : m_name(std::move(name)){}
 
     friend class argParser;
     std::string m_name;
@@ -880,9 +892,15 @@ public:
                         *it = (*it).substr(1);
                     }
                 }
-                // save raw cli parameters
-                argMap[key]->m_cli_params = {&argVec[start], &argVec[end]};
-                argMap[key]->option->action(&argVec[start], end - start, argMap[key]->m_date_format);
+                const std::string *ptr = nullptr;
+                // preserve out of range vector error
+                if(start < argVec.size()){
+                    // save raw cli parameters
+                    argMap[key]->m_cli_params = {argVec.begin() + start, argVec.begin() + end};
+                    // set pointer to start
+                    ptr = &argVec.at(start);
+                }
+                argMap[key]->option->action(ptr, end - start, argMap[key]->m_date_format);
             }catch(std::exception &e){
                 //save last unparsed arg
                 last_unparsed_arg = argMap[key].get();
@@ -997,8 +1015,8 @@ public:
                             pValue += pName.substr(startsWith.length());
                             insertKeyValue(name, pValue);
                         }
-                        //check if it's a contiguous keyValue or aliasValue pair (-k123 or k123 style)
-                        //only for args with 1 option
+                            //check if it's a contiguous keyValue or aliasValue pair (-k123 or k123 style)
+                            //only for args with 1 option
                         else if(x->m_options.size() == 1){
                             pValue = " " + pName.substr(startsWith.length()); //treat as value
                             pName = name;
@@ -1100,7 +1118,7 @@ public:
 
                 if(opts_cnt < argMap[pName]->mandatory_options){
                     throw parse_error(std::string(pName) + " requires "
-                                             + std::to_string(argMap[pName]->mandatory_options) + " options, but " + std::to_string(opts_cnt) + " were provided");
+                                      + std::to_string(argMap[pName]->mandatory_options) + " options, but " + std::to_string(opts_cnt) + " were provided");
                 }
 
                 parseArgument(pName, index + 1, index + 1 + opts_cnt);
