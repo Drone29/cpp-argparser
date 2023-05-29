@@ -22,11 +22,16 @@
 
 /// advanced help option (show hidden)
 #define HELP_HIDDEN_OPT "-a"
+/// help param name
+#define HELP_PARAM_NAME "arg"
+/// arg explanation
+#define HELP_PARAM_EXPLANATION "'" HELP_PARAM_NAME "' to get help about certain arg"
 /// braced help option
-#define HELP_ADVANCED_OPT_BRACED "[" HELP_HIDDEN_OPT " | param]"
+#define HELP_OPT_BRACED "[" HELP_PARAM_NAME "]"
+#define HELP_ADVANCED_OPT_BRACED "[" HELP_PARAM_NAME " | " HELP_HIDDEN_OPT "]"
 /// help self-explanation
 #define HELP_GENERIC_MESSAGE \
-    "Show this message and exit. " HELP_HIDDEN_OPT " to list advanced options"
+    "Show this message and exit. " HELP_PARAM_EXPLANATION
 /// callable macro, handles both function pointers and lambdas
 #define CALLABLE(Callable) std::conditional_t<std::is_function_v<Callable>, \
         std::add_pointer_t<Callable>, Callable>
@@ -570,7 +575,7 @@ public:
         argMap[HELP_NAME] = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(HELP_NAME));
         argMap[HELP_NAME]->typeStr = ARG_TYPE_HELP;
         argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
-        argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
+        argMap[HELP_NAME]->m_options = {HELP_OPT_BRACED};
         argMap[HELP_NAME]->m_arbitrary = true;
         setAlias(HELP_NAME, {HELP_ALIAS});
     }
@@ -879,6 +884,9 @@ public:
                      && x.second->m_required){
                 required_args++;
             }
+            if(x.second->m_hidden){
+                hidden_args++;
+            }
         }
 
         mandatory_option = mandatory_args || required_args;
@@ -1168,6 +1176,7 @@ private:
     int positional_cnt = 0;
     int mandatory_args = 0;
     int required_args = 0;
+    int hidden_args = 0;
     ARG_DEFS *last_unparsed_arg = nullptr;
 
     [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
@@ -1245,7 +1254,7 @@ private:
         }
     }
 
-    //summy function
+    //dummy function
     static void dummyFunc(){
         std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
     }
@@ -1253,6 +1262,11 @@ private:
     void helpDefault(const char* name, const std::string &param = ""){
 
         bool advanced = false;
+
+        if(hidden_args > 0){
+            argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
+            argMap[HELP_NAME]->m_help += ", '" + std::string(HELP_HIDDEN_OPT) + "' to list hidden args as well";
+        }
 
         auto printParam = [](auto &j, bool notab = false){
             std::string alias_str = notab ? "" : "\t";
