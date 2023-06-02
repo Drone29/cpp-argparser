@@ -247,7 +247,6 @@ int main(int argc, char *argv[]) {
                                                      return std::vector<const char*>{a1, a2==nullptr?"null":a2};
                                                  })
             .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
-    // NOTE! '-a' alias in the above example conflicts with help's self key '-a'
 
     // for arguments of integral types or std::string with single parameter,
     // a list of choices can be specified inside an initializer_list:
