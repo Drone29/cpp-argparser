@@ -234,7 +234,9 @@ protected:
     virtual void action (const std::string *args, int size, const char *date_format) = 0; // for variadic args
     virtual void set(std::any x) = 0;
     virtual std::string get_str_val() = 0;
+    virtual std::vector<std::string> get_str_choices() = 0;
     virtual void set_global_ptr(std::any ptr) = 0;
+    virtual void set_choices(const std::initializer_list<std::any> &choices_list) = 0;
     std::any anyval;
     bool variadic = false;
 };
@@ -258,15 +260,27 @@ private:
             return;
         }
         if(!variadic){
-            // non-variadic action
             if constexpr(has_action()){
+                // non-variadic action
                 parse_common(args, size);
-                return;
             }else{
                 // simple scan of single value
                 set(parser_internal::scan<T>(args[0].c_str(), date_format));
-                return;
             }
+            // applicable only to integral or strings
+            if constexpr(std::is_integral_v<T> || std::is_same_v<T, std::string>){
+                if(choices.size() > 0){
+                    // check if result correspond to one of the choices
+                    for(auto v : choices){
+                        if(value == v){
+                            return;
+                        }
+                    }
+                    throw std::runtime_error("value does not correspond to any of given choices");
+                }
+            }
+
+            return;
         }
         // parse variadic
         std::vector<T> res;
@@ -327,23 +341,37 @@ private:
         anyval = value;
     }
 
-    std::string get_str_val() override{
+    std::string get_str_val(T val){
         std::string res;
         try{
             if constexpr (std::is_arithmetic_v<T>){
-                res = std::to_string(value);
+                res = std::to_string(val);
             }
             else if constexpr (std::is_convertible_v<T, std::string>){
                 if constexpr(std::is_pointer_v<T>){
-                    res = (value == NULL || value == nullptr) ? "" : res = std::string(value);
+                    res = (val == NULL || val == nullptr) ? "" : res = std::string(val);
                 }else{
-                    res = std::string(value);
+                    res = std::string(val);
                 }
             }
         }catch(...){
             res = ""; //if null or other exception, set empty
         }
+        return res;
+    }
 
+    std::string get_str_val() override{
+        return get_str_val(value);
+    }
+
+    std::vector<std::string> get_str_choices() override{
+        std::vector<std::string> res;
+        for(auto v : choices){
+            std::string s = get_str_val(v);
+            if(!s.empty()){
+                res.push_back(get_str_val(v));
+            }
+        }
         return res;
     }
 
@@ -372,6 +400,21 @@ private:
             *global = value;
         }
     }
+
+    void set_choices(const std::initializer_list<std::any> &choices_list) override{
+        if constexpr(std::is_integral_v<T> || std::is_same_v<T, std::string>){
+            try{
+                for(auto c : choices_list){
+                    choices.push_back(std::any_cast<T>(c));
+                }
+            }catch(std::bad_any_cast &){
+                throw std::invalid_argument("invalid choices list");
+            }
+        }else{
+            throw std::invalid_argument("type can be either integral or string");
+        }
+    }
+
     DerivedOption(Callable &&func_, const std::tuple<Targs...> &targs) :
             func(func_),
             tpl(targs){
@@ -387,6 +430,7 @@ private:
     CALLABLE(Callable) func;
     std::tuple<Targs...> tpl;
     T *global = nullptr;
+    std::vector<T> choices {};
 };
 
 struct ARG_DEFS{
@@ -484,6 +528,19 @@ struct ARG_DEFS{
         }
         return *this;
     }
+    ///choices
+    ARG_DEFS &choices(const std::initializer_list<std::any> &choice_list){
+        // only for args with single param
+        if(m_options.size() != 1 || option->variadic){
+            throw std::logic_error(std::string(__func__) + ": " + m_name + " choices list can be applied only to args with single parameter");
+        }
+        try{
+            option->set_choices(choice_list);
+        }catch(std::invalid_argument &e){
+            throw std::logic_error(std::string(__func__) + "(" + typeStr + "): error: " + e.what());
+        }
+        return *this;
+    }
 
     [[nodiscard]] bool is_set() const{
         return m_set;
@@ -571,13 +628,15 @@ private:
 class argParser
 {
 public:
-    argParser(){
+    explicit argParser(const std::string &name = ""){
         argMap[HELP_NAME] = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(HELP_NAME));
         argMap[HELP_NAME]->typeStr = ARG_TYPE_HELP;
         argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
         argMap[HELP_NAME]->m_options = {HELP_OPT_BRACED};
         argMap[HELP_NAME]->m_arbitrary = true;
         setAlias(HELP_NAME, {HELP_ALIAS});
+
+        binary_name = name;
     }
     ~argParser(){
         argMap.clear();
@@ -869,8 +928,10 @@ public:
         }
         argVec = {argv + 1, argv + argc};
         ///Retrieve binary self-name
-        std::string self_name = std::string(argv[0]);
-        binary_name = self_name.substr(self_name.find_last_of('/') + 1);
+        if(binary_name.empty()){
+            std::string self_name = std::string(argv[0]);
+            binary_name = self_name.substr(self_name.find_last_of('/') + 1);
+        }
 
         int parsed_mnd_args = 0;
         int parsed_required_args = 0;
@@ -1090,7 +1151,7 @@ public:
             }
             ///Show help
             if(argMap[pName]->typeStr == ARG_TYPE_HELP){
-                helpDefault(argv[0], pValue);
+                helpDefault(binary_name.c_str(), pValue);
                 exit(0);
             }
             else{
@@ -1275,17 +1336,35 @@ private:
             }
             std::cout <<  alias_str + j.first;
             std::string opt;
-            for(auto &x : j.second->m_options){
-                opt = std::string(x);
-                std::string tmp = opt;
-                if(parser_internal::isOptMandatory(tmp))
-                    tmp = "<" + tmp + ">";
+            // List choices if applicable
+            auto choices = j.second->option == nullptr
+                    ? std::vector<std::string>()
+                            : j.second->option->get_str_choices();
+            if(!choices.empty()){
+                std::cout << " {";
+                bool notFirst = false;
+                for(auto &c : choices){
+                    if(notFirst){
+                        std::cout << ", ";
+                    }
+                    std::cout << c;
+                    notFirst = true;
+                }
+                std::cout << "}";
+            }else{
+                // List regular options otherwise
+                for(auto &x : j.second->m_options){
+                    opt = std::string(x);
+                    std::string tmp = opt;
+                    if(parser_internal::isOptMandatory(tmp))
+                        tmp = "<" + tmp + ">";
 
-                std::cout << " " + tmp;
-            }
+                    std::cout << " " + tmp;
+                }
 
-            if(j.second->is_variadic()){
-                std::cout << " [" + opt + "...]";
+                if(j.second->is_variadic()){
+                    std::cout << " [" + opt + "...]";
+                }
             }
         };
         //check required: -1-don't check, 0-false, other-true

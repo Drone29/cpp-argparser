@@ -251,6 +251,10 @@ int main(int argc, char *argv[]) {
     // Calling '--help -a' will list advanced options, but
     // '--help --array' will return help for --array argument
 
+    parser.addArgument<int>("--choices", {"int"})
+            .choices({0,1,2,3})
+            .help("list with choices");
+
     try{
         // parse arguments
         parser.parseArgs(argc, argv);
