@@ -21,7 +21,7 @@
 #include <algorithm>
 
 /// advanced help option (show hidden)
-#define HELP_HIDDEN_OPT "-a"
+#define HELP_HIDDEN_OPT "-h"
 /// help param name
 #define HELP_PARAM_NAME "arg"
 /// arg explanation
@@ -1046,6 +1046,7 @@ public:
             std::string pName = argVec[index];
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
 
+
             ///Handle '='
             auto c = pName.find(KEY_OPTION_DELIMITER);
             if(c != std::string::npos){
@@ -1063,6 +1064,7 @@ public:
                 std::string name = findKeyByAlias(pName);
                 if(!name.empty()){
                     // change alias to key
+                    pName = name;
                     argVec[index] = name;
                     index += argMap[name]->mandatory_options; //skip mandatory opts
                 }
@@ -1097,6 +1099,9 @@ public:
             } //argMap.find(pName) == argMap.end()
             else{
                 index += argMap[pName]->mandatory_options; //skip mandatory opts
+            }
+            if(pName == HELP_NAME){
+                break;
             }
         }
 
