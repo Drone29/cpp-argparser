@@ -231,12 +231,12 @@ protected:
     friend struct ARG_DEFS;
     BaseOption() = default;
     virtual ~BaseOption() = default;
-    virtual void action (const std::string *args, int size, const char *date_format) = 0; // for variadic args
-    virtual void set(std::any x) = 0;
-    virtual std::string get_str_val() = 0;
-    virtual std::vector<std::string> get_str_choices() = 0;
-    virtual void set_global_ptr(std::any ptr) = 0;
-    virtual void set_choices(const std::initializer_list<std::any> &choices_list) = 0;
+    virtual void action (const std::string *args, int size, const char *date_format) {} // for variadic args
+    virtual void set(std::any x) {}
+    virtual std::string get_str_val() {return "";}
+    virtual std::vector<std::string> get_str_choices() {return {};}
+    virtual void set_global_ptr(std::any ptr) {}
+    virtual void set_choices(const std::initializer_list<std::any> &choices_list) {}
     std::any anyval;
     bool variadic = false;
 };
@@ -561,7 +561,7 @@ struct ARG_DEFS{
         return m_repeatable;
     }
     [[nodiscard]] bool is_variadic() const{
-        return option == nullptr ? false : option->variadic;
+        return option->variadic;
     };
     // applicable only for date_t type
     [[nodiscard]] const char *get_date_format() const{
@@ -634,6 +634,7 @@ public:
         argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
         argMap[HELP_NAME]->m_options = {HELP_OPT_BRACED};
         argMap[HELP_NAME]->m_arbitrary = true;
+        argMap[HELP_NAME]->option = new BaseOption();
         setAlias(HELP_NAME, {HELP_ALIAS});
 
         binary_name = name;
@@ -1337,9 +1338,7 @@ private:
             std::cout <<  alias_str + j.first;
             std::string opt;
             // List choices if applicable
-            auto choices = j.second->option == nullptr
-                    ? std::vector<std::string>()
-                            : j.second->option->get_str_choices();
+            auto choices = j.second->option->get_str_choices();
             if(!choices.empty()){
                 std::cout << " {";
                 bool notFirst = false;
@@ -1386,7 +1385,7 @@ private:
 
                 printParam(j);
 
-                std::string def_val = (j.second->option == nullptr) ? "" : j.second->option->get_str_val();
+                std::string def_val = j.second->option->get_str_val();
                 def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
                 std::string repeatable = j.second->m_repeatable ? " [repeatable]" : "";
                 // show date format if not prohibited

@@ -338,6 +338,29 @@ void check_side_args_pos(){
         throw std::runtime_error("result should be 40");
     }
 }
+void check_choices(){
+    START_TEST
+    argParser parser;
+    parser.addArgument<int>("--choices", {"int"})
+            .choices({0,1,2,3});
+    try{
+        call_parser(parser, {"--choices=4"});
+    }catch(argParser::unparsed_param &){
+        return;
+    }
+    throw std::runtime_error("should throw if not a valid choice");
+}
+void check_choices_throw(){
+    START_TEST
+    try{
+        argParser parser;
+        parser.addArgument<const char*>("--choices", {"str"})
+                .choices({"1","2","3","4"});
+    }catch(std::logic_error &){
+        return;
+    }
+    throw std::runtime_error("should throw if not integral or not std::stiring");
+}
 int main(){
 
     std::cout << "Internal tests started" << std::endl;
@@ -366,5 +389,7 @@ int main(){
     check_date_with_spaces_separate();
     check_date_with_spaces_eq();
     check_side_args_pos();
+    check_choices();
+    check_choices_throw();
     return 0;
 }
