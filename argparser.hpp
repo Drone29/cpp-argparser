@@ -1161,7 +1161,7 @@ public:
             }
             ///Show help
             if(argMap[pName]->typeStr == ARG_TYPE_HELP){
-                helpDefault(binary_name.c_str(), pValue);
+                helpDefault(pValue);
                 exit(0);
             }
             else{
@@ -1330,7 +1330,7 @@ private:
         std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
     }
 
-    void helpDefault(const char* name, const std::string &param = ""){
+    void helpDefault(const std::string &param = ""){
 
         bool advanced = false;
 
@@ -1490,7 +1490,7 @@ private:
             }
         }
 
-        std::cout << "Usage: " + std::string(name)
+        std::cout << "Usage: " + binary_name
                      + (flag_cnt ? " [flags...]" : "")
                      + (opt_cnt ? " options..." : "")
                      + positional << std::endl;
