@@ -364,9 +364,24 @@ void check_choices_throw(){
 void check_choices_float(){
     START_TEST
     argParser parser;
-    parser.addArgument<float>("--choices", {"int"})
+    parser.addArgument<float>("--choices", {"float"})
             .choices({0.12f, 0.15f, 1.14f});
-    call_parser(parser, {"--choices=1.14"});
+    call_parser(parser, {"--choices=0.15"});
+}
+void check_choices_char(){
+    START_TEST
+    argParser parser;
+    parser.addArgument<char>("--choices", {"char"})
+            .choices({'a', 'b', 'c'});
+    call_parser(parser, {"--choices=b"});
+}
+void check_choices_string(){
+    using namespace std::string_literals;
+    START_TEST
+    argParser parser;
+    parser.addArgument<std::string>("--choices", {"int"})
+            .choices({"abc"s, "def"s, "ghi"s});
+    call_parser(parser, {"--choices=def"});
 }
 void check_choices_var_pos(){
     START_TEST
@@ -409,6 +424,8 @@ int main(){
     check_side_args_pos();
     check_choices();
     check_choices_float();
+    check_choices_char();
+    check_choices_string();
     check_choices_throw();
     check_choices_var_pos();
     return 0;
