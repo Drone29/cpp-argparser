@@ -361,6 +361,13 @@ void check_choices_throw(){
     }
     throw std::runtime_error("should throw if not arithmetic or not std::string");
 }
+void check_choices_float(){
+    START_TEST
+    argParser parser;
+    parser.addArgument<float>("--choices", {"int"})
+            .choices({0.12f, 0.15f, 1.14f});
+    call_parser(parser, {"--choices=1.14"});
+}
 void check_choices_var_pos(){
     START_TEST
     argParser parser;
@@ -401,6 +408,7 @@ int main(){
     check_date_with_spaces_eq();
     check_side_args_pos();
     check_choices();
+    check_choices_float();
     check_choices_throw();
     check_choices_var_pos();
     return 0;
