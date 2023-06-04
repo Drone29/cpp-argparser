@@ -926,7 +926,7 @@ public:
     }
 
     /// Parse arguments
-    int parseArgs(int argc, char *argv[])
+    int parseArgs(int argc, char *argv[], bool hide_hidden_hint = false)
     {
         if(args_parsed){
             throw parse_error("Repeated attempt to run " + std::string(__func__));
@@ -950,7 +950,7 @@ public:
                      && x.second->m_required){
                 required_args++;
             }
-            if(x.second->m_hidden){
+            if(x.second->m_hidden && !hide_hidden_hint){
                 hidden_args++;
             }
         }
