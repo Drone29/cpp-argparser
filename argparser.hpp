@@ -267,8 +267,8 @@ private:
                 // simple scan of single value
                 set(parser_internal::scan<T>(args[0].c_str(), date_format));
             }
-            // applicable only to integral or strings
-            if constexpr(std::is_integral_v<T> || std::is_same_v<T, std::string>){
+            // applicable only to arithmetic or strings
+            if constexpr(std::is_arithmetic_v<T> || std::is_same_v<T, std::string>){
                 if(choices.size() > 0){
                     // check if result correspond to one of the choices
                     for(auto v : choices){
@@ -402,7 +402,7 @@ private:
     }
 
     void set_choices(const std::initializer_list<std::any> &choices_list) override{
-        if constexpr(std::is_integral_v<T> || std::is_same_v<T, std::string>){
+        if constexpr(std::is_arithmetic_v<T> || std::is_same_v<T, std::string>){
             try{
                 for(auto c : choices_list){
                     choices.push_back(std::any_cast<T>(c));
@@ -411,7 +411,7 @@ private:
                 throw std::invalid_argument("invalid choices list");
             }
         }else{
-            throw std::invalid_argument("type can be either integral or string");
+            throw std::invalid_argument("type can be either arithmetic or string");
         }
     }
 
