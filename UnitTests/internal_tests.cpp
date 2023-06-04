@@ -108,7 +108,7 @@ void check_variadic_opt(){
     parser.addArgument<int>("--variadic, -var", {"N"})
             .variadic();
     call_parser(parser, {"-var", "1", "2", "3"});
-    if(parser.getValue<std::vector<int>>("-var").size() != 3){
+    if(parser.getValue<std::vector<int>>("-var") != std::vector<int>{1,2,3}){
         throw std::runtime_error("Should parse 3 digits to variadic argument");
     }
 }
@@ -139,7 +139,7 @@ void check_variadic_pos(){
     if(parser.getValue<int>("-i") != 3){
         throw std::runtime_error("Should parse first 2 options");
     }
-    if(parser.getValue<std::vector<int>>("pos").size() != 3){
+    if(parser.getValue<std::vector<int>>("pos") != std::vector<int>{3,4,5}){
         throw std::runtime_error("Should parse 3 digits to variadic argument");
     }
 }
@@ -359,7 +359,18 @@ void check_choices_throw(){
     }catch(std::logic_error &){
         return;
     }
-    throw std::runtime_error("should throw if not integral or not std::stiring");
+    throw std::runtime_error("should throw if not arithmetic or not std::string");
+}
+void check_choices_var_pos(){
+    START_TEST
+    argParser parser;
+    parser.addPositional<int>("ch_pos")
+            .variadic()
+            .choices({0,1,2,3});
+    call_parser(parser, {"2", "3", "0", "1"});
+    if(parser.getValue<std::vector<int>>("ch_pos") != std::vector<int>{2,3,0,1}){
+        throw std::runtime_error("variadic choices should be allowed");
+    }
 }
 int main(){
 
@@ -391,5 +402,6 @@ int main(){
     check_side_args_pos();
     check_choices();
     check_choices_throw();
+    check_choices_var_pos();
     return 0;
 }

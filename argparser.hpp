@@ -252,6 +252,21 @@ private:
         return !std::is_void_v<T>;
     }
 
+    void check_choices(){
+        // applicable only to arithmetic or strings
+        if constexpr(std::is_arithmetic_v<T> || std::is_same_v<T, std::string>){
+            if(!choices.empty()){
+                // check if result correspond to one of the choices
+                for(auto v : choices){
+                    if(value == v){
+                        return;
+                    }
+                }
+                throw std::runtime_error("value does not correspond to any of given choices");
+            }
+        }
+    }
+
     // parse variadic params, single scan and common action
     void action(const std::string *args, int size, const char *date_format) override{
         // if implicit
@@ -267,19 +282,7 @@ private:
                 // simple scan of single value
                 set(parser_internal::scan<T>(args[0].c_str(), date_format));
             }
-            // applicable only to arithmetic or strings
-            if constexpr(std::is_arithmetic_v<T> || std::is_same_v<T, std::string>){
-                if(choices.size() > 0){
-                    // check if result correspond to one of the choices
-                    for(auto v : choices){
-                        if(value == v){
-                            return;
-                        }
-                    }
-                    throw std::runtime_error("value does not correspond to any of given choices");
-                }
-            }
-
+            check_choices();
             return;
         }
         // parse variadic
@@ -291,6 +294,7 @@ private:
             }else{
                 value = parser_internal::scan<T>(args[i].c_str(), date_format);
             }
+            check_choices();
             res.push_back(value);
         }
         anyval = res;
@@ -517,7 +521,7 @@ struct ARG_DEFS{
     }
     ///make arg variadic
     ARG_DEFS &variadic(){
-        if(option != nullptr && !m_repeatable){
+        if(!m_repeatable){
             if(!m_positional && m_options.size() != 1){
                 throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list must have exactly 1 mandatory option");
             }
@@ -531,7 +535,7 @@ struct ARG_DEFS{
     ///choices
     ARG_DEFS &choices(const std::initializer_list<std::any> &choice_list){
         // only for args with single param
-        if(m_options.size() != 1 || option->variadic){
+        if(m_options.size() != 1 && !m_positional){
             throw std::logic_error(std::string(__func__) + ": " + m_name + " choices list can be applied only to args with single parameter");
         }
         try{
@@ -1345,16 +1349,21 @@ private:
             // List choices if applicable
             auto choices = j.second->option->get_str_choices();
             if(!choices.empty()){
-                std::cout << " {";
+                opt = "{";
                 bool notFirst = false;
                 for(auto &c : choices){
                     if(notFirst){
-                        std::cout << ", ";
+                        opt += ",";
                     }
-                    std::cout << c;
+                    opt += c;
                     notFirst = true;
                 }
-                std::cout << "}";
+                opt += "}";
+                std::string tmp = j.second->m_options[0];
+                if(!parser_internal::isOptMandatory(tmp)){
+                    opt = "[" + opt + "]";
+                }
+                std::cout << " " << opt;
             }else{
                 // List regular options otherwise
                 for(auto &x : j.second->m_options){
@@ -1365,10 +1374,9 @@ private:
 
                     std::cout << " " + tmp;
                 }
-
-                if(j.second->is_variadic()){
-                    std::cout << " [" + opt + "...]";
-                }
+            }
+            if(j.second->is_variadic()){
+                std::cout << " [" + opt + "...]";
             }
         };
         //check required: -1-don't check, 0-false, other-true
@@ -1451,10 +1459,24 @@ private:
         }
 
         std::string positional;
-        for (auto &x : posMap){
-            positional += " <" + x + ">";
+        for(auto &x : posMap){
+            std::string opt = x;
+            auto choices = argMap[x]->option->get_str_choices();
+            if(!choices.empty()){
+                opt = "{";
+                bool notFirst = false;
+                for(auto &c : choices){
+                    if(notFirst){
+                        opt += ",";
+                    }
+                    opt += c;
+                    notFirst = true;
+                }
+                opt += "}";
+            }
+            positional += " " + opt;
             if(argMap[x]->is_variadic()){
-                positional += " [" + x + "...]";
+                positional += " [" + opt + "...]";
             }
         }
 
