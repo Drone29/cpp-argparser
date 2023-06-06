@@ -447,9 +447,11 @@ struct ARG_DEFS{
         m_advanced_help = std::move(hlp);
         return *this;
     }
-    /// positional, mandatory or required options cannot be hidden
+    /// positional, mandatory options cannot be hidden
+    /// NOTE: if hidden AND required, use carefully
+    /// DO NOT make ALL required args hidden!!!
     ARG_DEFS &hidden(){
-        if(!m_positional && m_arbitrary && !m_required)
+        if(!m_positional && m_arbitrary)
             m_hidden = true;
         return *this;
     }
@@ -488,8 +490,8 @@ struct ARG_DEFS{
     ///only for arbitrary options
     ///user should specify at least one required option
     ARG_DEFS &required(){
-        /// hidden cannot be required
-        if(!m_positional && !m_hidden){
+        /// positional cannot be required
+        if(!m_positional){
             m_required = true;
             /// if mandatory option forced to be required, set flag to arbitrary
             m_arbitrary = true;
@@ -1521,6 +1523,11 @@ private:
             std::cout << "Options (mandatory):" << std::endl;
             sorted_usage(false, false, 0); //show options without *
             sorted_usage(false, false, 1); //show options with *
+            if(advanced){
+                //show hidden
+                sorted_usage(false, true, 0);
+                sorted_usage(false, true, 1);
+            }
         }
 
         if(required_args > 1){
