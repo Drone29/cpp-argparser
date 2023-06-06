@@ -58,7 +58,7 @@ constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
 
 /// Useful aliases ///
 /// identifier for implicit argument
-static const std::string IMPLICIT_ARG[OPTS_SZ_MAGIC] = {};
+static const char * const IMPLICIT_ARG[OPTS_SZ_MAGIC] = {};
 /// std::tm alias
 using date_t = std::tm;
 
@@ -523,10 +523,10 @@ struct ARG_DEFS{
     ARG_DEFS &variadic(){
         if(!m_repeatable){
             if(!m_positional && m_options.size() != 1){
-                throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list must have exactly 1 mandatory option");
+                throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list must have exactly 1 mandatory parameter");
             }
             if(!m_options.empty() && !parser_internal::isOptMandatory(m_options.front())){
-                throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list 1st option cannot be arbitrary");
+                throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list 1st parameter cannot be arbitrary");
             }
             option->variadic = true;
         }
@@ -718,7 +718,7 @@ public:
     //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
     template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
-                          const std::string (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
+                          const char * const (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
                           Callable &&func = parser_internal::dummy,
                           const std::tuple<Targs...> &targs = std::tuple<>()){
 
@@ -748,6 +748,12 @@ public:
         // remove key from aliases vector
         splitKey.aliases.erase(idx);
 
+        /// check for nulls
+        for(int c = 0; c < opt_size; ++c){
+            if(opts_arr[c] == nullptr){
+                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key +  std::to_string(c) + "th parameter is null");
+            }
+        }
         /// create opts vector
         std::vector<std::string> opts = {opts_arr, opts_arr + opt_size};
         /// get template type string
@@ -759,10 +765,10 @@ public:
 
         for(auto & sopt : opts){
             if(sopt.empty()){
-                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " option name cannot be empty");
+                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " parameter name cannot be empty");
             }
             if(sopt.front() == ' ' || sopt.back() == ' '){
-                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " option " + sopt + " cannot begin or end with space");
+                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " parameter " + sopt + " cannot begin or end with space");
             }
 
             if(parser_internal::isOptMandatory(sopt)){
@@ -797,7 +803,7 @@ public:
         if constexpr(std::is_same_v<Callable, parser_internal::no_action_t>){
             static_assert(!implicit || std::is_arithmetic_v<T>, "Function should be provided for non-arithmetic implicit arg");
             if(!implicit && last_mandatory_arg.empty()){
-                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for arg with arbitrary options");
+                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for arg with arbitrary parameters");
             }
             ///check if default parser for this type is present
             try{
@@ -835,7 +841,7 @@ public:
     // another implementation of addArgument with const char *key
     template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
     ARG_DEFS &addArgument(const char *key,
-                          const std::string (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
+                          const char * const (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
                           Callable &&func = parser_internal::dummy,
                           const std::tuple<Targs...> &targs = std::tuple<>()){
 
@@ -1197,7 +1203,7 @@ public:
 
                 if(opts_cnt < argMap[pName]->mandatory_options){
                     throw parse_error(std::string(pName) + " requires "
-                                      + std::to_string(argMap[pName]->mandatory_options) + " options, but " + std::to_string(opts_cnt) + " were provided");
+                                      + std::to_string(argMap[pName]->mandatory_options) + " parameters, but " + std::to_string(opts_cnt) + " were provided");
                 }
 
                 parseArgument(pName, index + 1, index + 1 + opts_cnt);
