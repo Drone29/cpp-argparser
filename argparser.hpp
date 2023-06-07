@@ -15,6 +15,7 @@
 #include <typeindex>
 #include <tuple>
 #include <array>
+#include <list>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -634,7 +635,7 @@ private:
 class argParser
 {
 public:
-    explicit argParser(const std::string &name = ""){
+    explicit argParser(const std::string &name = "", const std::string &descr = ""){
         argMap[HELP_NAME] = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(HELP_NAME));
         argMap[HELP_NAME]->typeStr = ARG_TYPE_HELP;
         argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
@@ -644,6 +645,7 @@ public:
         setAlias(HELP_NAME, {HELP_ALIAS});
 
         binary_name = name;
+        description = descr;
     }
     ~argParser(){
         argMap.clear();
@@ -1246,10 +1248,12 @@ private:
     };
 
     std::map<std::string, std::unique_ptr<ARG_DEFS>> argMap;
-    std::vector<std::string>posMap;
+    std::list<std::unique_ptr<argParser>> children_parsers;
+    std::vector<std::string> posMap;
     std::vector<std::string> argVec;
 
     std::string binary_name;
+    std::string description;
     bool args_parsed = false;
     bool mandatory_option = false;
     int positional_cnt = 0;
@@ -1280,7 +1284,6 @@ private:
 
         throw std::invalid_argument(key + " not defined");
     }
-
 
     void parsedCheck(const char* func = nullptr) const{
 
@@ -1457,7 +1460,6 @@ private:
             if(j != argMap.end()){
                 printParam(*j, true);
                 std::cout << ":" << std::endl;
-                //std::cout << "Type: " + j->second->typeStr << std::endl;
                 std::cout << j->second->m_help << std::endl;
                 std::cout << j->second->m_advanced_help << std::endl;
             }else{
@@ -1498,16 +1500,29 @@ private:
             }
         }
 
-        std::cout << "Usage: " + binary_name
-                     + (flag_cnt ? " [flags...]" : "")
-                     + (opt_cnt ? " options..." : "")
-                     + positional << std::endl;
+        if(!description.empty()){
+            std::cout << description << std::endl;
+        }
+
+        std::cout << "Usage: " << binary_name
+                     << (flag_cnt ? " [flags...]" : "")
+                     << (opt_cnt ? " options..." : "")
+                     << positional
+                     << (!children_parsers.empty() ? "<command> [<args>]" : "")
+                     << std::endl;
+
+        if(!children_parsers.empty()){
+            std::cout << "Commands:" << std::endl;
+            for(const auto &child : children_parsers){
+                std::cout << "\t" << child->binary_name << " : " << child->description << std::endl;
+            }
+        }
 
         if(!posMap.empty()){
             std::cout << "Positional arguments:" << std::endl;
             for(auto &x : posMap){
-                std::string date_format = argMap[x]->m_date_format == nullptr ? "" : ("[" + std::string(argMap[x]->m_date_format) + "] ");
-                std::cout << "\t" << x << " : " << date_format << argMap[x]->m_help << std::endl;
+                std::string date_format = argMap[x]->m_date_format == nullptr ? "" : (" { format: " + std::string(argMap[x]->m_date_format) + "}");
+                std::cout << "\t" << x << " : " << argMap[x]->m_help << date_format << std::endl;
             }
         }
 

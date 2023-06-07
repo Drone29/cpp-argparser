@@ -26,7 +26,7 @@ CL createStruct(const char *bl, const char *itgr = nullptr){
 
 int main(int argc, char *argv[]) {
 
-    argParser parser("program_name");
+    argParser parser("program_name", "this program does some pretty useful stuff");
 
     int pos_val = 0;
     int i_val;
