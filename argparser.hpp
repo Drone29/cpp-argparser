@@ -994,6 +994,7 @@ private:
     std::string description;
     bool args_parsed = false;
     bool mandatory_option = false;
+    bool child_parsed = false;
     int positional_cnt = 0;
     int mandatory_args = 0;
     int required_args = 0;
@@ -1282,6 +1283,7 @@ private:
                 if(child != nullptr){
                     std::vector<std::string> restvec = {argVec.begin() + index + 1, argVec.end()};
                     child->parseArgs(restvec, hide_hidden_hint);
+                    child_parsed = true;
                     break;
                 }
 
@@ -1354,7 +1356,8 @@ private:
                         break;
                     }
                     //check if next value is also a key
-                    bool next_is_key = argMap.find(argVec[cnt]) != argMap.end();
+                    bool next_is_key = (argMap.find(argVec[cnt]) != argMap.end()
+                            || findChildByName(argVec[cnt]) != nullptr);
                     if(next_is_key){
                         break;
                     }
@@ -1376,6 +1379,9 @@ private:
         checkParsedNonPos();
         if(positional_cnt < posMap.size()){
             throw parse_error("Not enough positional arguments provided");
+        }
+        if(!children_parsers.empty() && !child_parsed){
+            throw parse_error("No command provided");
         }
 
         args_parsed = true;
