@@ -5,9 +5,9 @@
 #include "argparser.hpp"
 
 static int test_num = 0;
-#define START_TEST std::cout << "Starting test " << ++test_num << " line " << __LINE__ << std::endl;
-#define TEST_FUNC(name) void(*name)() = []()
 typedef void(*func_ptr)();
+#define START_TEST std::cout << "Starting test " << ++test_num << " line " << __LINE__ << std::endl;
+#define TEST_FUNC(name) func_ptr name = []()    //void(*name)()
 
 template <size_t SIZE>
 void call_parser(argParser &parser, const char * const(&arr)[SIZE]){
@@ -23,8 +23,8 @@ void call_parser(argParser &parser, const char * const(&arr)[SIZE]){
     parser.parseArgs(SIZE+1, const_cast<char **>(a));
 }
 
-class Test{
-public:
+struct Test{
+
     TEST_FUNC(check_negative_int){
         START_TEST
         argParser parser;
@@ -136,7 +136,6 @@ public:
         };
 
         parser.addArgument<int>("-i", {"mnd", "[arb]"}, lmb);
-
         parser.addPositional<int>("pos", pos_lmb)
                 .variadic();
         call_parser(parser, {"-i", "1", "2", "3", "4", "5"});
@@ -171,12 +170,9 @@ public:
         START_TEST
         argParser parser;
         parser.addArgument<std::string>("-p", {"[str_value]"}, test);
-
         parser.addArgument<int>("--variadic, -var", {"N"})
                 .variadic();
-
         call_parser(parser, {"-p", "-var", "1", "2", "3"});
-
         auto p = parser.getValue<std::string>("-p");
         auto var = parser.getValue<std::vector<int>>("-var");
         if(p != "null"){
@@ -196,10 +192,8 @@ public:
         START_TEST
         argParser parser;
         parser.addArgument<std::string>("-p", {"[str_value]"}, test);
-
         parser.addArgument<int>("--variadic, -var", {"N"})
                 .variadic();
-
         call_parser(parser, {"-p=-var", "-var", "1", "2", "3"});
         auto p = parser.getValue<std::string>("-p");
         auto var = parser.getValue<std::vector<int>>("-var");
@@ -334,7 +328,6 @@ public:
             auto a_ = argParser::scanValue<int>(a);
             return g + a_;
         };
-
         parser.addPositional<int>("pos", parse_pos, std::make_tuple(34));
         call_parser(parser, {"6"});
         if(parser.getValue<int>("pos") != 40){
@@ -424,7 +417,7 @@ public:
     }
 private:
     Test test;
-    func_ptr test_functions[sizeof(Test)/sizeof(void*)] = {};
+    func_ptr test_functions[sizeof(Test)/sizeof(func_ptr)] = {};
 };
 
 int main(){
