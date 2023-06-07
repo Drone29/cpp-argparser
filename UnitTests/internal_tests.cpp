@@ -394,6 +394,19 @@ void check_choices_var_pos(){
         throw std::runtime_error("variadic choices should be allowed");
     }
 }
+void check_choices_var_pos_throw(){
+    START_TEST
+    try{
+        argParser parser;
+        parser.addPositional<int>("ch_pos")
+                .variadic()
+                .choices({0,1,2,3});
+        call_parser(parser, {"2", "3", "4", "1"});
+    }catch(argParser::unparsed_param &){
+        return;
+    }
+    throw std::runtime_error("should throw error if unknown value is found");
+}
 int main(){
 
     std::cout << "Internal tests started" << std::endl;
@@ -428,5 +441,6 @@ int main(){
     check_choices_string();
     check_choices_throw();
     check_choices_var_pos();
+    check_choices_var_pos_throw();
     return 0;
 }
