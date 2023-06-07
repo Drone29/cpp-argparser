@@ -15,7 +15,6 @@
 #include <typeindex>
 #include <tuple>
 #include <array>
-#include <list>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -649,7 +648,7 @@ public:
     }
     ~argParser(){
         argMap.clear();
-        argVec.clear();
+//        argVec.clear();
     }
     /**
      *
@@ -935,18 +934,147 @@ public:
         return this->binary_name;
     }
 
+    argParser &addChildParser(const std::string &name, const std::string &descr){
+        children_parsers.push_back(std::make_unique<argParser>(name, descr));
+        return *children_parsers.front();
+    }
+
     /// Parse arguments
     int parseArgs(int argc, char *argv[], bool hide_hidden_hint = false)
     {
         if(args_parsed){
             throw parse_error("Repeated attempt to run " + std::string(__func__));
         }
-        argVec = {argv + 1, argv + argc};
         ///Retrieve binary self-name
         if(binary_name.empty()){
             std::string self_name = std::string(argv[0]);
             binary_name = self_name.substr(self_name.find_last_of('/') + 1);
         }
+        std::vector<std::string> argVec = {argv + 1, argv + argc};
+
+        parseArgs(argVec, hide_hidden_hint);
+
+        args_parsed = true;
+        return 0;
+    }
+
+    const ARG_DEFS &operator [] (const std::string &key) const { return getArg(key); }
+
+    /// Custom exception class (unparsed parameters)
+    class unparsed_param : public std::runtime_error{
+    public:
+        explicit unparsed_param(const char *msg) : std::runtime_error(msg) {}
+        explicit unparsed_param(const std::string& s) : std::runtime_error(s){}
+    };
+    /// Custom exception class (other parse errors)
+    class parse_error : public std::runtime_error{
+    public:
+        explicit parse_error(const char *msg) : std::runtime_error(msg) {}
+        explicit parse_error(const std::string& s) : std::runtime_error(s){}
+    };
+
+private:
+
+    struct KEY_ALIAS{
+        std::string key;
+        std::vector<std::string> aliases;
+    };
+
+    std::map<std::string, std::unique_ptr<ARG_DEFS>> argMap;
+    std::vector<std::unique_ptr<argParser>> children_parsers;
+    std::vector<std::string> posMap;
+//    std::vector<std::string> argVec;
+
+    std::string binary_name;
+    std::string description;
+    bool args_parsed = false;
+    bool mandatory_option = false;
+    int positional_cnt = 0;
+    int mandatory_args = 0;
+    int required_args = 0;
+    int hidden_args = 0;
+    ARG_DEFS *last_unparsed_arg = nullptr;
+
+    [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
+        std::string skey = key;
+        if(argMap.find(skey) == argMap.end()){
+            for(auto &x : argMap){
+                for(auto &alias : x.second->m_aliases){
+                    if(alias == skey){
+                        skey = x.first;
+                        break;
+                    }
+                }
+                if(skey != key){
+                    break;
+                }
+            }
+        }
+
+        if(argMap.find(skey) != argMap.end()){
+            return *argMap.find(skey)->second;
+        }
+
+        throw std::invalid_argument(key + " not defined");
+    }
+
+    void parsedCheck(const char* func = nullptr) const{
+
+        if(func == nullptr){
+            func = __func__;
+        }
+        if(!args_parsed){
+            throw std::runtime_error(std::string(func) +": Invalid call. Arguments not parsed yet");
+        }
+    }
+
+    void sanityCheck(const std::string &key, const char* func = nullptr){
+
+        if(func == nullptr){
+            func = __func__;
+        }
+
+        if(key.empty()){
+            throw std::invalid_argument(std::string(func) + ": Key cannot be empty!");
+        }
+
+        //Check previous definition
+        if(argMap.find(key) != argMap.end()){
+            throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
+        }
+
+        for(auto &x : argMap){
+            for(auto &alias : x.second->m_aliases){
+                if(alias == key){
+                    throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
+                }
+            }
+        }
+    }
+
+    static void checkForbiddenSymbols(const std::string &key, const char* func = nullptr){
+        if(func == nullptr){
+            func = __func__;
+        }
+        if(key.empty()){
+            throw std::invalid_argument(std::string(func) + ": key cannot be empty");
+        }
+        auto c = key.find(KEY_OPTION_DELIMITER);
+        auto s = key.find(' ');
+        if(c == 0 || c == key.length()-1){
+            throw std::invalid_argument(std::string(func) + ": " + key + " cannot begin or end with =");
+        }
+        if(s != std::string::npos){
+            throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain spaces");
+        }
+    }
+
+    //dummy function
+    static void dummyFunc(){
+        std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
+    }
+
+    int parseArgs(std::vector<std::string> &argVec, bool hide_hidden_hint = false){
 
         int parsed_mnd_args = 0;
         int parsed_required_args = 0;
@@ -967,7 +1095,7 @@ public:
 
         mandatory_option = mandatory_args || required_args;
 
-        auto parseArgument = [this](const std::string &key, int start, int end) -> int{
+        auto parseArgument = [this, &argVec](const std::string &key, int start, int end) -> int{
             try{
                 // end not included
                 // remove spaces added while preparing
@@ -991,7 +1119,7 @@ public:
                 throw unparsed_param(e.what());
             }
             return end-start;
-        };
+            };
 
         auto setArgument = [this, &parsed_mnd_args, &parsed_required_args](const std::string &pName){
             argMap[pName]->m_set = true;
@@ -1035,6 +1163,15 @@ public:
             return "";
         };
 
+        auto findChildByName = [this](const std::string &key) -> argParser*{
+            for(const auto &child : children_parsers){
+                if(child->binary_name == key){
+                    return child.get();
+                }
+            }
+            return nullptr;
+        };
+
         auto checkParsedNonPos = [this, &parsed_mnd_args, &parsed_required_args](){
             if(mandatory_option){
                 if(parsed_mnd_args != mandatory_args){
@@ -1053,7 +1190,7 @@ public:
         /// Handle '=' and combined args
         for(auto index = 0; index < argVec.size(); index++){
 
-            auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
+            auto insertKeyValue = [this, &index, &argVec](const std::string &key, const std::string &val){
                 argVec[index] = key;
                 argVec.insert(argVec.begin() + index + 1, val);
             };
@@ -1076,7 +1213,13 @@ public:
             if(argMap.find(pName) == argMap.end()){
                 ///Find alias
                 std::string name = findKeyByAlias(pName);
-                if(!name.empty()){
+                auto child = findChildByName(pName);
+                if(child != nullptr){
+                    // if found child
+                    std::vector<std::string> restvec = {argVec.begin() + index + 1, argVec.end()};
+                    return child->parseArgs(restvec, hide_hidden_hint);
+                }
+                else if(!name.empty()){
                     // change alias to key
                     pName = name;
                     argVec[index] = name;
@@ -1112,13 +1255,15 @@ public:
                 }//if name.empty()
             } //argMap.find(pName) == argMap.end()
             else{
-                index += argMap[pName]->mandatory_options; //skip mandatory opts
+                // if found in argMap, skip mandatory opts
+                index += argMap[pName]->mandatory_options;
             }
+
             if(pName == HELP_NAME){
+                // if found help key, break
                 break;
             }
         }
-
 
         /// Main parser loop
         for(auto index = 0; index < argVec.size(); index++){
@@ -1221,124 +1366,8 @@ public:
         if(positional_cnt < posMap.size()){
             throw parse_error("Not enough positional arguments provided");
         }
-        args_parsed = true;
+
         return 0;
-    }
-
-    const ARG_DEFS &operator [] (const std::string &key) const { return getArg(key); }
-
-    /// Custom exception class (unparsed parameters)
-    class unparsed_param : public std::runtime_error{
-    public:
-        explicit unparsed_param(const char *msg) : std::runtime_error(msg) {}
-        explicit unparsed_param(const std::string& s) : std::runtime_error(s){}
-    };
-    /// Custom exception class (other parse errors)
-    class parse_error : public std::runtime_error{
-    public:
-        explicit parse_error(const char *msg) : std::runtime_error(msg) {}
-        explicit parse_error(const std::string& s) : std::runtime_error(s){}
-    };
-
-private:
-
-    struct KEY_ALIAS{
-        std::string key;
-        std::vector<std::string> aliases;
-    };
-
-    std::map<std::string, std::unique_ptr<ARG_DEFS>> argMap;
-    std::list<std::unique_ptr<argParser>> children_parsers;
-    std::vector<std::string> posMap;
-    std::vector<std::string> argVec;
-
-    std::string binary_name;
-    std::string description;
-    bool args_parsed = false;
-    bool mandatory_option = false;
-    int positional_cnt = 0;
-    int mandatory_args = 0;
-    int required_args = 0;
-    int hidden_args = 0;
-    ARG_DEFS *last_unparsed_arg = nullptr;
-
-    [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
-        std::string skey = key;
-        if(argMap.find(skey) == argMap.end()){
-            for(auto &x : argMap){
-                for(auto &alias : x.second->m_aliases){
-                    if(alias == skey){
-                        skey = x.first;
-                        break;
-                    }
-                }
-                if(skey != key){
-                    break;
-                }
-            }
-        }
-
-        if(argMap.find(skey) != argMap.end()){
-            return *argMap.find(skey)->second;
-        }
-
-        throw std::invalid_argument(key + " not defined");
-    }
-
-    void parsedCheck(const char* func = nullptr) const{
-
-        if(func == nullptr){
-            func = __func__;
-        }
-        if(!args_parsed){
-            throw std::runtime_error(std::string(func) +": Invalid call. Arguments not parsed yet");
-        }
-    }
-
-    void sanityCheck(const std::string &key, const char* func = nullptr){
-
-        if(func == nullptr){
-            func = __func__;
-        }
-
-        if(key.empty()){
-            throw std::invalid_argument(std::string(func) + ": Key cannot be empty!");
-        }
-
-        //Check previous definition
-        if(argMap.find(key) != argMap.end()){
-            throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
-        }
-
-        for(auto &x : argMap){
-            for(auto &alias : x.second->m_aliases){
-                if(alias == key){
-                    throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
-                }
-            }
-        }
-    }
-
-    static void checkForbiddenSymbols(const std::string &key, const char* func = nullptr){
-        if(func == nullptr){
-            func = __func__;
-        }
-        if(key.empty()){
-            throw std::invalid_argument(std::string(func) + ": key cannot be empty");
-        }
-        auto c = key.find(KEY_OPTION_DELIMITER);
-        auto s = key.find(' ');
-        if(c == 0 || c == key.length()-1){
-            throw std::invalid_argument(std::string(func) + ": " + key + " cannot begin or end with =");
-        }
-        if(s != std::string::npos){
-            throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain spaces");
-        }
-    }
-
-    //dummy function
-    static void dummyFunc(){
-        std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
     }
 
     void helpDefault(const std::string &param = ""){
@@ -1508,7 +1537,7 @@ private:
                      << (flag_cnt ? " [flags...]" : "")
                      << (opt_cnt ? " options..." : "")
                      << positional
-                     << (!children_parsers.empty() ? "<command> [<args>]" : "")
+                     << (!children_parsers.empty() ? " command [<args>]" : "")
                      << std::endl;
 
         if(!children_parsers.empty()){

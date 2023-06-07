@@ -254,6 +254,12 @@ int main(int argc, char *argv[]) {
             .choices({0,1,2,3}) // create list of possible valid choices for that argument
             .help("list with choices");
 
+    /// add child parser
+    argParser &child = parser.addChildParser("some_command", "some child command");
+
+    child.addArgument<int>("--int")
+            .help("int value");
+
     try{
         // parse arguments
         parser.parseArgs(argc, argv);
