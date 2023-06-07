@@ -403,6 +403,38 @@ struct Test{
         }
         throw std::runtime_error("should throw error if unknown value is found");
     };
+    TEST_FUNC(check_child_parser){
+        START_TEST
+        argParser parser;
+        auto &child = parser.addChildParser("child", "child parser");
+        child.addArgument<int>("--int");
+        call_parser(parser, {"child", "--int"});
+        if(child.getValue<int>("--int") != 1){
+            throw std::runtime_error("should parse int from child parser");
+        }
+    };
+    TEST_FUNC(check_pos_with_child_throw){
+        START_TEST
+        try{
+            argParser parser;
+            parser.addPositional<int>("pos");
+            parser.addChildParser("child", "child descr");
+        }catch(std::invalid_argument &e){
+            return;
+        }
+        throw std::runtime_error("should throw if trying to add child parser after positional");
+    };
+    TEST_FUNC(check_child_with_pos_throw){
+        START_TEST
+        try{
+            argParser parser;
+            parser.addChildParser("child", "child descr");
+            parser.addPositional<int>("pos");
+        }catch(std::invalid_argument &e){
+            return;
+        }
+        throw std::runtime_error("should throw if trying to add positional arg after child parser");
+    };
 };
 
 class Caller{

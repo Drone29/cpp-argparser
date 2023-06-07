@@ -672,6 +672,10 @@ public:
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after variadic positional argument " + p);
             }
         }
+        /// check if child parsers exist
+        if(!children_parsers.empty()){
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add child parser along with positional arguments");
+        }
         // check if positional name is valid
         checkForbiddenSymbols(key, __func__);
         if(!parser_internal::isOptMandatory(key)){
@@ -935,6 +939,10 @@ public:
     }
 
     argParser &addChildParser(const std::string &name, const std::string &descr){
+        checkForbiddenSymbols(name, __func__);
+        if(!posMap.empty()){
+            throw std::invalid_argument(std::string(__func__) + ": " + name + " cannot add child parser along with positional arguments");
+        }
         children_parsers.push_back(std::make_unique<argParser>(name, descr));
         return *children_parsers.front();
     }
@@ -952,10 +960,7 @@ public:
         }
         std::vector<std::string> argVec = {argv + 1, argv + argc};
 
-        parseArgs(argVec, hide_hidden_hint);
-
-        args_parsed = true;
-        return 0;
+        return parseArgs(argVec, hide_hidden_hint);
     }
 
     const ARG_DEFS &operator [] (const std::string &key) const { return getArg(key); }
@@ -1213,11 +1218,9 @@ private:
             if(argMap.find(pName) == argMap.end()){
                 ///Find alias
                 std::string name = findKeyByAlias(pName);
-                auto child = findChildByName(pName);
-                if(child != nullptr){
-                    // if found child
-                    std::vector<std::string> restvec = {argVec.begin() + index + 1, argVec.end()};
-                    return child->parseArgs(restvec, hide_hidden_hint);
+                if(findChildByName(pName) != nullptr){
+                    // if found child, break
+                    break;
                 }
                 else if(!name.empty()){
                     // change alias to key
@@ -1273,10 +1276,17 @@ private:
 
             ///If found unknown key
             if(argMap.find(pName) == argMap.end()){
+
+                auto child = findChildByName(pName);
+                if(child != nullptr){
+                    std::vector<std::string> restvec = {argVec.begin() + index + 1, argVec.end()};
+                    child->parseArgs(restvec, hide_hidden_hint);
+                    break;
+                }
+
                 int pos_idx = index;
                 ///Try parsing positional args
                 ///If number of remaining args <= number of positionals
-
                 if(!posMap.empty()){
                     for(auto &x : posMap){
                         if(pos_idx >= argVec.size()){
@@ -1367,6 +1377,7 @@ private:
             throw parse_error("Not enough positional arguments provided");
         }
 
+        args_parsed = true;
         return 0;
     }
 
