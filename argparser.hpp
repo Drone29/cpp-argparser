@@ -1277,6 +1277,7 @@ private:
             ///If found unknown key
             if(argMap.find(pName) == argMap.end()){
 
+                /// Parse children
                 auto child = findChildByName(pName);
                 if(child != nullptr){
                     std::vector<std::string> restvec = {argVec.begin() + index + 1, argVec.end()};
