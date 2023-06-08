@@ -528,6 +528,51 @@ struct Test{
         }
         throw std::runtime_error("should throw error if found trailing args after positional");
     };
+    TEST_FUNC(check_nargs){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("--arg")
+                .nargs(3);
+        call_parser(parser, {"--arg", "1", "2", "3"});
+        if(parser.getValue<std::vector<int>>("--arg") != std::vector<int>{1,2,3}){
+            throw std::runtime_error("should parse 3 nargs");
+        }
+    };
+    TEST_FUNC(check_nargs_choices){
+        START_TEST
+        try{
+            argParser parser;
+            parser.addArgument<int>("--arg")
+                    .nargs(3)
+                    .choices({2,3,4});
+            call_parser(parser, {"--arg", "1", "2", "3"});
+        }catch(argParser::unparsed_param &){
+            return;
+        }
+        throw std::runtime_error("should check choices for nargs too");
+    };
+    TEST_FUNC(check_nargs_pos){
+        START_TEST
+        argParser parser;
+        parser.addPositional<int>("pos")
+                .nargs(3);
+        call_parser(parser, {"1", "2", "3"});
+        if(parser.getValue<std::vector<int>>("pos") != std::vector<int>{1,2,3}){
+            throw std::runtime_error("should parse 3 nargs");
+        }
+    };
+    TEST_FUNC(check_nargs_pos_with_regular_pos){
+        START_TEST
+        argParser parser;
+        parser.addPositional<int>("pos")
+                .nargs(3);
+        parser.addPositional<int>("pos2");
+        call_parser(parser, {"1", "2", "3", "4"});
+        if(parser.getValue<std::vector<int>>("pos") != std::vector<int>{1,2,3}
+            || parser.getValue<int>("pos2") != 4){
+            throw std::runtime_error("should parse 3 nargs and second pos");
+        }
+    };
 };
 
 class Caller{

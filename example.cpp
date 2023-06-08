@@ -254,6 +254,11 @@ int main(int argc, char *argv[]) {
             .choices({0,1,2,3}) // create list of possible valid choices for that argument
             .help("list with choices");
 
+    ///nargs
+    parser.addArgument<int>("--narg", {"ggg"})
+            .nargs(3)
+            .help("arg with 3 values");
+
     /// add child parser
     argParser &child = parser.addCommand("some_command", "some child command");
 
