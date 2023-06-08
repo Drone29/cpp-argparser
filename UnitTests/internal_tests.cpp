@@ -528,8 +528,6 @@ struct Test{
         }
         throw std::runtime_error("should throw error if found trailing args after positional");
     };
-
-
 };
 
 class Caller{
@@ -545,11 +543,10 @@ public:
 private:
     Test test;
     func_ptr test_functions[sizeof(Test)/sizeof(func_ptr)] = {};
-};
+}caller;
 
 int main(){
     std::cout << "Internal tests started" << std::endl;
-    Caller caller;
     caller.perform_tests();
     return 0;
 }

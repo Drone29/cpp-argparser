@@ -255,10 +255,10 @@ int main(int argc, char *argv[]) {
             .help("list with choices");
 
     /// add child parser
-//    argParser &child = parser.addChildParser("some_command", "some child command");
-//
-//    child.addArgument<int>("--int")
-//            .help("int value");
+    argParser &child = parser.addChildParser("some_command", "some child command");
+
+    child.addArgument<int>("--int")
+            .help("int value");
 
     try{
         // parse arguments

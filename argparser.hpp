@@ -936,6 +936,9 @@ public:
 
     argParser &addChildParser(const std::string &name, const std::string &descr){
         checkForbiddenSymbols(name, __func__);
+        if(!parser_internal::isOptMandatory(name)){
+            throw std::invalid_argument(std::string(__func__) + ": " + name + " child command cannot be arbitrary");
+        }
         children_parsers.push_back(std::make_unique<argParser>(name, descr));
         return *children_parsers.front();
     }
