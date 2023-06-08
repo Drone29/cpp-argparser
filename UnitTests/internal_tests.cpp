@@ -24,7 +24,17 @@ void call_parser(argParser &parser, const char * const(&arr)[SIZE]){
 }
 
 struct Test{
-
+    TEST_FUNC(check_unknown){
+        START_TEST
+        try{
+            argParser parser;
+            parser.addArgument<int>("--int", {"int"});
+            call_parser(parser, {"--inf", "23"});
+        }catch(argParser::parse_error &e){
+            return;
+        }
+        throw std::runtime_error("should throw error if found unknown arg");
+    };
     TEST_FUNC(check_negative_int){
         START_TEST
         argParser parser;
@@ -413,28 +423,69 @@ struct Test{
             throw std::runtime_error("should parse int from child parser");
         }
     };
-    TEST_FUNC(check_pos_with_child_throw){
+    TEST_FUNC(check_pos_with_child){
+        START_TEST
+        argParser parser;
+        parser.addPositional<int>("pos");
+        auto &child = parser.addChildParser("child", "child descr");
+        child.addArgument<int>("--int", {"int_val"});
+        call_parser(parser, {"123", "child", "--int=54"});
+        if(parser.getValue<int>("pos") != 123
+                || child.getValue<int>("--int") != 54){
+            throw std::runtime_error("should parse positional along with child");
+        }
+    };
+    TEST_FUNC(check_var_pos_with_child){
+        START_TEST
+        argParser parser;
+        parser.addPositional<int>("pos")
+                .variadic();
+        auto &child = parser.addChildParser("child", "child descr");
+        child.addArgument<int>("--int", {"int_val"});
+        call_parser(parser, {"123", "345", "child", "--int=54"});
+        if(parser.getValue<std::vector<int>>("pos") != std::vector<int>{123, 345}
+           || child.getValue<int>("--int") != 54){
+            throw std::runtime_error("should parse positional along with child");
+        }
+    };
+    TEST_FUNC(check_not_provided_pos_with_child){
         START_TEST
         try{
             argParser parser;
             parser.addPositional<int>("pos");
-            parser.addChildParser("child", "child descr");
-        }catch(std::invalid_argument &e){
+            auto &child = parser.addChildParser("child", "child descr");
+            child.addArgument<int>("--int", {"int_val"});
+            call_parser(parser, {"child", "--int=54"});
+        }catch(argParser::parse_error &){
             return;
         }
-        throw std::runtime_error("should throw if trying to add child parser after positional");
+        throw std::runtime_error("should throw error is positional not provided before child");
     };
-    TEST_FUNC(check_child_with_pos_throw){
+    TEST_FUNC(check_not_provided_mandatory_with_child){
         START_TEST
         try{
             argParser parser;
-            parser.addChildParser("child", "child descr");
-            parser.addPositional<int>("pos");
-        }catch(std::invalid_argument &e){
+            parser.addArgument<int>("mnd", {"int"});
+            auto &child = parser.addChildParser("child", "child descr");
+            child.addArgument<int>("--int", {"int_val"});
+            call_parser(parser, {"child", "--int=54"});
+        }catch(argParser::parse_error &){
             return;
         }
-        throw std::runtime_error("should throw if trying to add positional arg after child parser");
+        throw std::runtime_error("should throw error if mandatory arg not provided before child");
     };
+    TEST_FUNC(check_trainling_args_after_pos_throw){
+        START_TEST
+        try{
+            argParser parser;
+            parser.addPositional<int>("pos");
+            call_parser(parser, {"123", "--int"});
+        }catch(argParser::parse_error &){
+            return;
+        }
+        throw std::runtime_error("should throw error if found trailing args after positional");
+    };
+
 };
 
 class Caller{
