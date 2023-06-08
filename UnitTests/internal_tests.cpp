@@ -416,7 +416,7 @@ struct Test{
     TEST_FUNC(check_child_parser){
         START_TEST
         argParser parser;
-        auto &child = parser.addChildParser("child", "child parser");
+        auto &child = parser.addCommand("child", "child parser");
         child.addArgument<int>("--int");
         call_parser(parser, {"child", "--int"});
         if(child.getValue<int>("--int") != 1){
@@ -427,7 +427,7 @@ struct Test{
         START_TEST
         argParser parser;
         parser.addPositional<int>("pos");
-        auto &child = parser.addChildParser("child", "child descr");
+        auto &child = parser.addCommand("child", "child descr");
         child.addArgument<int>("--int", {"int_val"});
         call_parser(parser, {"123", "child", "--int=54"});
         if(parser.getValue<int>("pos") != 123
@@ -440,7 +440,7 @@ struct Test{
         argParser parser;
         parser.addArgument<int>("--var", {"int"})
                 .variadic();
-        auto &child = parser.addChildParser("child", "child descr");
+        auto &child = parser.addCommand("child", "child descr");
         child.addArgument<int>("--int", {"int_val"});
         call_parser(parser, {"--var", "1", "2", "3", "child", "--int", "54"});
         if(parser.getValue<std::vector<int>>("--var") != std::vector<int>{1,2,3}
@@ -454,7 +454,7 @@ struct Test{
         parser.addArgument<int>("--var", {"int"})
                 .variadic();
         parser.addPositional<int>("pos");
-        auto &child = parser.addChildParser("child", "child descr");
+        auto &child = parser.addCommand("child", "child descr");
         child.addArgument<int>("--int", {"int_val"});
         call_parser(parser, {"--var", "1", "2", "3", "4", "child", "--int", "54"});
         if(parser.getValue<std::vector<int>>("--var") != std::vector<int>{1,2,3}
@@ -469,7 +469,7 @@ struct Test{
         parser.addArgument<int>("--var", {"int"});
         parser.addPositional<int>("pos")
                 .variadic();
-        auto &child = parser.addChildParser("child", "child descr");
+        auto &child = parser.addCommand("child", "child descr");
         child.addArgument<int>("--int", {"int_val"});
         call_parser(parser, {"--var", "1", "2", "3", "4", "child", "--int", "54"});
         if(parser.getValue<int>("--var") != 1
@@ -483,7 +483,7 @@ struct Test{
         argParser parser;
         parser.addPositional<int>("pos")
                 .variadic();
-        auto &child = parser.addChildParser("child", "child descr");
+        auto &child = parser.addCommand("child", "child descr");
         child.addArgument<int>("--int", {"int_val"});
         call_parser(parser, {"123", "345", "child", "--int=54"});
         if(parser.getValue<std::vector<int>>("pos") != std::vector<int>{123, 345}
@@ -496,7 +496,7 @@ struct Test{
         try{
             argParser parser;
             parser.addPositional<int>("pos");
-            auto &child = parser.addChildParser("child", "child descr");
+            auto &child = parser.addCommand("child", "child descr");
             child.addArgument<int>("--int", {"int_val"});
             call_parser(parser, {"child", "--int=54"});
         }catch(argParser::parse_error &){
@@ -509,7 +509,7 @@ struct Test{
         try{
             argParser parser;
             parser.addArgument<int>("mnd", {"int"});
-            auto &child = parser.addChildParser("child", "child descr");
+            auto &child = parser.addCommand("child", "child descr");
             child.addArgument<int>("--int", {"int_val"});
             call_parser(parser, {"child", "--int=54"});
         }catch(argParser::parse_error &){

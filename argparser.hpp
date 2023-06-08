@@ -648,7 +648,6 @@ public:
     }
     ~argParser(){
         argMap.clear();
-//        argVec.clear();
     }
     /**
      *
@@ -934,13 +933,13 @@ public:
         return this->binary_name;
     }
 
-    argParser &addChildParser(const std::string &name, const std::string &descr){
+    argParser &addCommand(const std::string &name, const std::string &descr){
         checkForbiddenSymbols(name, __func__);
         if(!parser_internal::isOptMandatory(name)){
             throw std::invalid_argument(std::string(__func__) + ": " + name + " child command cannot be arbitrary");
         }
-        children_parsers.push_back(std::make_unique<argParser>(name, descr));
-        return *children_parsers.front();
+        commandMap.push_back(std::make_unique<argParser>(name, descr));
+        return *commandMap.front();
     }
 
     /// Parse arguments
@@ -982,9 +981,8 @@ private:
     };
 
     std::map<std::string, std::unique_ptr<ARG_DEFS>> argMap;
-    std::vector<std::unique_ptr<argParser>> children_parsers;
+    std::vector<std::unique_ptr<argParser>> commandMap;
     std::vector<std::string> posMap;
-//    std::vector<std::string> argVec;
 
     std::string binary_name;
     std::string description;
@@ -1167,7 +1165,7 @@ private:
         };
 
         auto findChildByName = [this](const std::string &key) -> argParser*{
-            for(const auto &child : children_parsers){
+            for(const auto &child : commandMap){
                 if(child->binary_name == key){
                     return child.get();
                 }
@@ -1385,7 +1383,7 @@ private:
         if(positional_cnt < posMap.size()){
             throw parse_error(binary_name + ": not enough positional arguments provided");
         }
-        if(!children_parsers.empty() && !child_parsed){
+        if(!commandMap.empty() && !child_parsed){
             throw parse_error(binary_name + ": no command provided");
         }
 
@@ -1560,12 +1558,12 @@ private:
                      << (flag_cnt ? " [flags...]" : "")
                      << (opt_cnt ? " options..." : "")
                      << positional
-                     << (!children_parsers.empty() ? " command [<args>]" : "")
+                     << (!commandMap.empty() ? " command [<args>]" : "")
                      << std::endl;
 
-        if(!children_parsers.empty()){
+        if(!commandMap.empty()){
             std::cout << "Commands:" << std::endl;
-            for(const auto &child : children_parsers){
+            for(const auto &child : commandMap){
                 std::cout << "\t" << child->binary_name << " : " << child->description << std::endl;
             }
         }
