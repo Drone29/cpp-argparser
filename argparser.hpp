@@ -1077,6 +1077,7 @@ private:
 
         int parsed_mnd_args = 0;
         int parsed_required_args = 0;
+        size_t command_offset = 0;
 
         //count mandatory/required arguments
         for(auto &x : argMap){
@@ -1214,6 +1215,7 @@ private:
                 std::string name = findKeyByAlias(pName);
                 if(findChildByName(pName) != nullptr){
                     // if found child, break
+                    command_offset = argVec.size() - index;
                     break;
                 }
                 else if(!name.empty()){
@@ -1297,7 +1299,7 @@ private:
                             index += parseArgument(pos_name, index, index+1);
                         }
                         --index;
-                    }else{
+                    }else{  //if(!posMap.empty())
                         throw parse_error("Error: trailing argument after positionals: " + argVec[index]);
                     }
                 }
@@ -1351,13 +1353,13 @@ private:
                         break;
                     }
                     // leave space for positionals
+                    auto left = argVec.size() - cnt - command_offset;
                     if((infinite_opts || opts_cnt == argMap[pName]->mandatory_options)
-                       && argVec.size() - cnt <= posMap.size()){
+                       && left <= posMap.size()){
                         break;
                     }
                     //check if next value is also a key
-                    bool next_is_key = (argMap.find(argVec[cnt]) != argMap.end()
-                            || findChildByName(argVec[cnt]) != nullptr);
+                    bool next_is_key = (argMap.find(argVec[cnt]) != argMap.end());  // || findChildByName(argVec[cnt]) != nullptr)
                     if(next_is_key){
                         break;
                     }

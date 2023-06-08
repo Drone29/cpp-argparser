@@ -435,6 +435,49 @@ struct Test{
             throw std::runtime_error("should parse positional along with child");
         }
     };
+    TEST_FUNC(check_variadic_arg_with_child){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("--var", {"int"})
+                .variadic();
+        auto &child = parser.addChildParser("child", "child descr");
+        child.addArgument<int>("--int", {"int_val"});
+        call_parser(parser, {"--var", "1", "2", "3", "child", "--int", "54"});
+        if(parser.getValue<std::vector<int>>("--var") != std::vector<int>{1,2,3}
+           || child.getValue<int>("--int") != 54){
+            throw std::runtime_error("should parse variadic along with child");
+        }
+    };
+    TEST_FUNC(check_variadic_arg_with_pos_and_child){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("--var", {"int"})
+                .variadic();
+        parser.addPositional<int>("pos");
+        auto &child = parser.addChildParser("child", "child descr");
+        child.addArgument<int>("--int", {"int_val"});
+        call_parser(parser, {"--var", "1", "2", "3", "4", "child", "--int", "54"});
+        if(parser.getValue<std::vector<int>>("--var") != std::vector<int>{1,2,3}
+           || parser.getValue<int>("pos") != 4
+           || child.getValue<int>("--int") != 54){
+            throw std::runtime_error("should parse variadic along with pos and child");
+        }
+    };
+    TEST_FUNC(check_arg_with_variadic_pos_and_child){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("--var", {"int"});
+        parser.addPositional<int>("pos")
+                .variadic();
+        auto &child = parser.addChildParser("child", "child descr");
+        child.addArgument<int>("--int", {"int_val"});
+        call_parser(parser, {"--var", "1", "2", "3", "4", "child", "--int", "54"});
+        if(parser.getValue<int>("--var") != 1
+           || parser.getValue<std::vector<int>>("pos") != std::vector<int>{2,3,4}
+           || child.getValue<int>("--int") != 54){
+            throw std::runtime_error("should parse arg along variadic pos with child");
+        }
+    };
     TEST_FUNC(check_var_pos_with_child){
         START_TEST
         argParser parser;
@@ -474,7 +517,7 @@ struct Test{
         }
         throw std::runtime_error("should throw error if mandatory arg not provided before child");
     };
-    TEST_FUNC(check_trainling_args_after_pos_throw){
+    TEST_FUNC(check_trailing_args_after_pos_throw){
         START_TEST
         try{
             argParser parser;
@@ -485,6 +528,7 @@ struct Test{
         }
         throw std::runtime_error("should throw error if found trailing args after positional");
     };
+
 
 };
 
