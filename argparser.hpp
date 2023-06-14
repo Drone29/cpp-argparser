@@ -521,20 +521,6 @@ struct ARG_DEFS{
         }
         return *this;
     }
-    ///make arg variadic
-    ARG_DEFS &variadic(){
-        // todo: only 0 parameters
-        if(!m_repeatable && get_nargs() == 0){
-            if(!m_positional && m_options.size() != 1){
-                throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list must have exactly 1 mandatory parameter");
-            }
-            if(!m_options.empty() && !parser_internal::isOptMandatory(m_options.front())){
-                throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list 1st parameter cannot be arbitrary");
-            }
-            option->variadic = true;
-        }
-        return *this;
-    }
     ///choices
     ARG_DEFS &choices(const std::initializer_list<std::any> &choice_list){
         // only for args with single param
@@ -548,42 +534,39 @@ struct ARG_DEFS{
         }
         return *this;
     }
-    ARG_DEFS &nargs(uint8_t from, uint8_t to = 0, const std::string &metavar = "") {
-        // nargs applicable only to non-variadic
-        if(!option->variadic){
-            if(!m_options.empty()){
-                throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs can be applied only to args with 0 parameters");
-            }
-//            if(nargs < 1){
-//                throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs cannot be 0");
-//            }
-            int max_size = to > from ? to : from;
-            if(max_size == 0){
-                throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs size cannot be 0");
-            }
-            std::string narg_name;
-            if(metavar.empty()){
-                narg_name = m_name;
-                //remove --
-                while(parser_internal::starts_with("-", narg_name)){
-                    narg_name.erase(0, 1);
-                }
-                //convert to upper case
-                for(auto &elem : narg_name) {
-                    elem = std::toupper(elem);
-                }
-            }else{
-                narg_name = metavar;
-            }
-
-            m_options = std::vector<std::string>(max_size, narg_name);
-            for(int i = from; i < to; ++i){
-                m_options[i] = "[" + m_options[i] + "]";
-            }
-
-            mandatory_options = from;
-            option->nargs = max_size;
+    ARG_DEFS &nargs(uint8_t from, int8_t to = 0, const std::string &metavar = "") {
+        if(!m_options.empty()){
+            throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs can be applied only to args with 0 parameters");
         }
+        int max_size = to > from ? to : from;
+        if(max_size == 0){
+            throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs size cannot be 0");
+        }
+        std::string narg_name;
+        if(metavar.empty()){
+            narg_name = m_name;
+            //remove --
+            while(parser_internal::starts_with("-", narg_name)){
+                narg_name.erase(0, 1);
+            }
+            //convert to upper case
+            for(auto &elem : narg_name) {
+                elem = std::toupper(elem);
+            }
+        }else{
+            narg_name = metavar;
+        }
+
+        // handle variadic
+        option->variadic = to < 0;
+
+        m_options = std::vector<std::string>(max_size, narg_name);
+        for(int i = from; i < to; ++i){
+            m_options[i] = "[" + m_options[i] + "]";
+        }
+
+        mandatory_options = from;
+        option->nargs = max_size;
         return *this;
     }
 
@@ -1334,18 +1317,22 @@ private:
                     ///Try parsing positional args
                     if(positional_cnt < posMap.size()){
                         auto pos_name = posMap[positional_cnt++];
-                        if(argMap[pos_name]->is_variadic() || argMap[pos_name]->get_nargs() > 0){
+                        if(argMap[pos_name]->get_nargs() > 0){
                             auto cnt = index-1;
                             int opts_cnt = 0;
                             int nargs = argMap[pos_name]->get_nargs();
+                            bool variadic = argMap[pos_name]->is_variadic();
                             while(++cnt < argVec.size()){
                                 if(findChildByName(argVec[cnt]) != nullptr){
                                     break;
                                 }
-                                if(nargs > 0 && opts_cnt >= nargs){
+                                if(nargs > 0 && opts_cnt >= nargs && !variadic){
                                     break;
                                 }
                                 ++opts_cnt;
+                            }
+                            if(opts_cnt < argMap[pos_name]->mandatory_options){
+                                throw parse_error(binary_name + ": not enough positional arguments provided");
                             }
                             index += parseArgument(pos_name, index, index+opts_cnt);
                         }else{
@@ -1433,7 +1420,18 @@ private:
 
         checkParsedNonPos();
         if(positional_cnt < posMap.size()){
-            throw parse_error(binary_name + ": not enough positional arguments provided");
+            for(auto &p : posMap){
+                //check if all positionals have at least 1 mandatory param
+                if(argMap[p]->get_nargs() > 0){
+                    for(auto &o : argMap[p]->m_options){
+                        if(parser_internal::isOptMandatory(o)){
+                            throw parse_error(binary_name + ": not enough positional arguments provided");
+                        }
+                    }
+                }else{
+                    throw parse_error(binary_name + ": not enough positional arguments provided");
+                }
+            }
         }
         if(!commandMap.empty() && !child_parsed){
             throw parse_error(binary_name + ": no command provided");

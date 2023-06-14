@@ -172,8 +172,8 @@ int main(int argc, char *argv[]) {
     // but '-var' is INVALID, because variadic argument must have AT LEAST ONE parameter
     // after argument is made variadic, its return type changes to std::vector<TYPE>()
     // NOTE: global_ptr() is not applicable for variadic arguments, so the only way to obtain its value is by calling parser.getValue() method
-    parser.addArgument<int>("--variadic, -var", {"N"})
-            .variadic() // make argument variadic
+    parser.addArgument<int>("--variadic, -var")
+            .nargs(1, -1, "N") // make argument variadic
             .help("parses any number of integers. Result is std::vector<int>");
 
     // positional arguments can be specified by the separate method addPositional()
@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
     // in that case, ONLY ONE such argument can be present
     // also, variadic positional argument should be added AFTER all other positional arguments
     parser.addPositional<int>("var_pos")
-            .variadic() // make positional argument variadic
+            .nargs(1, -1) // make positional argument variadic
             .help("Variadic pos argument of type int");
 
     /**

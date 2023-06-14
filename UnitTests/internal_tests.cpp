@@ -9,18 +9,24 @@ typedef void(*func_ptr)();
 #define START_TEST std::cout << "Starting test " << ++test_num << " line " << __LINE__ << std::endl;
 #define TEST_FUNC(name) func_ptr name = []()    //void(*name)()
 
+static const char * const EMPTY_ARGV[OPTS_SZ_MAGIC] = {};
+
 template <size_t SIZE>
 void call_parser(argParser &parser, const char * const(&arr)[SIZE]){
-    const char* a[SIZE+1];
+    constexpr size_t sz = SIZE != OPTS_SZ_MAGIC ? SIZE+1 : 1;
+    const char* a[sz];
     a[0] = "binary_name"; // add dummy first argument
-    std::cout << "\tPassed args: ";
-    auto ptr = &a[1];
-    for(auto &j : arr){
-        *ptr++ = j;
-        std::cout << "\"" << j << "\" ";
+    if constexpr(sz > 1){
+        std::cout << "\tPassed args: ";
+        auto ptr = &a[1];
+        for(auto &j : arr){
+            *ptr++ = j;
+            std::cout << "\"" << j << "\" ";
+        }
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
-    parser.parseArgs(SIZE+1, const_cast<char **>(a));
+
+    parser.parseArgs(sz, const_cast<char **>(a));
 }
 
 struct Test{
@@ -121,8 +127,8 @@ struct Test{
     TEST_FUNC(check_variadic_opt){
         START_TEST
         argParser parser;
-        parser.addArgument<int>("--variadic, -var", {"N"})
-                .variadic();
+        parser.addArgument<int>("--variadic, -var")
+                .nargs(1, -1);
         call_parser(parser, {"-var", "1", "2", "3"});
         if(parser.getValue<std::vector<int>>("-var") != std::vector<int>{1,2,3}){
             throw std::runtime_error("Should parse 3 digits to variadic argument");
@@ -147,7 +153,7 @@ struct Test{
 
         parser.addArgument<int>("-i", {"mnd", "[arb]"}, lmb);
         parser.addPositional<int>("pos", pos_lmb)
-                .variadic();
+                .nargs(1, -1);
         call_parser(parser, {"-i", "1", "2", "3", "4", "5"});
         // 1,2 should go to -i, the res - to positional arg
         if(parser.getValue<int>("-i") != 3){
@@ -163,7 +169,7 @@ struct Test{
         try{
             // add variadic positional arg
             parser.addPositional<int>("var_pos")
-                    .variadic();
+                    .nargs(1, -1);
             parser.addPositional<int>("pos");
         }catch(std::invalid_argument &){
             return;
@@ -180,8 +186,8 @@ struct Test{
         START_TEST
         argParser parser;
         parser.addArgument<std::string>("-p", {"[str_value]"}, test);
-        parser.addArgument<int>("--variadic, -var", {"N"})
-                .variadic();
+        parser.addArgument<int>("--variadic, -var")
+                .nargs(1, -1);
         call_parser(parser, {"-p", "-var", "1", "2", "3"});
         auto p = parser.getValue<std::string>("-p");
         auto var = parser.getValue<std::vector<int>>("-var");
@@ -202,8 +208,8 @@ struct Test{
         START_TEST
         argParser parser;
         parser.addArgument<std::string>("-p", {"[str_value]"}, test);
-        parser.addArgument<int>("--variadic, -var", {"N"})
-                .variadic();
+        parser.addArgument<int>("--variadic, -var")
+                .nargs(1, -1);
         call_parser(parser, {"-p=-var", "-var", "1", "2", "3"});
         auto p = parser.getValue<std::string>("-p");
         auto var = parser.getValue<std::vector<int>>("-var");
@@ -393,7 +399,7 @@ struct Test{
         START_TEST
         argParser parser;
         parser.addPositional<int>("ch_pos")
-                .variadic()
+                .nargs(1, -1)
                 .choices({0,1,2,3});
         call_parser(parser, {"2", "3", "0", "1"});
         if(parser.getValue<std::vector<int>>("ch_pos") != std::vector<int>{2,3,0,1}){
@@ -405,7 +411,7 @@ struct Test{
         try{
             argParser parser;
             parser.addPositional<int>("ch_pos")
-                    .variadic()
+                    .nargs(1, -1)
                     .choices({0,1,2,3});
             call_parser(parser, {"2", "3", "4", "1"});
         }catch(argParser::unparsed_param &){
@@ -438,8 +444,8 @@ struct Test{
     TEST_FUNC(check_variadic_arg_with_child){
         START_TEST
         argParser parser;
-        parser.addArgument<int>("--var", {"int"})
-                .variadic();
+        parser.addArgument<int>("--var")
+                .nargs(1, -1);
         auto &child = parser.addCommand("child", "child descr");
         child.addArgument<int>("--int", {"int_val"});
         call_parser(parser, {"--var", "1", "2", "3", "child", "--int", "54"});
@@ -451,8 +457,8 @@ struct Test{
     TEST_FUNC(check_variadic_arg_with_pos_and_child){
         START_TEST
         argParser parser;
-        parser.addArgument<int>("--var", {"int"})
-                .variadic();
+        parser.addArgument<int>("--var")
+                .nargs(1, -1);
         parser.addPositional<int>("pos");
         auto &child = parser.addCommand("child", "child descr");
         child.addArgument<int>("--int", {"int_val"});
@@ -468,7 +474,7 @@ struct Test{
         argParser parser;
         parser.addArgument<int>("--var", {"int"});
         parser.addPositional<int>("pos")
-                .variadic();
+                .nargs(1, -1);
         auto &child = parser.addCommand("child", "child descr");
         child.addArgument<int>("--int", {"int_val"});
         call_parser(parser, {"--var", "1", "2", "3", "4", "child", "--int", "54"});
@@ -482,7 +488,7 @@ struct Test{
         START_TEST
         argParser parser;
         parser.addPositional<int>("pos")
-                .variadic();
+                .nargs(1, -1);
         auto &child = parser.addCommand("child", "child descr");
         child.addArgument<int>("--int", {"int_val"});
         call_parser(parser, {"123", "345", "child", "--int=54"});
@@ -548,6 +554,18 @@ struct Test{
             throw std::runtime_error("should parse 2 nargs");
         }
     };
+    TEST_FUNC(check_nargs_arb2){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("--arg")
+                .nargs(0, 3);
+        parser.addArgument<int>("--arg2")
+                .nargs(0, 3);
+        call_parser(parser, {"--arg", "--arg2", "1", "2"});
+        if(parser.getValue<std::vector<int>>("--arg2") != std::vector<int>{1,2}){
+            throw std::runtime_error("should parse 2 nargs for second argument");
+        }
+    };
     TEST_FUNC(check_nargs_choices){
         START_TEST
         try{
@@ -590,6 +608,25 @@ struct Test{
         if(parser.getValue<std::vector<int>>("pos") != std::vector<int>{1,2,3}){
             throw std::runtime_error("should parse 3 nargs");
         }
+    };
+    TEST_FUNC(check_nargs_pos_arb_zero2){
+        START_TEST
+        argParser parser;
+        parser.addPositional<int>("pos")
+                .nargs(0, 3);
+        call_parser(parser, EMPTY_ARGV); //should parse empty list
+    };
+    TEST_FUNC(check_nargs_pos_not_enough_throw){
+        START_TEST
+        try{
+            argParser parser;
+            parser.addPositional<int>("pos")
+                    .nargs(3);
+            call_parser(parser, {"1", "2"});
+        }catch(argParser::parse_error &){
+            return;
+        }
+        throw std::runtime_error("should throw if not enough args were provided");
     };
     TEST_FUNC(check_nargs_pos_with_regular_pos){
         START_TEST
