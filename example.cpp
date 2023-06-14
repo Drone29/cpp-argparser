@@ -255,8 +255,8 @@ int main(int argc, char *argv[]) {
             .help("list with choices");
 
     ///nargs
-    parser.addArgument<int>("--narg", {"ggg"})
-            .nargs(3)
+    parser.addArgument<int>("--narg")
+            .nargs(1, 3)
             .help("arg with 3 values");
 
     /// add child parser

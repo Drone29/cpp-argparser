@@ -523,6 +523,7 @@ struct ARG_DEFS{
     }
     ///make arg variadic
     ARG_DEFS &variadic(){
+        // todo: only 0 parameters
         if(!m_repeatable && get_nargs() == 0){
             if(!m_positional && m_options.size() != 1){
                 throw std::logic_error(std::string(__func__) + ": " + m_name + " variadic list must have exactly 1 mandatory parameter");
@@ -547,22 +548,21 @@ struct ARG_DEFS{
         }
         return *this;
     }
-    ARG_DEFS &nargs(uint8_t nargs){
+    ARG_DEFS &nargs(uint8_t from, uint8_t to = 0, const std::string &metavar = "") {
         // nargs applicable only to non-variadic
         if(!option->variadic){
-            if(m_options.size() > 1){
-                throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs can be applied only to args with 0 or 1 parameters");
+            if(!m_options.empty()){
+                throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs can be applied only to args with 0 parameters");
             }
-            if(nargs < 1){
-                throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs cannot be 0");
+//            if(nargs < 1){
+//                throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs cannot be 0");
+//            }
+            int max_size = to > from ? to : from;
+            if(max_size == 0){
+                throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs size cannot be 0");
             }
             std::string narg_name;
-            if(!m_options.empty()){
-                narg_name = m_options[0];
-                if(!parser_internal::isOptMandatory(narg_name)){
-                    throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs parameter must be mandatory");
-                }
-            }else{
+            if(metavar.empty()){
                 narg_name = m_name;
                 //remove --
                 while(parser_internal::starts_with("-", narg_name)){
@@ -572,10 +572,17 @@ struct ARG_DEFS{
                 for(auto &elem : narg_name) {
                     elem = std::toupper(elem);
                 }
+            }else{
+                narg_name = metavar;
             }
-            m_options = std::vector<std::string>(nargs, narg_name);
-            mandatory_options = nargs;
-            option->nargs = nargs;
+
+            m_options = std::vector<std::string>(max_size, narg_name);
+            for(int i = from; i < to; ++i){
+                m_options[i] = "[" + m_options[i] + "]";
+            }
+
+            mandatory_options = from;
+            option->nargs = max_size;
         }
         return *this;
     }
@@ -705,6 +712,11 @@ public:
             auto &x = argMap[p];
             if(x->is_variadic()){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after variadic positional argument " + p);
+            }
+            for(auto &o : x->m_options){
+                if(!parser_internal::isOptMandatory(o)){
+                    throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after positional argument with arbitrary nargs " + p);
+                }
             }
         }
         // check if positional name is valid
@@ -1447,11 +1459,11 @@ private:
             }
             std::cout <<  alias_str + j.first;
             std::string opt;
-            auto nargs = j.second->get_nargs();
-            int n_cnt = 0;
-            do{
-                // List choices if applicable
-                auto choices = j.second->option->get_str_choices();
+            // List choices if applicable
+            auto choices = j.second->option->get_str_choices();
+            // List regular options otherwise
+            for(auto &x : j.second->m_options){
+                opt = std::string(x);
                 if(!choices.empty()){
                     opt = "{";
                     bool notFirst = false;
@@ -1463,23 +1475,17 @@ private:
                         notFirst = true;
                     }
                     opt += "}";
-                    std::string tmp = j.second->m_options[0];
-                    if(!parser_internal::isOptMandatory(tmp)){
+                    if(!parser_internal::isOptMandatory(x)){
                         opt = "[" + opt + "]";
                     }
-                    std::cout << " " << opt;
-                }else{
-                    // List regular options otherwise
-                    for(auto &x : j.second->m_options){
-                        opt = std::string(x);
-                        std::string tmp = opt;
-                        if(parser_internal::isOptMandatory(tmp))
-                            tmp = "<" + tmp + ">";
-
-                        std::cout << " " + tmp;
-                    }
                 }
-            }while(++n_cnt < nargs);
+
+                std::string tmp = opt;
+                if(choices.empty() && parser_internal::isOptMandatory(tmp))
+                    tmp = "<" + tmp + ">";
+
+                std::cout << " " + tmp;
+            }
 
             if(j.second->is_variadic()){
                 std::cout << " [" + opt + "...]";
@@ -1567,23 +1573,28 @@ private:
         for(auto &x : posMap){
             std::string opt = x;
             auto nargs = argMap[x]->get_nargs();
-            int n_cnt = 0;
-            do{
-                auto choices = argMap[x]->option->get_str_choices();
-                if(!choices.empty()){
-                    opt = "{";
-                    bool notFirst = false;
-                    for(auto &c : choices){
-                        if(notFirst){
-                            opt += ",";
-                        }
-                        opt += c;
-                        notFirst = true;
+            auto choices = argMap[x]->option->get_str_choices();
+            if(!choices.empty()){
+                opt = "{";
+                bool notFirst = false;
+                for(auto &c : choices){
+                    if(notFirst){
+                        opt += ",";
                     }
-                    opt += "}";
+                    opt += c;
+                    notFirst = true;
                 }
+                opt += "}";
+            }
+            if(nargs > 0){
+                for(auto &o : argMap[x]->m_options){
+                    std::string tmp = opt;
+                    tmp = !parser_internal::isOptMandatory(o) ? ("[" + tmp + "]") : tmp;
+                    positional += " " + tmp;
+                }
+            }else{
                 positional += " " + opt;
-            }while(++n_cnt < nargs);
+            }
 
             if(argMap[x]->is_variadic()){
                 positional += " [" + opt + "...]";

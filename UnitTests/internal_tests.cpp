@@ -538,6 +538,16 @@ struct Test{
             throw std::runtime_error("should parse 3 nargs");
         }
     };
+    TEST_FUNC(check_nargs_arb){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("--arg")
+                .nargs(1, 3);
+        call_parser(parser, {"--arg", "1", "2"});
+        if(parser.getValue<std::vector<int>>("--arg") != std::vector<int>{1,2}){
+            throw std::runtime_error("should parse 2 nargs");
+        }
+    };
     TEST_FUNC(check_nargs_choices){
         START_TEST
         try{
@@ -556,6 +566,26 @@ struct Test{
         argParser parser;
         parser.addPositional<int>("pos")
                 .nargs(3);
+        call_parser(parser, {"1", "2", "3"});
+        if(parser.getValue<std::vector<int>>("pos") != std::vector<int>{1,2,3}){
+            throw std::runtime_error("should parse 3 nargs");
+        }
+    };
+    TEST_FUNC(check_nargs_pos_arb){
+        START_TEST
+        argParser parser;
+        parser.addPositional<int>("pos")
+                .nargs(1, 3);
+        call_parser(parser, {"1", "2", "3"});
+        if(parser.getValue<std::vector<int>>("pos") != std::vector<int>{1,2,3}){
+            throw std::runtime_error("should parse 3 nargs");
+        }
+    };
+    TEST_FUNC(check_nargs_pos_arb_zero){
+        START_TEST
+        argParser parser;
+        parser.addPositional<int>("pos")
+                .nargs(0, 3);
         call_parser(parser, {"1", "2", "3"});
         if(parser.getValue<std::vector<int>>("pos") != std::vector<int>{1,2,3}){
             throw std::runtime_error("should parse 3 nargs");
