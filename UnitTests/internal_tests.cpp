@@ -684,6 +684,30 @@ struct Test{
             throw std::runtime_error("should treat as implicit");
         }
     };
+    TEST_FUNC(check_nargs_pure_variadic_choices){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("--arg")
+                .choices({2,3,4})
+                .nargs(0, -1);
+        call_parser(parser, {"--arg", "2", "2", "3"});
+        if(parser.getValue<std::vector<int>>("--arg") != std::vector<int>{2,2,3}){
+            throw std::runtime_error("should parse pure variadic arg with choices");
+        }
+    };
+    TEST_FUNC(check_nargs_pure_variadic_choices_throw){
+        START_TEST
+        try{
+            argParser parser;
+            parser.addArgument<int>("--arg")
+                    .choices({2,3,4})
+                    .nargs(0, -1);
+            call_parser(parser, {"--arg", "1", "2", "3"});
+        }catch(argParser::unparsed_param &){
+            return;
+        }
+        throw std::runtime_error("should check choices for nargs too");
+    };
 };
 
 class Caller{

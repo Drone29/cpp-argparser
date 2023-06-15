@@ -407,6 +407,9 @@ private:
 
     void set_choices(const std::initializer_list<std::any> &choices_list) override{
         if constexpr(std::is_arithmetic_v<T> || std::is_same_v<T, std::string>){
+            if constexpr(STR_ARGS > 1){
+                throw std::invalid_argument("choices are not applicable to args with more than 1 parameter");
+            }
             try{
                 for(auto c : choices_list){
                     choices.push_back(std::any_cast<T>(c));
@@ -521,12 +524,8 @@ struct ARG_DEFS{
         }
         return *this;
     }
-    ///choices
+    /// choices
     ARG_DEFS &choices(const std::initializer_list<std::any> &choice_list){
-        // only for args with single param
-        if(m_options.size() != 1 && !m_positional && get_nargs() == 0){
-            throw std::logic_error(std::string(__func__) + ": " + m_name + " choices list can be applied only to args with single parameter");
-        }
         try{
             option->set_choices(choice_list);
         }catch(std::invalid_argument &e){
@@ -534,6 +533,7 @@ struct ARG_DEFS{
         }
         return *this;
     }
+    /// nargs
     ARG_DEFS &nargs(uint8_t from, int8_t to = 0, const std::string &metavar = "") {
         if(!m_options.empty()){
             throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs can be applied only to args with 0 parameters");
@@ -1480,20 +1480,23 @@ private:
             }
             std::cout <<  alias_str + j.first;
             std::string opt = j.second->m_nargs_var;
+            std::string choices = get_choices(j.second);
+            if(!choices.empty()){
+                // override metavar
+                opt = choices;
+            }
             for(auto &x : j.second->m_options){
                 opt = std::string(x);
-                auto choices = get_choices(j.second);
                 if(!choices.empty()){
                     opt = choices;
                     if(!parser_internal::isOptMandatory(x)){
                         opt = "[" + opt + "]";
                     }
                 }
-
                 std::string tmp = opt;
-                if(choices.empty() && parser_internal::isOptMandatory(tmp))
+                if(choices.empty() && parser_internal::isOptMandatory(tmp)){
                     tmp = "<" + tmp + ">";
-
+                }
                 std::cout << " " + tmp;
             }
 
