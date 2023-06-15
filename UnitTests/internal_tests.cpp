@@ -655,7 +655,10 @@ struct Test{
         argParser parser;
         parser.addArgument<int>("--var")
                 .nargs(0, -1); //pure variadic arg
-        call_parser(parser, EMPTY_ARGV);
+        call_parser(parser, {"--var"});
+        if(!parser["--var"].is_set()){
+            throw std::runtime_error("should parse empty vector");
+        }
     };
     TEST_FUNC(check_pure_variadic_pos){
         START_TEST
@@ -707,6 +710,20 @@ struct Test{
             return;
         }
         throw std::runtime_error("should check choices for nargs too");
+    };
+    TEST_FUNC(check_nargs_pure_variadic_with_pure_variadic_pos_throw){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("--arg")
+                .nargs(0, -1);
+        parser.addPositional<int>("pos")
+                .nargs(0, -1);
+        call_parser(parser, {"--arg", "1", "2", "3"});
+        auto arg = parser.getValue<std::vector<int>>("--arg");
+        auto pos = parser.getValue<std::vector<int>>("pos");
+        if(!pos.empty()){
+            throw std::runtime_error("pure variadic positional arg here should be empty");
+        }
     };
 };
 

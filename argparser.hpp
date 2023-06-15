@@ -237,9 +237,13 @@ protected:
     virtual std::vector<std::string> get_str_choices() {return {};}
     virtual void set_global_ptr(std::any ptr) {}
     virtual void set_choices(const std::initializer_list<std::any> &choices_list) {}
+    virtual void make_variadic() {}
+    virtual bool is_variadic() {return false;}
+    virtual void set_nargs(uint8_t n) {}
+    virtual uint8_t get_nargs() {return 0;}
     std::any anyval;
-    bool variadic = false;
-    uint8_t nargs = 0;
+//    bool variadic = false;
+//    uint8_t nargs = 0;
 };
 
 template <typename T, typename Callable, size_t STR_ARGS, typename...Targs>
@@ -430,6 +434,17 @@ private:
 
     ~DerivedOption() override = default;
 
+    void make_variadic() override {
+        anyval = std::vector<T>{};
+        variadic = true;
+    }
+    bool is_variadic() override {return variadic;}
+    void set_nargs(uint8_t n) override {
+        anyval = std::vector<T>{};
+        nargs = n;
+    }
+    uint8_t get_nargs() override {return nargs;}
+
     static_assert(not_void(), "Return type cannot be void");
 
     T value {};
@@ -438,6 +453,9 @@ private:
     std::tuple<Targs...> tpl;
     T *global = nullptr;
     std::vector<T> choices {};
+
+    bool variadic = false;
+    uint8_t nargs = 0;
 };
 
 struct ARG_DEFS{
@@ -555,7 +573,9 @@ struct ARG_DEFS{
         }
 
         // handle variadic
-        option->variadic = to < 0;
+        if(to < 0){
+            option->make_variadic();
+        }
 
         int max_size = to > from ? to : from;
         if(max_size > 0){
@@ -566,7 +586,7 @@ struct ARG_DEFS{
         }
 
         mandatory_options = from;
-        option->nargs = max_size;
+        option->set_nargs(max_size);
         m_nargs_var = narg_name;
         return *this;
     }
@@ -590,7 +610,7 @@ struct ARG_DEFS{
         return m_repeatable;
     }
     [[nodiscard]] bool is_variadic() const{
-        return option->variadic;
+        return option->is_variadic();
     };
     // applicable only for date_t type
     [[nodiscard]] const char *get_date_format() const{
@@ -608,7 +628,7 @@ struct ARG_DEFS{
     }
     // get nargs
     [[nodiscard]] uint8_t get_nargs() const{
-        return option->nargs;
+        return option->get_nargs();
     };
     ~ARG_DEFS() {
         delete option;
@@ -1022,7 +1042,9 @@ private:
     bool args_parsed = false;
     bool mandatory_option = false;
     bool child_parsed = false;
+    int positional_args_parsed = 0;
     int positional_cnt = 0;
+    int positional_places = 0;
     int mandatory_args = 0;
     int required_args = 0;
     int hidden_args = 0;
@@ -1124,6 +1146,14 @@ private:
             }
             if(x.second->m_hidden && !hide_hidden_hint){
                 hidden_args++;
+            }
+        }
+        for(auto &x : posMap){
+            auto &arg = argMap[x];
+            if(arg->is_variadic() || arg->get_nargs() > 0){
+                positional_places += arg->mandatory_options;
+            }else{
+                positional_places += 1;
             }
         }
 
@@ -1317,8 +1347,8 @@ private:
                         break;
                     }
                     ///Try parsing positional args
-                    if(positional_cnt < posMap.size()){
-                        auto pos_name = posMap[positional_cnt++];
+                    if(positional_args_parsed < posMap.size()){
+                        auto pos_name = posMap[positional_args_parsed++];
                         if(argMap[pos_name]->get_nargs() > 0
                         || argMap[pos_name]->is_variadic()){
                             auto cnt = index-1;
@@ -1337,8 +1367,10 @@ private:
                             if(opts_cnt < argMap[pos_name]->mandatory_options){
                                 throw parse_error(binary_name + ": not enough positional arguments provided");
                             }
+                            positional_cnt += opts_cnt;
                             index += parseArgument(pos_name, index, index+opts_cnt);
                         }else{
+                            positional_cnt += 1;
                             index += parseArgument(pos_name, index, index+1);
                         }
                         --index;
@@ -1350,7 +1382,7 @@ private:
                 if(child_parsed){
                     break;
                 }
-                if(!posMap.empty() && positional_cnt == posMap.size()){
+                if(!posMap.empty() && positional_args_parsed == posMap.size()){
                     break;
                 }
 
@@ -1398,7 +1430,7 @@ private:
                     // leave space for positionals
                     auto left = argVec.size() - cnt - command_offset;
                     if((infinite_opts || opts_cnt == argMap[pName]->mandatory_options)
-                       && left <= posMap.size()){
+                       && left <= positional_places){   //posMap.size()
                         break;
                     }
                     //check if next value is also a key
@@ -1422,20 +1454,8 @@ private:
         }
 
         checkParsedNonPos();
-        if(positional_cnt < posMap.size()){
-            for(auto &p : posMap){
-                //check if all positionals have at least 1 mandatory param
-                if(argMap[p]->get_nargs() > 0
-                || argMap[p]->is_variadic()){
-                    for(auto &o : argMap[p]->m_options){
-                        if(parser_internal::isOptMandatory(o)){
-                            throw parse_error(binary_name + ": not enough positional arguments provided");
-                        }
-                    }
-                }else{
-                    throw parse_error(binary_name + ": not enough positional arguments provided");
-                }
-            }
+        if(positional_cnt < positional_places){
+            throw parse_error(binary_name + ": not enough positional arguments provided");
         }
         if(!commandMap.empty() && !child_parsed){
             throw parse_error(binary_name + ": no command provided");
@@ -1596,7 +1616,7 @@ private:
                     tmp = !parser_internal::isOptMandatory(o) ? ("[" + tmp + "]") : tmp;
                     positional += " " + tmp;
                 }
-            }else if(!argMap[x]->option->variadic){
+            }else if(!argMap[x]->is_variadic()){
                 positional += " " + opt;
             }
 
