@@ -270,12 +270,13 @@ private:
 
     // parse variadic params, single scan and common action
     void action(const std::string *args, int size, const char *date_format) override{
-        // if implicit
-        if(STR_ARGS == 0 && nargs == 0){
-            parse_implicit();
-            return;
-        }
+
         if(!variadic && nargs == 0){
+            // if implicit
+            if constexpr(STR_ARGS == 0){
+                parse_implicit();
+                return;
+            }
             if constexpr(has_action()){
                 // non-variadic action
                 parse_common(args, size);
@@ -328,7 +329,6 @@ private:
                 value = std::apply(func, tpl);
             }
         }
-
         set_global();
         anyval = value;
     }
@@ -538,10 +538,7 @@ struct ARG_DEFS{
         if(!m_options.empty()){
             throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs can be applied only to args with 0 parameters");
         }
-        int max_size = to > from ? to : from;
-        if(max_size == 0){
-            throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs size cannot be 0");
-        }
+
         std::string narg_name;
         if(metavar.empty()){
             narg_name = m_name;
@@ -560,13 +557,17 @@ struct ARG_DEFS{
         // handle variadic
         option->variadic = to < 0;
 
-        m_options = std::vector<std::string>(max_size, narg_name);
-        for(int i = from; i < to; ++i){
-            m_options[i] = "[" + m_options[i] + "]";
+        int max_size = to > from ? to : from;
+        if(max_size > 0){
+            m_options = std::vector<std::string>(max_size, narg_name);
+            for(int i = from; i < to; ++i){
+                m_options[i] = "[" + m_options[i] + "]";
+            }
         }
 
         mandatory_options = from;
         option->nargs = max_size;
+        m_nargs_var = narg_name;
         return *this;
     }
 
@@ -621,6 +622,7 @@ private:
     std::string m_name;
     std::string m_help;
     std::string m_advanced_help;
+    std::string m_nargs_var;
     //hidden option
     bool m_hidden = false;
     //list of options
@@ -1317,7 +1319,8 @@ private:
                     ///Try parsing positional args
                     if(positional_cnt < posMap.size()){
                         auto pos_name = posMap[positional_cnt++];
-                        if(argMap[pos_name]->get_nargs() > 0){
+                        if(argMap[pos_name]->get_nargs() > 0
+                        || argMap[pos_name]->is_variadic()){
                             auto cnt = index-1;
                             int opts_cnt = 0;
                             int nargs = argMap[pos_name]->get_nargs();
@@ -1422,7 +1425,8 @@ private:
         if(positional_cnt < posMap.size()){
             for(auto &p : posMap){
                 //check if all positionals have at least 1 mandatory param
-                if(argMap[p]->get_nargs() > 0){
+                if(argMap[p]->get_nargs() > 0
+                || argMap[p]->is_variadic()){
                     for(auto &o : argMap[p]->m_options){
                         if(parser_internal::isOptMandatory(o)){
                             throw parse_error(binary_name + ": not enough positional arguments provided");
@@ -1450,29 +1454,37 @@ private:
             argMap[HELP_NAME]->m_help += ", '" + std::string(HELP_HIDDEN_OPT) + "' to list hidden args as well";
         }
 
-        auto printParam = [](auto &j, bool notab = false){
+        auto get_choices = [](const auto &j) -> std::string{
+            // List choices if applicable
+            auto choices = j->option->get_str_choices();
+            std::string opt;
+            if(!choices.empty()){
+                opt = "{";
+                bool notFirst = false;
+                for(auto &c : choices){
+                    if(notFirst){
+                        opt += ",";
+                    }
+                    opt += c;
+                    notFirst = true;
+                }
+                opt += "}";
+            }
+            return opt;
+        };
+
+        auto printParam = [&get_choices](const auto &j, bool notab = false){
             std::string alias_str = notab ? "" : "\t";
             for(auto &alias : j.second->m_aliases){
                 alias_str += alias + KEY_ALIAS_DELIMITER + " ";
             }
             std::cout <<  alias_str + j.first;
-            std::string opt;
-            // List choices if applicable
-            auto choices = j.second->option->get_str_choices();
-            // List regular options otherwise
+            std::string opt = j.second->m_nargs_var;
             for(auto &x : j.second->m_options){
                 opt = std::string(x);
+                auto choices = get_choices(j.second);
                 if(!choices.empty()){
-                    opt = "{";
-                    bool notFirst = false;
-                    for(auto &c : choices){
-                        if(notFirst){
-                            opt += ",";
-                        }
-                        opt += c;
-                        notFirst = true;
-                    }
-                    opt += "}";
+                    opt = choices;
                     if(!parser_internal::isOptMandatory(x)){
                         opt = "[" + opt + "]";
                     }
@@ -1492,7 +1504,7 @@ private:
         //check required: -1-don't check, 0-false, other-true
         auto sorted_usage = [this, &advanced, &printParam](bool flag, bool hidden, int check_required = -1){
 
-            auto print_usage = [&advanced, &printParam, this](auto &j){
+            auto print_usage = [&advanced, &printParam, this](const auto &j){
                 //skip already printed
                 if(j.second->m_set){
                     return;
@@ -1522,7 +1534,7 @@ private:
                 j.second->m_set = true; //help_set
             };
 
-            for (auto & j : argMap){
+            for (const auto &j : argMap){
                 bool req = check_required < 0 ? j.second->m_required : check_required > 0;
                 if((j.second->m_arbitrary && !j.second->m_required) == flag
                    && j.second->m_hidden == hidden
@@ -1571,18 +1583,9 @@ private:
         for(auto &x : posMap){
             std::string opt = x;
             auto nargs = argMap[x]->get_nargs();
-            auto choices = argMap[x]->option->get_str_choices();
+            auto choices = get_choices(argMap[x]);
             if(!choices.empty()){
-                opt = "{";
-                bool notFirst = false;
-                for(auto &c : choices){
-                    if(notFirst){
-                        opt += ",";
-                    }
-                    opt += c;
-                    notFirst = true;
-                }
-                opt += "}";
+                opt = choices;
             }
             if(nargs > 0){
                 for(auto &o : argMap[x]->m_options){
@@ -1590,7 +1593,7 @@ private:
                     tmp = !parser_internal::isOptMandatory(o) ? ("[" + tmp + "]") : tmp;
                     positional += " " + tmp;
                 }
-            }else{
+            }else if(!argMap[x]->option->variadic){
                 positional += " " + opt;
             }
 

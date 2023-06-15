@@ -640,6 +640,50 @@ struct Test{
             throw std::runtime_error("should parse 3 nargs and second pos");
         }
     };
+    TEST_FUNC(check_pure_variadic){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("--var")
+                .nargs(0, -1); //pure variadic arg
+        call_parser(parser, {"--var", "2", "3", "4"});
+        if(parser.getValue<std::vector<int>>("--var") != std::vector<int>{2,3,4}){
+            throw std::runtime_error("should parse 3 nargs");
+        }
+    };
+    TEST_FUNC(check_pure_variadic_with_zero){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("--var")
+                .nargs(0, -1); //pure variadic arg
+        call_parser(parser, EMPTY_ARGV);
+    };
+    TEST_FUNC(check_pure_variadic_pos){
+        START_TEST
+        argParser parser;
+        parser.addPositional<int>("pos")
+                .nargs(0, -1); //pure variadic arg
+        call_parser(parser, {"2", "3", "4"});
+        if(parser.getValue<std::vector<int>>("pos") != std::vector<int>{2,3,4}){
+            throw std::runtime_error("should parse 3 nargs");
+        }
+    };
+    TEST_FUNC(check_pure_variadic_pos_with_zero){
+        START_TEST
+        argParser parser;
+        parser.addPositional<int>("pos")
+                .nargs(0, -1); //pure variadic arg
+        call_parser(parser, EMPTY_ARGV);
+    };
+    TEST_FUNC(check_zero_nargs){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("-z")
+                .nargs(0);
+        call_parser(parser, {"-z"});
+        if(parser.getValue<int>("-z") != 1){
+            throw std::runtime_error("should treat as implicit");
+        }
+    };
 };
 
 class Caller{
@@ -659,6 +703,12 @@ private:
 
 int main(){
     std::cout << "Internal tests started" << std::endl;
-    caller.perform_tests();
+    try{
+        caller.perform_tests();
+    }catch(std::exception &e){
+        std::cerr << "Test " << std::to_string(test_num) << " failed: " << e.what() << std::endl;
+        return -1;
+    }
+    std::cout << "OK. Passed " << std::to_string(test_num) << " tests" << std::endl;
     return 0;
 }

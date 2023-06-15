@@ -259,6 +259,11 @@ int main(int argc, char *argv[]) {
             .nargs(1, 3)
             .help("arg with 3 values");
 
+    /// pure variadic
+    parser.addArgument<int>("--vararg")
+            .nargs(0, -1) //pure variadic arg
+            .help("pure variadic");
+
     /// add child parser
     argParser &child = parser.addCommand("some_command", "some child command");
 
