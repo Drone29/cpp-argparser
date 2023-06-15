@@ -80,6 +80,17 @@ struct Test{
         }
         throw std::runtime_error("Should throw error as no scan provided for int*");
     };
+    TEST_FUNC(check_not_enough_pos){
+        START_TEST
+        try{
+            argParser parser;
+            parser.addPositional<int>("pos"); //pure variadic arg
+            call_parser(parser, EMPTY_ARGV);
+        }catch(argParser::parse_error &){
+            return;
+        }
+        throw std::runtime_error("should throw error if not enough positionals");
+    };
     TEST_FUNC(check_repeating_throw){
         START_TEST
         try{

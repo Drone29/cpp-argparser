@@ -1041,7 +1041,7 @@ private:
     std::string description;
     bool args_parsed = false;
     bool mandatory_option = false;
-    bool child_parsed = false;
+    bool command_parsed = false;
     int positional_args_parsed = 0;
     int positional_cnt = 0;
     int positional_places = 0;
@@ -1343,16 +1343,16 @@ private:
                     if(child != nullptr){
                         std::vector<std::string> restvec = {argVec.begin() + index + 1, argVec.end()};
                         child->parseArgs(restvec, hide_hidden_hint);
-                        child_parsed = true;
+                        command_parsed = true;
                         break;
                     }
                     ///Try parsing positional args
                     if(positional_args_parsed < posMap.size()){
                         auto pos_name = posMap[positional_args_parsed++];
+                        int opts_cnt = 0;
                         if(argMap[pos_name]->get_nargs() > 0
                         || argMap[pos_name]->is_variadic()){
                             auto cnt = index-1;
-                            int opts_cnt = 0;
                             int nargs = argMap[pos_name]->get_nargs();
                             bool variadic = argMap[pos_name]->is_variadic();
                             while(++cnt < argVec.size()){
@@ -1365,21 +1365,20 @@ private:
                                 ++opts_cnt;
                             }
                             if(opts_cnt < argMap[pos_name]->mandatory_options){
-                                throw parse_error(binary_name + ": not enough positional arguments provided");
+                                throw parse_error(binary_name + ": not enough " + pos_name + " arguments");
                             }
-                            positional_cnt += opts_cnt;
-                            index += parseArgument(pos_name, index, index+opts_cnt);
                         }else{
-                            positional_cnt += 1;
-                            index += parseArgument(pos_name, index, index+1);
+                            opts_cnt = 1;
                         }
+                        positional_cnt += opts_cnt;
+                        index += parseArgument(pos_name, index, index+opts_cnt);
                         --index;
                     }else{  //if(!posMap.empty())
                         throw parse_error("Error: trailing argument after positionals: " + argVec[index]);
                     }
                 }
 
-                if(child_parsed){
+                if(command_parsed){
                     break;
                 }
                 if(!posMap.empty() && positional_args_parsed == posMap.size()){
@@ -1457,7 +1456,7 @@ private:
         if(positional_cnt < positional_places){
             throw parse_error(binary_name + ": not enough positional arguments provided");
         }
-        if(!commandMap.empty() && !child_parsed){
+        if(!commandMap.empty() && !command_parsed){
             throw parse_error(binary_name + ": no command provided");
         }
 
