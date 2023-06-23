@@ -698,6 +698,16 @@ struct Test{
             throw std::runtime_error("should treat as implicit");
         }
     };
+    TEST_FUNC(check_single_nargs){
+        START_TEST
+        argParser parser;
+        parser.addArgument<int>("-z")
+                .nargs(1);
+        call_parser(parser, {"-z", "123"});
+        if(parser.getValue<int>("-z") != 123){
+            throw std::runtime_error("should parse single value");
+        }
+    };
     TEST_FUNC(check_nargs_pure_variadic_choices){
         START_TEST
         argParser parser;

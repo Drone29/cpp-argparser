@@ -277,7 +277,7 @@ private:
 
         if(!variadic && nargs == 0){
             // if implicit
-            if constexpr(STR_ARGS == 0){
+            if(STR_ARGS == 0 && !single_narg){
                 parse_implicit();
                 return;
             }
@@ -440,8 +440,14 @@ private:
     }
     bool is_variadic() override {return variadic;}
     void set_nargs(uint8_t n) override {
-        anyval = std::vector<T>{};
-        nargs = n;
+        if(n > 1){
+            // return vector for nargs > 1
+            anyval = std::vector<T>{};
+            nargs = n;
+        }else if(n == 1){
+            // single narg treated as parameter
+            single_narg = true;
+        }
     }
     uint8_t get_nargs() override {return nargs;}
 
@@ -456,6 +462,7 @@ private:
 
     bool variadic = false;
     uint8_t nargs = 0;
+    bool single_narg = false;
 };
 
 struct ARG_DEFS{
