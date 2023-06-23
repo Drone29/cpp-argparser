@@ -444,7 +444,7 @@ private:
             // return vector for nargs > 1
             anyval = std::vector<T>{};
             nargs = n;
-        }else if(n == 1){
+        }else if(n == 1 && !variadic){
             // single narg treated as parameter
             single_narg = true;
         }
@@ -1611,21 +1611,18 @@ private:
         std::string positional;
         for(auto &x : posMap){
             std::string opt = x;
-            auto nargs = argMap[x]->get_nargs();
             auto choices = get_choices(argMap[x]);
             if(!choices.empty()){
                 opt = choices;
             }
-            if(nargs > 0){
-                for(auto &o : argMap[x]->m_options){
-                    std::string tmp = opt;
-                    tmp = !parser_internal::isOptMandatory(o) ? ("[" + tmp + "]") : tmp;
-                    positional += " " + tmp;
-                }
-            }else if(!argMap[x]->is_variadic()){
+            for(auto &o : argMap[x]->m_options){
+                std::string tmp = opt;
+                tmp = !parser_internal::isOptMandatory(o) ? ("[" + tmp + "]") : tmp;
+                positional += " " + tmp;
+            }
+            if(argMap[x]->m_options.empty()){
                 positional += " " + opt;
             }
-
             if(argMap[x]->is_variadic()){
                 positional += " [" + opt + "...]";
             }
