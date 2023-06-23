@@ -708,6 +708,16 @@ struct Test{
             throw std::runtime_error("should parse single value");
         }
     };
+    TEST_FUNC(check_single_nargs_pos){
+        START_TEST
+        argParser parser;
+        parser.addPositional<int>("pos")
+                .nargs(1);
+        call_parser(parser, {"123"});
+        if(parser.getValue<int>("pos") != 123){
+            throw std::runtime_error("should parse single value");
+        }
+    };
     TEST_FUNC(check_nargs_pure_variadic_choices){
         START_TEST
         argParser parser;
