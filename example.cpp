@@ -254,6 +254,11 @@ int main(int argc, char *argv[]) {
             .choices({0,1,2,3}) // create list of possible valid choices for that argument
             .help("list with choices");
 
+    parser.addArgument<int>("--choices2")
+            .choices({0,1,2,3}) // create list of possible valid choices for that argument
+            .nargs(1)
+            .help("list with choices");
+
     ///nargs
     parser.addArgument<int>("--narg")
             .nargs(1, 3)

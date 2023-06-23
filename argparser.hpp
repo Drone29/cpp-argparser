@@ -567,13 +567,16 @@ struct ARG_DEFS{
         std::string narg_name;
         if(metavar.empty()){
             narg_name = m_name;
-            //remove --
-            while(parser_internal::starts_with("-", narg_name)){
-                narg_name.erase(0, 1);
-            }
-            //convert to upper case
-            for(auto &elem : narg_name) {
-                elem = std::toupper(elem);
+            // convert non-positional to upper case
+            if(!m_positional){
+                //remove --
+                while(parser_internal::starts_with("-", narg_name)){
+                    narg_name.erase(0, 1);
+                }
+                //convert to upper case
+                for(auto &elem : narg_name) {
+                    elem = std::toupper(elem);
+                }
             }
         }else{
             narg_name = metavar;
@@ -1611,6 +1614,9 @@ private:
         std::string positional;
         for(auto &x : posMap){
             std::string opt = x;
+            if(!argMap[x]->m_nargs_var.empty()){
+                opt = argMap[x]->m_nargs_var;
+            }
             auto choices = get_choices(argMap[x]);
             if(!choices.empty()){
                 opt = choices;

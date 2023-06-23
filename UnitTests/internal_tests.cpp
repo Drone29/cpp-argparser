@@ -417,6 +417,17 @@ struct Test{
             throw std::runtime_error("variadic choices should be allowed");
         }
     };
+    TEST_FUNC(check_choices_single_nargs){
+        START_TEST
+        argParser parser;
+        parser.addPositional<int>("ch_pos")
+                .nargs(1)
+                .choices({0,1,2,3});
+        call_parser(parser, {"3"});
+        if(parser.getValue<int>("ch_pos") != 3){
+            throw std::runtime_error("should parse single narg with allowed choice");
+        }
+    };
     TEST_FUNC(check_choices_var_pos_throw){
         START_TEST
         try{
