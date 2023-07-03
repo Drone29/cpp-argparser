@@ -1383,7 +1383,7 @@ private:
                         positional_cnt += opts_cnt;
                         index += parseArgument(pos_name, index, index+opts_cnt);
                         --index;
-                    }else{  //if(!posMap.empty())
+                    }else if(!posMap.empty()){  //if(!posMap.empty())
                         throw parse_error("Error: trailing argument after positionals: " + argVec[index]);
                     }
                 }
