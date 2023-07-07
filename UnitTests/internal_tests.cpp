@@ -767,6 +767,20 @@ struct Test{
             throw std::runtime_error("pure variadic positional arg here should be empty");
         }
     };
+    TEST_FUNC(check_pos_narg_with_function){
+        START_TEST
+        auto func = [](const char* arg){
+            return std::strtod(arg, nullptr) + 1;
+        };
+        argParser parser;
+        parser.addPositional<int>("n", func)
+                .nargs(1);
+        call_parser(parser, {"543"});
+        auto n = parser.getValue<int>("n");
+        if(n != 544){
+            throw std::runtime_error("should parse pos narg using function");
+        }
+    };
     TEST_FUNC(check_nargs_with_function){
         START_TEST
         auto func = [](const char* arg){
