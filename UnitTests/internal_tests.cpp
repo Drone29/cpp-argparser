@@ -767,6 +767,49 @@ struct Test{
             throw std::runtime_error("pure variadic positional arg here should be empty");
         }
     };
+    TEST_FUNC(check_nargs_with_function){
+        START_TEST
+        auto func = [](const char* arg){
+            return std::strtod(arg, nullptr) + 1;
+        };
+        argParser parser;
+        parser.addArgument<int>("-n", SINGLE_ARG, func)
+               .nargs(1);
+        call_parser(parser, {"-n", "543"});
+        auto n = parser.getValue<int>("-n");
+        if(n != 544){
+            throw std::runtime_error("should parse narg using function");
+        }
+    };
+    TEST_FUNC(check_var_nargs_with_function){
+        START_TEST
+        auto func = [](const char* arg){
+            return std::strtod(arg, nullptr) + 1;
+        };
+        argParser parser;
+        parser.addArgument<int>("-n", SINGLE_ARG, func)
+                .nargs(0, -1);
+        call_parser(parser, {"-n", "543", "12", "345"});
+        auto n = parser.getValue<std::vector<int>>("-n");
+        if(n != std::vector<int>{544, 13, 346}){
+            throw std::runtime_error("should parse nargs using function");
+        }
+    };
+    TEST_FUNC(check_nargs_with_func_side_params){
+        START_TEST
+        int side_par = 1;
+        auto func = [](int &s_par, const char* arg){
+            return std::strtod(arg, nullptr) + s_par++;
+        };
+        argParser parser;
+        parser.addArgument<int>("-n", SINGLE_ARG, func, std::make_tuple(std::ref(side_par)))
+                .nargs(0, -1);
+        call_parser(parser, {"-n", "543", "12", "345"});
+        auto n = parser.getValue<std::vector<int>>("-n");
+        if(n != std::vector<int>{544, 14, 348}){
+            throw std::runtime_error("should parse nargs using function with side parameter");
+        }
+    };
 };
 
 class Caller{

@@ -58,7 +58,9 @@ constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
 
 /// Useful aliases ///
 /// identifier for implicit argument
-static const char * const IMPLICIT_ARG[OPTS_SZ_MAGIC] = {};
+static const char * const NO_ARGS[OPTS_SZ_MAGIC] = {};
+/// when used with nargs
+static const char * const SINGLE_ARG[1] = {nullptr};
 /// std::tm alias
 using date_t = std::tm;
 
@@ -322,13 +324,12 @@ private:
                 for(int i=0; i<size; ++i){
                     str_arr[i] = args[i].c_str();
                 }
-                // create tuple from array
-                auto tpl_str = std::tuple_cat(str_arr);
                 // resulting tuple
-                auto tpl_res = std::tuple_cat(tpl, tpl_str);
+                auto tpl_res = std::tuple_cat(tpl, str_arr);
                 // call function with resulting tuple
                 value = std::apply(func, tpl_res);
-            }else{
+            }
+            else{
                 // call function with initial tuple
                 value = std::apply(func, tpl);
             }
@@ -783,7 +784,7 @@ public:
     //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
     template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
     ARG_DEFS &addArgument(const std::vector<std::string> &names,
-                          const char * const (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
+                          const char * const (&opts_arr)[OPT_SZ] = NO_ARGS,
                           Callable &&func = parser_internal::dummy,
                           const std::tuple<Targs...> &targs = std::tuple<>()){
 
@@ -813,14 +814,20 @@ public:
         // remove key from aliases vector
         splitKey.aliases.erase(idx);
 
-        /// check for nulls
-        for(int c = 0; c < opt_size; ++c){
-            if(opts_arr[c] == nullptr){
-                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key +  std::to_string(c) + "th parameter is null");
-            }
-        }
         /// create opts vector
-        std::vector<std::string> opts = {opts_arr, opts_arr + opt_size};
+        std::vector<std::string> opts {};
+        // opts with size 1 and null is special for nargs,
+        // leave opts vector empty
+        if(!(opt_size == 1 && opts_arr[0] == nullptr)){
+            /// check for nulls
+            for(int c = 0; c < opt_size; ++c){
+                if(opts_arr[c] == nullptr){
+                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " " +  std::to_string(c) + "th parameter is null");
+                }
+            }
+            // fill vector
+            opts = {opts_arr, opts_arr + opt_size};
+        }
         /// get template type string
         auto strType = parser_internal::GetTypeName<T>();
         ///Check for invalid sequence order of arguments
@@ -906,7 +913,7 @@ public:
     // another implementation of addArgument with const char *key
     template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
     ARG_DEFS &addArgument(const char *key,
-                          const char * const (&opts_arr)[OPT_SZ] = IMPLICIT_ARG,
+                          const char * const (&opts_arr)[OPT_SZ] = NO_ARGS,
                           Callable &&func = parser_internal::dummy,
                           const std::tuple<Targs...> &targs = std::tuple<>()){
 
