@@ -1023,9 +1023,8 @@ public:
             std::string self_name = std::string(argv[0]);
             binary_name = self_name.substr(self_name.find_last_of('/') + 1);
         }
-        std::vector<std::string> argVec = {argv + 1, argv + argc};
-
-        return parseArgs(argVec, hide_hidden_hint);
+        std::vector<std::string> arg_vec = {argv + 1, argv + argc};
+        return parseArgs(arg_vec, hide_hidden_hint);
     }
 
     const ARG_DEFS &operator [] (const std::string &key) const { return getArg(key); }
@@ -1053,6 +1052,7 @@ private:
     std::map<std::string, std::unique_ptr<ARG_DEFS>> argMap;
     std::vector<std::unique_ptr<argParser>> commandMap;
     std::vector<std::string> posMap;
+    std::vector<std::string> argVec;
 
     std::string binary_name;
     std::string description;
@@ -1146,8 +1146,9 @@ private:
         std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
     }
 
-    int parseArgs(std::vector<std::string> &argVec, bool hide_hidden_hint = false){
+    int parseArgs(const std::vector<std::string> &arg_vec, bool hide_hidden_hint = false){
 
+        argVec = arg_vec;
         int parsed_mnd_args = 0;
         int parsed_required_args = 0;
         size_t command_offset = 0;
@@ -1176,7 +1177,7 @@ private:
 
         mandatory_option = mandatory_args || required_args;
 
-        auto parseArgument = [this, &argVec](const std::string &key, int start, int end) -> int{
+        auto parseArgument = [this](const std::string &key, int start, int end) -> int{
             try{
                 // end not included
                 // remove spaces added while preparing
@@ -1271,7 +1272,7 @@ private:
         /// Handle '=' and combined args
         for(auto index = 0; index < argVec.size(); index++){
 
-            auto insertKeyValue = [this, &index, &argVec](const std::string &key, const std::string &val){
+            auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
                 argVec[index] = key;
                 argVec.insert(argVec.begin() + index + 1, val);
             };
