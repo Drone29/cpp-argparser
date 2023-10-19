@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-
+//-b date=01.02.2000-13:56 m=true v=4 --req1 1 23
     // const methods of argument struct can be accessed via [ ]
     // here it returns true if argument 'v' was set by user
     auto isArgumentSet = parser["v"].is_set();
@@ -322,6 +322,14 @@ int main(int argc, char *argv[]) {
     auto N = parser.getValue<std::vector<int>>("-var");
     // get variadic positional value
     auto var_pos = parser.getValue<std::vector<int>>("var_pos");
+
+    //get value with conversion operator
+    bool b2 = parser["-b"];
+    bool m = parser["m"];
+    int v = parser["v"];
+    int req = parser["--req1"];
+    int ppos = parser["pos"];
+    date_t dat = parser["date"];
 
     return 0;
 }

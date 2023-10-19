@@ -259,6 +259,8 @@ private:
         return !std::is_void_v<T>;
     }
 
+    static_assert(not_void(), "Return type cannot be void");
+
     void check_choices(){
         // applicable only to arithmetic or strings
         if constexpr(std::is_arithmetic_v<T> || std::is_same_v<T, std::string>){
@@ -452,8 +454,6 @@ private:
     }
     uint8_t get_nargs() override {return nargs;}
 
-    static_assert(not_void(), "Return type cannot be void");
-
     T value {};
     // func stores functions, function ptrs, lambdas, functors
     CALLABLE(Callable) func;
@@ -641,6 +641,13 @@ struct ARG_DEFS{
     [[nodiscard]] uint8_t get_nargs() const{
         return option->get_nargs();
     };
+
+    // conversion operator template
+    template<typename T>
+    operator T() const {
+        return std::any_cast<T>(option->anyval);
+    }
+
     ~ARG_DEFS() {
         delete option;
     }
