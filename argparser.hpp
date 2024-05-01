@@ -743,6 +743,7 @@ public:
             }
         }
         // check if positional name is valid
+        sanityCheck(key, __func__);
         checkForbiddenSymbols(key, __func__);
         if(!parser_internal::isOptMandatory(key)){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot be arbitrary");
@@ -804,6 +805,7 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": argument must have a name");
         }
         for(auto &el : names){
+            sanityCheck(el, __func__);
             checkForbiddenSymbols(el, __func__);
         }
 
@@ -812,7 +814,7 @@ public:
         splitKey.key = splitKey.aliases[0];
         // find longest entry in vector, it'll be key
         auto idx = splitKey.aliases.begin();
-        for(auto it = splitKey.aliases.begin(); it != splitKey.aliases.end(); it++){
+        for(auto it = splitKey.aliases.begin(); it != splitKey.aliases.end(); ++it){
             if((*it).length() > splitKey.key.length()){
                 splitKey.key = *it;
                 idx = it;
@@ -930,11 +932,11 @@ public:
         size_t c;
 
         auto checkChars = [](int c) -> bool{
-            return std::isalnum(c) || c == '-' || c == '_';
+            return c == ' ' || c == ',' || c == ';' || c == '/' || c == '\\';
         };
 
         // split string
-        while((s = std::find_if_not(keys.begin(), keys.end(), checkChars)) != keys.end()){
+        while((s = std::find_if(keys.begin(), keys.end(), checkChars)) != keys.end()){
             c = s - keys.begin();
             auto t = keys.substr(0, c);
             if(!t.empty()) {
@@ -1135,13 +1137,15 @@ private:
         if(func == nullptr){
             func = __func__;
         }
-        if(key.empty()){
-            throw std::invalid_argument(std::string(func) + ": key cannot be empty");
-        }
-        auto c = key.find(KEY_OPTION_DELIMITER);
+
+        auto charValid = [](int c) -> bool{
+            return std::isalnum(c) || c == '-' || c == '_';
+        };
+
+        auto c = std::find_if_not(key.begin(), key.end(), charValid);
         auto s = key.find(' ');
-        if(c == 0 || c == key.length()-1){
-            throw std::invalid_argument(std::string(func) + ": " + key + " cannot begin or end with =");
+        if(c != key.end()){
+            throw std::invalid_argument(std::string(func) + ": " + key + " cannot begin or end with " + *c);
         }
         if(s != std::string::npos){
             throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain spaces");

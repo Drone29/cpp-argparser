@@ -1,4 +1,0 @@
-/home/andrey/CLionProjects/argparser/UnitTests/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/andrey/CLionProjects/argparser/UnitTests/cmake-build-debug/CMakeFiles/cli_tests.dir
-/home/andrey/CLionProjects/argparser/UnitTests/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/home/andrey/CLionProjects/argparser/UnitTests/cmake-build-debug/CMakeFiles/internal_tests.dir
