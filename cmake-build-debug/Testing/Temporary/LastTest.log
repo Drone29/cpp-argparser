@@ -1,0 +1,64 @@
+Start testing: May 22 11:57 +04
+----------------------------------------------------------
+1/1 Testing: internal_tests
+1/1 Test: internal_tests
+Command: "/home/andrey/CLionProjects/argparser/cmake-build-debug/UnitTests/internal_tests"
+Directory: /home/andrey/CLionProjects/argparser/cmake-build-debug/UnitTests
+"internal_tests" start time: May 22 11:57 +04
+Output:
+----------------------------------------------------------
+Internal tests started
+Starting test check_negative_int
+Passed args: "-i" "-123" 
+Starting test check_long_long
+Passed args: "-l" "4000000000" 
+Starting test check_invalid_pointer
+Starting test check_repeating_throw
+Passed args: "-i" "-i" 
+Starting test check_composite
+Passed args: "-i" "-i" "-iii" 
+Starting test check_key_similar_eq
+Passed args: "--str=--str" 
+Starting test check_key_similar_composite
+Passed args: "-s-sss" 
+Starting test check_variadic_opt
+Passed args: "-var" "1" "2" "3" 
+Starting test check_variadic_pos
+Passed args: "-i" "1" "2" "3" "4" "5" 
+Starting test check_variadic_pos_throw
+Starting test check_complex
+Passed args: "-p" "-var" "1" "2" "3" 
+Starting test check_complex_2
+Passed args: "-p=-var" "-var" "1" "2" "3" 
+Starting test check_format_invalid_dec
+Passed args: "-i" "1abc" 
+Starting test check_format_hex
+Passed args: "-i" "0x12" 
+Starting test check_format_float
+Passed args: "-f" "0.123" 
+Starting test check_format_scientific
+Passed args: "-f" "1.000000e-05" 
+Starting test check_int8_single_invalid_char
+Passed args: "-i" "A" 
+Starting test check_int8_single_char
+Passed args: "-i" "9" 
+Starting test check_single_char
+Passed args: "-c" "A" 
+Starting test check_char_number
+Passed args: "-c" "123" 
+Starting test check_invalid_date_format
+Starting test check_date_with_spaces_separate
+Passed args: "date" "01.02.2022 12:34" 
+Starting test check_date_with_spaces_eq
+Passed args: "date=01.02.2022 12:34" 
+Starting test check_side_args_pos
+Passed args: "6" 
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"internal_tests" end time: May 22 11:57 +04
+"internal_tests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: May 22 11:57 +04

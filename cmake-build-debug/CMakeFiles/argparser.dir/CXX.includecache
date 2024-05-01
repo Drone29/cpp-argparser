@@ -1,0 +1,46 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/andrey/CLionProjects/argparser/argparser.hpp
+map
+-
+iostream
+-
+memory
+-
+utility
+-
+vector
+-
+cstring
+-
+any
+-
+memory
+-
+typeindex
+-
+tuple
+-
+array
+-
+ctime
+-
+iomanip
+-
+sstream
+-
+algorithm
+-
+
+/home/andrey/CLionProjects/argparser/example.cpp
+iostream
+-
+argparser.hpp
+/home/andrey/CLionProjects/argparser/argparser.hpp
+

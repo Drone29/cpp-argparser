@@ -1,0 +1,1 @@
+/usr/bin/c++  -g   CMakeFiles/cli_tests.dir/cli_tests.cpp.o  -o cli_tests 

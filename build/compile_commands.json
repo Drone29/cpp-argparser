@@ -1,0 +1,12 @@
+[
+{
+  "directory": "/home/andrey/CLionProjects/argparser/build",
+  "command": "/usr/bin/g++   -g -o CMakeFiles/argparser.dir/example.cpp.o -c /home/andrey/CLionProjects/argparser/example.cpp",
+  "file": "/home/andrey/CLionProjects/argparser/example.cpp"
+},
+{
+  "directory": "/home/andrey/CLionProjects/argparser/build/UnitTests",
+  "command": "/usr/bin/g++  -I/home/andrey/CLionProjects/argparser/UnitTests/.. -g -o CMakeFiles/internal_tests.dir/internal_tests.cpp.o -c /home/andrey/CLionProjects/argparser/UnitTests/internal_tests.cpp",
+  "file": "/home/andrey/CLionProjects/argparser/UnitTests/internal_tests.cpp"
+}
+]
