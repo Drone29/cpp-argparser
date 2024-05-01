@@ -1191,7 +1191,7 @@ private:
             try{
                 // end not included
                 // remove spaces added while preparing
-                for(auto it = argVec.begin() + start; it != argVec.begin() + end; it++){
+                for(auto it = argVec.begin() + start; it != argVec.begin() + end; ++it){
                     if((*it).front() == ' '){
                         *it = (*it).substr(1);
                     }
@@ -1280,7 +1280,7 @@ private:
         };
 
         /// Handle '=' and combined args
-        for(auto index = 0; index < argVec.size(); index++){
+        for(auto index = 0; index < argVec.size(); ++index){
 
             auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
                 argVec[index] = key;
@@ -1357,7 +1357,7 @@ private:
         }
 
         /// Main parser loop
-        for(auto index = 0; index < argVec.size(); index++){
+        for(auto index = 0; index < argVec.size(); ++index){
 
             std::string pName = argVec[index];
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
