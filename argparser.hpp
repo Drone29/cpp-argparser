@@ -56,11 +56,12 @@ constexpr size_t MAX_ARGS = 10;
 /// magic number for options array in addArgument
 constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
 
+constexpr const char *S_ARG_DUMMY = "";
 /// Useful aliases ///
 /// identifier for implicit argument
 static const char * const NO_ARGS[OPTS_SZ_MAGIC] = {};
 /// when used with nargs
-static const char * const SINGLE_ARG[1] = {nullptr};
+static const char * const SINGLE_ARG[1] = {S_ARG_DUMMY};
 /// std::tm alias
 using date_t = std::tm;
 
@@ -244,8 +245,6 @@ protected:
     virtual void set_nargs(uint8_t n) {}
     virtual uint8_t get_nargs() {return 0;}
     std::any anyval;
-//    bool variadic = false;
-//    uint8_t nargs = 0;
 };
 
 template <typename T, typename Callable, size_t STR_ARGS, typename...Targs>
@@ -827,7 +826,7 @@ public:
         std::vector<std::string> opts {};
         // opts with size 1 and null is special for nargs,
         // leave opts vector empty
-        if(!(opt_size == 1 && opts_arr[0] == nullptr)){
+        if(!(opt_size == 1 && opts_arr[0] == S_ARG_DUMMY)){
             /// check for nulls
             for(int c = 0; c < opt_size; ++c){
                 if(opts_arr[c] == nullptr){

@@ -106,6 +106,10 @@ MYTEST(MandatoryArgAtLeastOneParam){
     EXPECT_THROW(parser.addArgument<int>("i, int"), std::invalid_argument) << "Mandatory arg's param list cannot be empty";
 }
 
+MYTEST(NullParam){
+    EXPECT_THROW(parser.addArgument<int>("-i", {nullptr}), std::invalid_argument) << "Should detect null param";
+}
+
 MYTEST(EmptyParam){
     EXPECT_THROW(parser.addArgument<int>("-i", {""}), std::invalid_argument) << "Should detect empty params";
 }
