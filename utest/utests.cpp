@@ -4,8 +4,6 @@
 #define FIXTURE Utest
 #define MYTEST(NAME) TEST_F(FIXTURE, NAME)
 
-static const char * const EMPTY_ARGV[OPTS_SZ_MAGIC] = {};
-
 // Create a test fixture
 class FIXTURE : public testing::Test {
 protected: 
@@ -143,7 +141,7 @@ MYTEST(InvalidPtr){
 
 MYTEST(NotEnoughPos){
     parser.addPositional<int>("pos"); 
-    EXPECT_THROW(CallParser(EMPTY_ARGV), argParser::parse_error) << "Should throw as not enough positionals";
+    EXPECT_THROW(CallParser(NO_ARGS), argParser::parse_error) << "Should throw as not enough positionals";
 }
 
 MYTEST(RepeatingThrow){
@@ -472,7 +470,7 @@ MYTEST(NargsPosArb){
 MYTEST(NargsPosArbZero){
     parser.addPositional<int>("pos")
                 .nargs(0, 3);
-    EXPECT_NO_THROW(CallParser(EMPTY_ARGV)) << "Should parse empty list";            
+    EXPECT_NO_THROW(CallParser(NO_ARGS)) << "Should parse empty list";            
 }
 
 MYTEST(NargsPosNotEnough){
@@ -519,7 +517,7 @@ MYTEST(NargsPureVariadicPos){
 MYTEST(NargsPureVariadicPosWithZero){
     parser.addPositional<int>("pos")
                 .nargs(0, -1); //pure variadic arg
-    EXPECT_NO_THROW(CallParser(EMPTY_ARGV));            
+    EXPECT_NO_THROW(CallParser(NO_ARGS));            
 }
 
 MYTEST(NargsZero){
