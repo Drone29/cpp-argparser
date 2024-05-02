@@ -1415,13 +1415,14 @@ private:
 
                 std::string thrError = "Unknown argument: " + std::string(pName);
                 ///find closest key
-                auto proposed_value = argMap.begin()->first;
+                auto it = argMap.begin();
+                auto proposed_value = it->first;
                 auto mismatch = strMismatch(pName, proposed_value);
-                for(auto &x : argMap){
-                    auto tmp = strMismatch(pName, x.first);
+                while(++it != argMap.end()){
+                    auto tmp = strMismatch(pName, it->first);
                     if(tmp < mismatch){
                         mismatch = tmp;
-                        proposed_value = x.first;
+                        proposed_value = it->first;
                     }
                 }
 
@@ -1457,11 +1458,11 @@ private:
                     // leave space for positionals
                     auto left = argVec.size() - cnt - command_offset;
                     if((infinite_opts || opts_cnt == argMap[pName]->mandatory_options)
-                       && left <= positional_places){   //posMap.size()
+                       && left <= positional_places){
                         break;
                     }
                     //check if next value is also a key
-                    bool next_is_key = (argMap.find(argVec[cnt]) != argMap.end());  // || findChildByName(argVec[cnt]) != nullptr)
+                    bool next_is_key = (argMap.find(argVec[cnt]) != argMap.end());
                     if(next_is_key){
                         break;
                     }
@@ -1556,17 +1557,11 @@ private:
 
             auto print_usage = [&advanced, &printParam, this](const auto &j){
                 //skip already printed
-                if(j.second->m_set){
-                    return;
-                }
+                if(j.second->m_set) return;
                 //skip hidden
-                if(j.second->m_hidden && !advanced){
-                    return;
-                }
+                if(j.second->m_hidden && !advanced) return;
                 //skip positional
-                if(j.second->m_positional){
-                    return;
-                }
+                if(j.second->m_positional) return;
 
                 printParam(j);
 
@@ -1574,10 +1569,8 @@ private:
                 def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
                 std::string repeatable = j.second->m_repeatable ? " [repeatable]" : "";
                 // show date format if not prohibited
-                std::string date_format = j.second->m_hide_date_format
-                                          ? ""
-                                          : (j.second->m_date_format == nullptr
-                                             ? ""
+                std::string date_format = j.second->m_hide_date_format ? ""
+                                          : (j.second->m_date_format == nullptr ? ""
                                              : (" {" + j.second->m_options[0] + " format: " + std::string(j.second->m_date_format) + "}"));
                 std::string required = j.second->m_required ? (required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
                 std::cout << " : " + j.second->m_help + repeatable + date_format + def_val + required << std::endl;

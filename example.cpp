@@ -179,16 +179,16 @@ int main(int argc, char *argv[]) {
     // positional arguments can be specified by the separate method addPositional()
     // positional arguments cannot be made hidden, arbitrary or required
     // all other properties apply
-    parser.addPositional<int>("pos")
-            .global_ptr(&pos_val) // pointer to global variable
-            .help("Positional int argument with global variable");
+//     parser.addPositional<int>("pos")
+//             .global_ptr(&pos_val) // pointer to global variable
+//             .help("Positional int argument with global variable");
 
-    // positional arguments can be variadic too
-    // in that case, ONLY ONE such argument can be present
-    // also, variadic positional argument should be added AFTER all other positional arguments
-    parser.addPositional<int>("var_pos")
-            .nargs(1, -1) // make positional argument variadic
-            .help("Variadic pos argument of type int");
+//     // positional arguments can be variadic too
+//     // in that case, ONLY ONE such argument can be present
+//     // also, variadic positional argument should be added AFTER all other positional arguments
+//     parser.addPositional<int>("var_pos")
+//             .nargs(1, -1) // make positional argument variadic
+//             .help("Variadic pos argument of type int");
 
     /**
      *  Custom parsing functions
@@ -270,10 +270,10 @@ int main(int argc, char *argv[]) {
             .help("pure variadic");
 
     /// add child parser
-    argParser &child = parser.addCommand("some_command", "some child command");
+//     argParser &child = parser.addCommand("some_command", "some child command");
 
-    child.addArgument<int>("--int")
-            .help("int value");
+//     child.addArgument<int>("--int")
+//             .help("int value");
 
     try{
         // parse arguments
@@ -315,7 +315,7 @@ int main(int argc, char *argv[]) {
     auto b = parser.getValue<bool>("-b");
     auto s = parser.getValue<const char*>("-s");
     auto p = parser.getValue<std::string>("-p");
-    auto pos = parser.getValue<int>("pos");
+//     auto pos = parser.getValue<int>("pos");
     auto a = parser.getValue<std::vector<const char*>>("-a");
 
     // get value of variadic argument
