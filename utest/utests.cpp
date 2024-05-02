@@ -52,6 +52,10 @@ MYTEST(InvalidKey2){
     EXPECT_THROW(parser.addPositional<int>("y,"), std::invalid_argument) << "Key is invalid here";
 }
 
+MYTEST(InvalidPosKey){
+    EXPECT_THROW(parser.addPositional<int>("-i"), std::invalid_argument) << "Positional argument cannot start with -";
+}
+
 MYTEST(Redefinition){
     parser.addArgument<int>("--int");
     EXPECT_THROW(parser.addArgument<int>("--int"), std::invalid_argument) << "Should throw error in case of redefinition";

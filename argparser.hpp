@@ -747,6 +747,9 @@ public:
         if(!parser_internal::isOptMandatory(key)){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot be arbitrary");
         }
+        if(key.front() == '-'){
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot start with '-'");
+        }
 
         /// get template type string
         auto strType = parser_internal::GetTypeName<T>();
@@ -1156,6 +1159,15 @@ private:
         std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
     }
 
+    argParser* findChildByName (const std::string &key){
+            for(const auto &child : commandMap){
+                if(child->binary_name == key){
+                    return child.get();
+                }
+            }
+            return nullptr;
+    }
+
     int parseArgs(const std::vector<std::string> &arg_vec, bool hide_hidden_hint = false){
 
         argVec = arg_vec;
@@ -1244,6 +1256,24 @@ private:
             return result;
         };
 
+        auto closestKey = [this, &strMismatch](const std::string &name) -> std::string {
+            std::string proposed_value;
+            auto mismatch = std::string::npos;
+            for(auto &it : argMap){
+                auto tmp = strMismatch(name, it.first);
+                //check aliases as well
+                for(const auto &al : it.second->m_aliases){
+                    auto tmp2 = strMismatch(name, al);
+                    if(tmp2 < tmp) tmp = tmp2;
+                }
+                if(tmp < mismatch){
+                    mismatch = tmp;
+                    proposed_value = it.first;
+                }
+            }
+            return mismatch < 2 ? proposed_value : "";
+        };
+
         auto findKeyByAlias = [this](const std::string &key) -> std::string{
             for(auto &x : argMap){
                 for(auto &el : x.second->m_aliases){
@@ -1253,15 +1283,6 @@ private:
                 }
             }
             return "";
-        };
-
-        auto findChildByName = [this](const std::string &key) -> argParser*{
-            for(const auto &child : commandMap){
-                if(child->binary_name == key){
-                    return child.get();
-                }
-            }
-            return nullptr;
         };
 
         auto checkParsedNonPos = [this, &parsed_mnd_args, &parsed_required_args](){
@@ -1288,7 +1309,6 @@ private:
             };
             std::string pName = argVec[index];
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
-
 
             ///Handle '='
             auto c = pName.find(KEY_OPTION_DELIMITER);
@@ -1364,6 +1384,22 @@ private:
 
             ///If found unknown key
             if(argMap.find(pName) == argMap.end()){
+                ///Check if it's an arg with a typo
+                auto proposed_value = closestKey(pName);
+                if(!proposed_value.empty()){
+                    const auto &prop = argMap.find(proposed_value)->second;
+                    //if not set and positionals have not yet been parsed
+                    bool before_pos = !prop->is_set() && positional_args_parsed == 0;
+                    //if arbitrary and no mandatory args have been parsed yet
+                    bool is_arb = prop->is_arbitrary() && !prop->is_required() && parsed_mnd_args == 0;    
+                    //if mandatory and not all of them provided
+                    bool unparsed_mnd = !prop->is_arbitrary() && (parsed_mnd_args != mandatory_args);
+                    //if required 
+                    bool is_req = prop->is_required();
+                    if(before_pos && (unparsed_mnd || is_arb || is_req)){
+                        throw parse_error("Unknown argument: " + std::string(pName) + ". Did you mean " + proposed_value + "?");
+                    }
+                }
 
                 for(;index < argVec.size(); ++index){
                     /// Parse children
@@ -1378,11 +1414,10 @@ private:
                     if(positional_args_parsed < posMap.size()){
                         auto pos_name = posMap[positional_args_parsed++];
                         int opts_cnt = 0;
-                        if(argMap[pos_name]->get_nargs() > 0
-                        || argMap[pos_name]->is_variadic()){
+                        int nargs = argMap[pos_name]->get_nargs();
+                        bool variadic = argMap[pos_name]->is_variadic();
+                        if(nargs > 0 || variadic){
                             auto cnt = index-1;
-                            int nargs = argMap[pos_name]->get_nargs();
-                            bool variadic = argMap[pos_name]->is_variadic();
                             while(++cnt < argVec.size()){
                                 if(findChildByName(argVec[cnt]) != nullptr){
                                     break;
@@ -1414,20 +1449,8 @@ private:
                 }
 
                 std::string thrError = "Unknown argument: " + std::string(pName);
-                ///find closest key
-                auto it = argMap.begin();
-                auto proposed_value = it->first;
-                auto mismatch = strMismatch(pName, proposed_value);
-                while(++it != argMap.end()){
-                    auto tmp = strMismatch(pName, it->first);
-                    if(tmp < mismatch){
-                        mismatch = tmp;
-                        proposed_value = it->first;
-                    }
-                }
-
                 dummyFunc();
-                if(mismatch < 2){
+                if(!proposed_value.empty()){
                     thrError += ". Did you mean " + proposed_value + "?";
                 }
                 throw parse_error(thrError);
@@ -1617,6 +1640,9 @@ private:
                 std::cout << j->second->m_help << std::endl;
                 std::cout << j->second->m_advanced_help << std::endl;
             }else{
+                //look for child
+                auto child = findChildByName(param);
+                if(child) child->helpDefault(); //calls exit() already
                 std::cout << "Unknown parameter " + param << std::endl;
             }
             return;
