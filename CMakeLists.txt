@@ -16,8 +16,3 @@ enable_testing()
 
 # add subdir with tests
 add_subdirectory(${PROJECT_SOURCE_DIR}/utest)
-
-# include(CTest) # We include CTest which is part of CMake
-# if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
-#     add_subdirectory(UnitTests)
-# endif ()

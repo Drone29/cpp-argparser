@@ -5,7 +5,7 @@ std::string test(const char* a){
     if(a == nullptr){
         a = "null";
     }
-    return std::string(a);
+    return a;
 }
 
 int tst(int a, const char* a1){
@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-//-b date=01.02.2000-13:56 m=true v=4 --req1 1 23
+    //-b date=01.02.2000-13:56 m=true v=4 --req1 1 23
     // const methods of argument struct can be accessed via [ ]
     // here it returns true if argument 'v' was set by user
     auto isArgumentSet = parser["v"].is_set();
