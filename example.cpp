@@ -1,7 +1,6 @@
 #include <iostream>
 #include "argparser.hpp"
 
-
 std::string test(const char* a){
     if(a == nullptr){
         a = "null";
