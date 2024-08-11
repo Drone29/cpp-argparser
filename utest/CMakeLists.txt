@@ -1,11 +1,13 @@
 # set utest exe name
 set(TEST_EXE "utest")
+set(TEST_NAME "UnitTests")
 # use fetch content
 include(FetchContent)
 # declare content (where to download/extract at configure time)
 FetchContent_Declare(
-    googletest
-    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+        googletest
+        URL "https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip"
+        DOWNLOAD_EXTRACT_TIMESTAMP FALSE # suppress warning
 )
 # make available
 FetchContent_MakeAvailable(googletest)
@@ -33,4 +35,5 @@ target_link_libraries(
 
 # discover test within test exe
 include(GoogleTest)
-gtest_discover_tests(${TEST_EXE})
+#gtest_discover_tests(${TEST_EXE})
+add_test(NAME ${TEST_NAME} COMMAND ${TEST_EXE} --gtest_color=yes)
