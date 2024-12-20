@@ -1,5 +1,6 @@
 #include <iostream>
 #include "argparser.hpp"
+#include "test.h"
 
 std::string test(const char* a){
     if(a == nullptr){
@@ -25,6 +26,24 @@ CL createStruct(const char *bl, const char *itgr = nullptr){
 }
 
 int main(int argc, char *argv[]) {
+
+    /// Playground
+
+    BasicBuilder builder;
+    auto base = builder.AddArgument<int>("--key", "-k")
+            .SetArguments("arg1", "[arg2]")
+            .SetCallable([](int x, const char*a, const char*b){
+                int c = 0;
+                if (b != nullptr) {
+                    c = int(strtol(b, nullptr, 0));
+                }
+                auto res = int(strtol(a, nullptr, 0)) + c - x;
+                std::cout << "result " << res << std::endl;
+                return res;
+            }, 4).Finalize();
+    base->action({"34", "56"});
+
+    /// End Playground
 
     argParser parser("program_name", "this program does some pretty useful stuff");
 
