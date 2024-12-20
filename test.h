@@ -94,6 +94,8 @@ public:
     // add function and side args (if any)
     template <typename Callable, typename... IntArgs>
     auto SetCallable(Callable && callable, IntArgs ...intArgs) {
+        static_assert(std::tuple_size_v<decltype(components)> == 2, "Call SetArguments() first");
+        static_assert(std::is_invocable_v<Callable>, "Callable must be invocable");
         std::conditional_t<std::is_function_v<Callable>, std::add_pointer_t<Callable>, Callable> func = callable;
         return add(std::make_tuple(
                 func,
