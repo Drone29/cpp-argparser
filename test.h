@@ -55,12 +55,13 @@ public:
 
     void action(const std::initializer_list<const char*> &args) override {
         // get number of str args
+        // 0 is for type itself
         const auto str_args = std::get<1>(targs); // arguments should always be first
         const auto args_num = std::tuple_size_v<decltype(str_args)>;
         // func + side args
-        auto func_and_side_args = std::get<2>(targs);
-        auto func = std::get<0>(func_and_side_args); // function
-        auto side_args = std::get<1>(func_and_side_args); // arguments in a tuple
+        auto && func_and_side_args = std::get<2>(targs);
+        auto && func = std::get<0>(func_and_side_args); // function
+        auto && side_args = std::get<1>(func_and_side_args); // arguments in a tuple
         std::array<const char*, STR_ARGS> str_arr;
         std::copy(args.begin(), args.end(), str_arr.begin());
         auto tpl_res = std::tuple_cat(side_args, str_arr);
