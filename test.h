@@ -49,15 +49,14 @@ private:
     T value; //holds value
     std::tuple<Targs...> targs; // holds function, side arguments
 public:
-    explicit CompositeFixed(Targs... vals)
+
+    explicit CompositeFixed(std::tuple<Targs...> &&tpl)
         : value(),
-        targs(std::move(vals)...){}
+        targs(std::move(tpl)){}
 
     void action(const std::initializer_list<const char*> &args) override {
-        // get number of str args
         // 0 is for type itself
-        const auto str_args = std::get<1>(targs); // arguments should always be first
-        const auto args_num = std::tuple_size_v<decltype(str_args)>;
+        // 1 is for string args
         // func + side args
         auto && func_and_side_args = std::get<2>(targs);
         auto && func = std::get<0>(func_and_side_args); // function
@@ -76,17 +75,22 @@ private:
     std::tuple<Types...> components;
     std::vector<std::string> keys;
 
+    // for Composite, with index sequence
     template <std::size_t... Is>
-    Base* finalizeHelper(std::index_sequence<Is...>) {
-//        return new Composite<Types...>(std::get<Is>(components)...);
+    Base* finalizeHelperComposite(std::index_sequence<Is...>){
+        return new Composite<Types...>(std::get<Is>(components)...);
+    }
+
+    // for fixedComposite, with tuple
+    Base* finalizeHelper() {
         auto val = std::get<0>(components);
         const size_t tpl_size = std::tuple_size_v<decltype(components)>;
         if constexpr (tpl_size > 1) {
             auto str_args = std::get<1>(components);
             const size_t str_args_size = std::tuple_size_v<decltype(str_args)>;
-            return new CompositeFixed<decltype(val), str_args_size, Types...>(std::get<Is>(components)...);
+            return new CompositeFixed<decltype(val), str_args_size, Types...>(std::move(components));
         } else {
-            return new CompositeFixed<decltype(val), 0, Types...>(std::get<Is>(components)...);
+            return new CompositeFixed<decltype(val), 0, Types...>(std::move(components));
         }
         return nullptr;
     }
@@ -123,7 +127,8 @@ public:
     }
 
     Base* Finalize() {
-        return finalizeHelper(std::make_index_sequence<sizeof...(Types)>());
+//        return finalizeHelperComposite(std::make_index_sequence<sizeof...(Types)>());
+        return finalizeHelper();
     }
 };
 
