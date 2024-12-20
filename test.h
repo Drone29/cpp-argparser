@@ -70,7 +70,6 @@ private:
     Base* finalizeHelper(std::index_sequence<Is...>) {
         return new Composite<Types...>(std::get<Is>(components)...);
     }
-protected:
     template <typename NewType>
     auto add(NewType newComponent) {
         return CompositeBuilder<Types..., NewType>(
@@ -95,8 +94,8 @@ public:
     template <typename Callable, typename... IntArgs>
     auto SetCallable(Callable && callable, IntArgs ...intArgs) {
         static_assert(std::tuple_size_v<decltype(components)> == 2, "Call SetArguments() first");
-        static_assert(std::is_invocable_v<Callable>, "Callable must be invocable");
-        std::conditional_t<std::is_function_v<Callable>, std::add_pointer_t<Callable>, Callable> func = callable;
+        using funcType = std::conditional_t<std::is_function_v<Callable>, std::add_pointer_t<Callable>, Callable>;
+        funcType func = std::forward<Callable>(callable);
         return add(std::make_tuple(
                 func,
                 std::make_tuple(intArgs...)
