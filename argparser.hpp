@@ -719,8 +719,8 @@ protected:
     int m_mandatory_args = 0;
     std::vector<std::string> m_opts;
     std::string m_strType;
-    bool m_is_implicit;
-    bool m_has_callable;
+    bool m_is_implicit = false;
+    bool m_has_callable = false;
 
     OptionBuilderHelper(std::string &&key,
                         std::vector<std::string> &&aliases,
@@ -767,13 +767,10 @@ protected:
     // add new component
     template<typename NewType>
     auto add(NewType newComponent) {
-        //todo: m_ vars not saved here
         return OptionBuilder<Types..., NewType>(
-                std::move(m_key),
-                std::move(m_aliases),
-                m_map_ptr,
-                std::tuple_cat(components, std::make_tuple(newComponent))
-        );
+                std::move(*this),
+                std::tuple_cat(components, std::make_tuple(newComponent)
+                ));
     }
 
 public:
@@ -786,6 +783,11 @@ public:
     {
         components = std::move(comps);
     }
+    // 'move' ctor
+    explicit OptionBuilder(OptionBuilderHelper &&rhs, std::tuple<Types...> &&comps)
+        : OptionBuilderHelper(std::move(rhs)) {
+            components = std::move(comps);
+        }
     // add arguments
     template<typename... Params>
     auto SetParameters(Params ...strArgs) {
