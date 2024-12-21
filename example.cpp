@@ -44,8 +44,12 @@ int main(int argc, char *argv[]) {
     base->action({"34", "56"});
 
     argParser parser("program_name", "this program does some pretty useful stuff");
-    parser.addArgument<int>("-i", "--integer")
+    parser.addArgument<int>("--integer", "-i")
             .SetParameters("int")
+//            .SetCallable([](int a, const char* a1)->int{
+//                return a + (int)strtol(a1, nullptr, 0);
+//            }, 4)
+            .SetCallable(tst, 4)
             .Finalize()
             .help("some int parameter");
     parser.parseArgs(argc, argv);

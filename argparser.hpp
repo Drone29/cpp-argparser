@@ -767,10 +767,9 @@ protected:
 
     // add new component
     template<typename NewType>
-    auto add(NewType newComponent) {
+    auto add(NewType &&newComponent) {
         return OptionBuilder<Types..., NewType>(
-                std::move(*this),
-                std::tuple_cat(components, std::make_tuple(newComponent)
+                std::tuple_cat(std::move(components), std::make_tuple(std::forward<NewType>(newComponent))
                 ));
     }
 
@@ -785,15 +784,16 @@ public:
         components = std::move(comps);
     }
     // 'move' ctor
-    explicit OptionBuilder(OptionBuilderHelper &&rhs, std::tuple<Types...> &&comps)
-        : OptionBuilderHelper(std::move(rhs)) {
-            components = std::move(comps);
-        }
+    //todo: some problems with callables
+    explicit OptionBuilder(std::tuple<Types...> &&comps)
+            : OptionBuilderHelper(std::move(*this)) {
+        components = std::move(comps);
+    }
+
     // add arguments
     template<typename... Params>
     auto SetParameters(Params ...strArgs) {
         static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
-        //todo: check params here and pass further?
         m_opts = {strArgs...};
         m_is_implicit = sizeof...(strArgs) == 0;
         //todo: handle special nargs?
@@ -825,14 +825,16 @@ public:
         return add(std::make_tuple(strArgs...));
     }
     // add callable and side args (if any)
+    //todo: not working
     template<typename Callable, typename... SideArgs>
     auto SetCallable(Callable && callable, SideArgs ...sideArgs) {
         static_assert(std::tuple_size_v<decltype(components)> == 2, "SetParameters() must be called first");
-        using funcType = std::conditional_t<std::is_function_v<Callable>,
-                std::add_pointer_t<Callable>, Callable>;
+//        using funcType = std::conditional_t<std::is_function_v<Callable>,
+//                std::add_pointer_t<Callable>, Callable>;
+        using funcType = std::decay_t<Callable>;
         funcType func = std::forward<Callable>(callable);
         m_has_callable = true;
-        return add(std::make_tuple(func, std::make_tuple(sideArgs...)));
+        return add(std::make_tuple(std::move(func), std::make_tuple(std::forward<SideArgs>(sideArgs)...)));
     }
     //todo: add Positional() method?
 
