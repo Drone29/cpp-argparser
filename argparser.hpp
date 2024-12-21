@@ -782,9 +782,9 @@ public:
             : OptionBuilderHelper(std::move(key), std::move(aliases), mp),
             components(std::move(comps)){}
     // 'move' ctor
-    //todo: some problems with callables
     explicit OptionBuilder(std::tuple<Types...> &&comps)
-            : OptionBuilderHelper(std::move(m_key), std::move(m_aliases), m_map_ptr),
+    // cast *this to helper type and use move semantics to construct the helper
+    : OptionBuilderHelper(std::move(*static_cast<OptionBuilderHelper*>(this))),
             components(std::move(comps)){}
 
     // add arguments
