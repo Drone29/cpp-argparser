@@ -587,6 +587,7 @@ struct ARG_DEFS{
                 }
             }
         }else{
+            //todo: metavar in help?
             narg_name = metavar;
         }
 

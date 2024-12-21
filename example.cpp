@@ -57,7 +57,9 @@ int main(int argc, char *argv[]) {
                 posint = (int)strtol(a, nullptr, 0);
                 return posint;
             })
-            .Finalize();
+            .Finalize()
+            .help("positional with nargs")
+            .nargs(0, -1); //todo: narg(0) - what to do?
 
     parser.parseArgs(argc, argv);
 
