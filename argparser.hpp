@@ -784,13 +784,14 @@ public:
     // 'move' ctor
     explicit OptionBuilder(std::tuple<Types...> &&comps)
     // cast *this to helper type and use move semantics to construct the helper
-    : OptionBuilderHelper(std::move(*static_cast<OptionBuilderHelper*>(this))),
+            : OptionBuilderHelper(std::move(*static_cast<OptionBuilderHelper*>(this))),
             components(std::move(comps)){}
 
     // add arguments
     template<typename... Params>
     auto SetParameters(Params ...strArgs) {
         static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
+        static_assert(std::tuple_size_v<decltype(components)> < 2, "Params already set");
         m_opts = {strArgs...};
         m_is_implicit = sizeof...(strArgs) == 0;
         //todo: handle special nargs?
@@ -825,7 +826,8 @@ public:
     //todo: not working (only regular functions)
     template<typename Callable, typename... SideArgs>
     auto SetCallable(Callable && callable, SideArgs ...sideArgs) {
-        static_assert(std::tuple_size_v<decltype(components)> == 2, "SetParameters() must be called first");
+        static_assert(std::tuple_size_v<decltype(components)> > 1, "SetParameters() must be called first");
+        static_assert(std::tuple_size_v<decltype(components)> < 3, "Callable already set");
         m_has_callable = true;
         return add(std::make_tuple(
                 std::forward<Callable>(callable),
@@ -893,8 +895,11 @@ public:
         static_assert((std::is_same_v<Keys, const char*> && ...), "Keys must be strings");
         auto aliases = std::vector<std::string>{keys...};
         // checks
-        for(auto &el : aliases){
-            sanityCheck(el, __func__);
+        for(const auto &el : aliases){
+            if(el.empty()){
+                throw std::invalid_argument(std::string(__func__) + ": alias cannot be empty");
+            }
+            checkDuplicates(el, __func__);
             checkForbiddenSymbols(el, __func__);
         }
         auto key = std::move(aliases.front());
@@ -946,7 +951,7 @@ public:
 //            }
 //        }
 //        // check if positional name is valid
-//        sanityCheck(m_key, __func__);
+//        checkDuplicates(m_key, __func__);
 //        checkForbiddenSymbols(m_key, __func__);
 //        if(!parser_internal::isOptMandatory(m_key)){
 //            throw std::invalid_argument(std::string(__func__) + ": " + m_key + " positional argument cannot be arbitrary");
@@ -1011,7 +1016,7 @@ public:
 //            throw std::invalid_argument(std::string(__func__) + ": argument must have a name");
 //        }
 //        for(auto &el : names){
-//            sanityCheck(el, __func__);
+//            checkDuplicates(el, __func__);
 //            checkForbiddenSymbols(el, __func__);
 //        }
 //
@@ -1287,12 +1292,9 @@ private:
         }
     }
 
-    void sanityCheck(const std::string &key, const char* func = nullptr){
+    void checkDuplicates(const std::string &key, const char* func = nullptr){
         if(func == nullptr){
             func = __func__;
-        }
-        if(key.empty()){
-            throw std::invalid_argument(std::string(func) + ": Key cannot be empty!");
         }
         //Check previous definition
         if(argMap.find(key) != argMap.end()){
