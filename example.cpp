@@ -46,14 +46,14 @@ int main(int argc, char *argv[]) {
     argParser parser("program_name", "this program does some pretty useful stuff");
     parser.addArgument<int>("--integer", "-i")
             .SetParameters("int")
-            .SetCallable([](int a, const char* a1)->int{
+            .SetCallable([](auto a, auto a1){
                 return a + (int)strtol(a1, nullptr, 0);
             }, 4)
             .Finalize()
             .help("some int parameter");
     int posint;
     parser.addPositional<int>("posint")
-            .SetCallable([&posint](const char* a){
+            .SetCallable([&posint](auto a){
                 posint = (int)strtol(a, nullptr, 0);
                 return posint;
             })
