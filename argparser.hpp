@@ -771,6 +771,7 @@ protected:
     template<typename NewType>
     auto add(NewType &&newComponent) {
         return OptionBuilder<Types..., NewType>(
+                this, // pass current obj pointer further to create a new object with already existing data
                 std::tuple_cat(std::move(components), std::make_tuple(std::forward<NewType>(newComponent))
                 ));
     }
@@ -784,9 +785,9 @@ public:
             : OptionBuilderHelper(std::move(key), std::move(aliases), mp),
             components(std::move(comps)){}
     // 'move' ctor
-    explicit OptionBuilder(std::tuple<Types...> &&comps)
-    // cast *this to helper type and use move semantics to construct the helper
-            : OptionBuilderHelper(std::move(*static_cast<OptionBuilderHelper*>(this))),
+    explicit OptionBuilder(OptionBuilderHelper *prev, std::tuple<Types...> &&comps)
+    // use move semantics to construct the helper
+            : OptionBuilderHelper(*prev),
             components(std::move(comps)){}
 
     // add arguments
@@ -927,7 +928,8 @@ public:
     }
     // add positional
     template<typename T>
-    auto addPositional(std::string key) {
+    auto addPositional(const char *ckey) {
+        std::string key = ckey;
         /// check if variadic pos already defined
         for(const auto &p : posMap){
             const auto &x = argMap.at(p);
@@ -953,7 +955,7 @@ public:
                 std::vector<std::string>(),
                 &argMap,
                 std::make_tuple(T{})
-        ).SetParameters(); // set empty parameters for positional
+        ).SetParameters(ckey); // set single parameter for positional
     }
 
 //    /**
