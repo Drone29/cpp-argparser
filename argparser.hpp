@@ -779,16 +779,13 @@ public:
                            std::vector<std::string> &&aliases,
                            std::map<std::string, std::unique_ptr<ARG_DEFS>> *mp,
                            std::tuple<Types...> &&comps)
-            : OptionBuilderHelper(std::move(key), std::move(aliases), mp)
-    {
-        components = std::move(comps);
-    }
+            : OptionBuilderHelper(std::move(key), std::move(aliases), mp),
+            components(std::move(comps)){}
     // 'move' ctor
     //todo: some problems with callables
     explicit OptionBuilder(std::tuple<Types...> &&comps)
             : OptionBuilderHelper(std::move(m_key), std::move(m_aliases), m_map_ptr),
-            components(std::move(comps)){
-    }
+            components(std::move(comps)){}
 
     // add arguments
     template<typename... Params>

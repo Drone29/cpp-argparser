@@ -49,7 +49,6 @@ int main(int argc, char *argv[]) {
             .SetCallable([](int a, const char* a1)->int{
                 return a + (int)strtol(a1, nullptr, 0);
             }, 4)
-//            .SetCallable(tst, 4)
             .Finalize()
             .help("some int parameter");
     parser.parseArgs(argc, argv);
