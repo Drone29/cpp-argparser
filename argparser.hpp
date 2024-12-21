@@ -750,9 +750,10 @@ protected:
         arg->m_implicit = m_is_implicit;
         arg->m_starts_with_minus = starts_with_minus;
         arg->mandatory_options = m_mandatory_args;
-        //todo: date format check?
+        arg->m_date_format = DEFAULT_DATE_FORMAT;
+        arg->m_aliases = std::move(m_aliases);
         m_map_ptr->insert(std::make_pair(m_key, std::move(arg)));
-        //todo: add m_aliases?
+
         return *m_map_ptr->at(m_key);
     }
 };
@@ -878,7 +879,7 @@ public:
         argMap[HELP_NAME]->m_options = {HELP_OPT_BRACED};
         argMap[HELP_NAME]->m_arbitrary = true;
         argMap[HELP_NAME]->option = new BaseOption();
-        setAlias(HELP_NAME, {HELP_ALIAS});
+        argMap[HELP_NAME]->m_aliases = {HELP_ALIAS};
 
         binary_name = name;
         description = descr;
@@ -1191,26 +1192,6 @@ public:
     [[nodiscard]] const ARG_DEFS &getLastUnparsed() const{
         static ARG_DEFS dummy("");
         return last_unparsed_arg == nullptr ? dummy : *last_unparsed_arg;
-    }
-
-    ///Set alias for option
-    void setAlias(const std::string &key, const std::string &alias){
-        if(argMap.find(key) == argMap.end()){
-            throw std::invalid_argument(std::string(__func__) + ": " + key + " not defined");
-        }
-        if(argMap[key]->m_positional){
-            throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot have alias");
-        }
-
-        sanityCheck(alias, __func__);
-
-        auto sortingFunc = [](const std::string& first, const std::string& second){
-            return first.size() < second.size();
-        };
-
-        argMap[key]->m_aliases.push_back(alias);
-        //sort vector by length after inserting new alias
-        std::sort(argMap[key]->m_aliases.begin(), argMap[key]->m_aliases.end(), sortingFunc);
     }
 
     /// Self exec name
