@@ -51,8 +51,12 @@ int main(int argc, char *argv[]) {
             }, 4)
             .Finalize()
             .help("some int parameter");
-
+    int posint;
     parser.addPositional<int>("posint")
+            .SetCallable([&posint](const char* a){
+                posint = (int)strtol(a, nullptr, 0);
+                return posint;
+            })
             .Finalize();
 
     parser.parseArgs(argc, argv);
