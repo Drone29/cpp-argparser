@@ -338,9 +338,8 @@ private:
                 // create array of STR_ARGS size
                 std::array<const char*, STR_ARGS> str_arr {};
                 // fill array with vector values
-                //todo: no copy?
                 for(int i=0; i<size; ++i){
-                    str_arr[i] = args[i].c_str();
+                    str_arr[i] = (args + i)->c_str();
                 }
                 // resulting tuple
                 auto tpl_res = std::tuple_cat(side_args, str_arr);
