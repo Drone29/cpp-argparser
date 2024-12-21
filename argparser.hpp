@@ -793,7 +793,6 @@ public:
         static_assert(std::tuple_size_v<decltype(components)> < 2, "Params already set");
         m_opts = {strArgs...};
         m_is_implicit = m_opts.empty();
-        //todo: handle special nargs?
         std::string m_last_arbitrary_arg;
         for(const auto & sopt : m_opts){
             //todo: remove spaces?
@@ -821,6 +820,7 @@ public:
 
         return addComponent(std::make_tuple(strArgs...));
     }
+
     // add callable and side args (if any)
     template<typename Callable, typename... SideArgs>
     auto SetCallable(Callable && callable, SideArgs ...sideArgs) {
@@ -952,6 +952,7 @@ public:
 
         auto callback = [this,m_key=key](std::unique_ptr<ARG_DEFS> &&arg) -> ARG_DEFS& {
             arg->m_positional = true;
+            arg->m_options.clear(); // no opts for positional
             argMap[m_key] = std::move(arg);
             posMap.push_back(m_key);
             return *argMap[m_key];
@@ -962,7 +963,7 @@ public:
                 std::vector<std::string>(),
                 std::forward<decltype(callback)>(callback),
                 std::make_tuple(T{})
-        ).SetParameters(ckey); // set single parameter for positional
+        ).SetParameters(ckey); // set single parameter for positional (for size)
     }
 
 //    /**
