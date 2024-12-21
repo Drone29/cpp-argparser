@@ -721,6 +721,7 @@ protected:
     std::string m_strType;
     bool m_is_implicit = false;
     bool m_has_callable = false;
+    bool m_is_positional = false;
 
     OptionBuilderHelper(std::string &&key,
                         std::vector<std::string> &&aliases,
@@ -752,6 +753,7 @@ protected:
         arg->mandatory_options = m_mandatory_args;
         arg->m_date_format = DEFAULT_DATE_FORMAT;
         arg->m_aliases = std::move(m_aliases);
+        arg->m_positional = m_is_positional;
         m_map_ptr->insert(std::make_pair(m_key, std::move(arg)));
 
         return *m_map_ptr->at(m_key);
@@ -790,7 +792,9 @@ public:
     // add arguments
     template<typename... Params>
     auto SetParameters(Params ...strArgs) {
-        static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
+        if constexpr (sizeof...(strArgs) > 0) {
+            static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
+        }
         static_assert(std::tuple_size_v<decltype(components)> < 2, "Params already set");
         m_opts = {strArgs...};
         m_is_implicit = sizeof...(strArgs) == 0;
@@ -834,7 +838,6 @@ public:
                 std::make_tuple(std::forward<SideArgs>(sideArgs)...))
                 );
     }
-    //todo: add Positional() method?
 
     // finalize and get to runtime params
     ARG_DEFS &Finalize() {
@@ -905,11 +908,11 @@ public:
         auto key = std::move(aliases.front());
         aliases.erase(aliases.begin());
 
-        bool flag = key[0] == '-';
+        bool flag = key.front() == '-';
         //todo: handle special nargs?
 
         for(const auto &el : aliases){
-            bool match = el[0] == '-';
+            bool match = el.front() == '-';
             if (match != flag){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + ": cannot add alias " + el + ": different type");
             }
@@ -921,6 +924,36 @@ public:
                 &argMap,
                 std::make_tuple(T{})
         );
+    }
+    // add positional
+    template<typename T>
+    auto addPositional(std::string key) {
+        /// check if variadic pos already defined
+        for(const auto &p : posMap){
+            const auto &x = argMap.at(p);
+            if(x->is_variadic()){
+                throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after variadic positional argument " + p);
+            }
+            for(const auto &o : x->m_options){
+                if(!parser_internal::isOptMandatory(o)){
+                    throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after positional argument with arbitrary nargs " + p);
+                }
+            }
+        }
+        checkDuplicates(key, __func__);
+        checkForbiddenSymbols(key, __func__);
+        if(!parser_internal::isOptMandatory(key)){
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot be arbitrary");
+        }
+        if(key.front() == '-'){
+            throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot start with '-'");
+        }
+        return OptionBuilder<T>(
+                std::move(key),
+                std::vector<std::string>(),
+                &argMap,
+                std::make_tuple(T{})
+        ).SetParameters(); // set empty parameters for positional
     }
 
 //    /**

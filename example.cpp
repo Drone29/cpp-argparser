@@ -51,6 +51,10 @@ int main(int argc, char *argv[]) {
             }, 4)
             .Finalize()
             .help("some int parameter");
+
+    parser.addPositional<int>("posint")
+            .Finalize();
+
     parser.parseArgs(argc, argv);
 
     /// End Playground
