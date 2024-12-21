@@ -786,8 +786,8 @@ public:
     // 'move' ctor
     //todo: some problems with callables
     explicit OptionBuilder(std::tuple<Types...> &&comps)
-            : OptionBuilderHelper(std::move(*this)) {
-        components = std::move(comps);
+            : OptionBuilderHelper(std::move(m_key), std::move(m_aliases), m_map_ptr),
+            components(std::move(comps)){
     }
 
     // add arguments
@@ -825,16 +825,15 @@ public:
         return add(std::make_tuple(strArgs...));
     }
     // add callable and side args (if any)
-    //todo: not working
+    //todo: not working (only regular functions)
     template<typename Callable, typename... SideArgs>
     auto SetCallable(Callable && callable, SideArgs ...sideArgs) {
         static_assert(std::tuple_size_v<decltype(components)> == 2, "SetParameters() must be called first");
-//        using funcType = std::conditional_t<std::is_function_v<Callable>,
-//                std::add_pointer_t<Callable>, Callable>;
-        using funcType = std::decay_t<Callable>;
-        funcType func = std::forward<Callable>(callable);
         m_has_callable = true;
-        return add(std::make_tuple(std::move(func), std::make_tuple(std::forward<SideArgs>(sideArgs)...)));
+        return add(std::make_tuple(
+                std::forward<Callable>(callable),
+                std::make_tuple(std::forward<SideArgs>(sideArgs)...))
+                );
     }
     //todo: add Positional() method?
 
