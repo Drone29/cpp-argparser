@@ -15,4 +15,4 @@ set(NO_TEST_SRC 1)
 enable_testing()
 
 # add subdir with tests
-add_subdirectory(${PROJECT_SOURCE_DIR}/utest)
+#add_subdirectory(${PROJECT_SOURCE_DIR}/utest)

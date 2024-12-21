@@ -40,12 +40,12 @@ constexpr const char* BOOL_POSITIVES[] = {"true", "1", "yes", "on", "enable"};
 constexpr const char* BOOL_NEGATIVES[] = {"false", "0", "no", "off", "disable"};
 /// mark for required options
 constexpr const char* REQUIRED_OPTION_SIGN  = "(*)";
-/// help key
+/// help m_key
 constexpr const char* HELP_NAME = "--help";
 constexpr const char* HELP_ALIAS = "-h";
-/// delimiter for key aliases
+/// delimiter for m_key m_aliases
 constexpr const char* KEY_ALIAS_DELIMITER = ",";
-/// additional key/option delimiter (default is space)
+/// additional m_key/option delimiter (default is space)
 constexpr const char* KEY_OPTION_DELIMITER = "=";
 /// help argument identifier
 constexpr const char* ARG_TYPE_HELP = "HELP";
@@ -57,7 +57,7 @@ constexpr size_t MAX_ARGS = 10;
 constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
 
 constexpr const char *S_ARG_DUMMY = "";
-/// Useful aliases ///
+/// Useful m_aliases ///
 /// identifier for implicit argument
 static const char * const NO_ARGS[OPTS_SZ_MAGIC] = {};
 /// when used with nargs
@@ -234,7 +234,7 @@ protected:
     friend struct ARG_DEFS;
     BaseOption() = default;
     virtual ~BaseOption() = default;
-    virtual void action (const std::string *args, int size, const char *date_format) {} // for variadic args
+    virtual void action (const std::string *args, int size, const char *date_format) {} // todo: do not pass date_format?
     virtual void set(std::any x) {}
     virtual std::string get_str_val() {return "";}
     virtual std::vector<std::string> get_str_choices() {return {};}
@@ -242,30 +242,46 @@ protected:
     virtual void set_choices(const std::initializer_list<std::any> &choices_list) {}
     virtual void make_variadic() {}
     virtual bool is_variadic() {return false;}
-    virtual void set_nargs(uint8_t n) {}
-    virtual uint8_t get_nargs() {return 0;}
+    virtual void set_nargs(uint8_t n) {} // todo: int?
+    virtual uint8_t get_nargs() {return 0;} // todo: int?
     std::any anyval;
 };
 
-template <typename T, typename Callable, size_t STR_ARGS, typename...Targs>
+template <typename T, size_t STR_ARGS, typename...Targs>
 class DerivedOption : public BaseOption{
 private:
     friend class argParser;
-    [[nodiscard]] static constexpr bool has_action(){
-        return !std::is_same_v<Callable, parser_internal::no_action_t>;
+
+    T value;
+    // 0 - type T
+    // 1 - tuple(string_args)
+    // 2 - tuple(func, tuple(func_side_args))
+    std::tuple<Targs...> targs;
+    T *global = nullptr;
+    std::vector<T> choices {};
+    bool variadic = false;
+    uint8_t nargs = 0; // todo: int? move to base?
+    bool single_narg = false;
+
+    [[nodiscard]] static constexpr bool has_action() {
+        // if tuple has 3 args, it has function
+        return std::tuple_size_v<decltype(targs)> > 2;
     }
     [[nodiscard]] static constexpr bool not_void(){
         return !std::is_void_v<T>;
+    }
+    [[nodiscard]] static constexpr bool choices_viable() {
+        return std::is_arithmetic_v<T> || std::is_same_v<T, std::string>;
     }
 
     static_assert(not_void(), "Return type cannot be void");
 
     void check_choices(){
         // applicable only to arithmetic or strings
-        if constexpr(std::is_arithmetic_v<T> || std::is_same_v<T, std::string>){
+        if constexpr(choices_viable()) {
             if(!choices.empty()){
-                // check if result correspond to one of the choices
-                for(auto v : choices){
+                // check if result corresponds to one of the choices
+                for(auto v : choices){ //todo: const ref?
                     if(value == v){
                         return;
                     }
@@ -276,9 +292,8 @@ private:
     }
 
     // parse variadic params, single scan and common action
-    void action(const std::string *args, int size, const char *date_format) override{
-
-        if(!variadic && nargs == 0){
+    void action(const std::string *args, int size, const char *date_format) override {
+        if(!variadic && nargs == 0) {
             // if implicit
             if(STR_ARGS == 0 && !single_narg){
                 parse_implicit();
@@ -317,8 +332,11 @@ private:
         }
     }
     void parse_common(const std::string *args, int size){
-        if constexpr(not_void() && has_action()){
-            if constexpr(STR_ARGS > 0){
+        if constexpr(not_void() && has_action()) {
+            auto && func_and_side_args = std::get<2>(targs);
+            auto && func = std::get<0>(func_and_side_args); // function
+            auto && side_args = std::get<1>(func_and_side_args); // arguments in a tuple
+            if constexpr(STR_ARGS > 0) {
                 // create array of STR_ARGS size
                 std::array<const char*, STR_ARGS> str_arr {};
                 // fill array with vector values
@@ -326,22 +344,22 @@ private:
                     str_arr[i] = args[i].c_str();
                 }
                 // resulting tuple
-                auto tpl_res = std::tuple_cat(tpl, str_arr);
+                auto tpl_res = std::tuple_cat(side_args, str_arr);
                 // call function with resulting tuple
                 value = std::apply(func, tpl_res);
             }
             else{
                 // call function with initial tuple
-                value = std::apply(func, tpl);
+                value = std::apply(func, side_args);
             }
         }
         set_global();
         anyval = value;
     }
     void increment() {
-        if constexpr (std::is_arithmetic_v<T>){
-            if constexpr(std::is_same_v<T, bool>){
-                // treat bool as special type an toggle value
+        if constexpr(std::is_arithmetic_v<T>) {
+            if constexpr(std::is_same_v<T, bool>) {
+                // treat bool as special type and toggle value
                 value = !value;
             }else{
                 // increment other arithmetic types
@@ -404,20 +422,20 @@ private:
         }
     }
 
-    void set_global(){
-        if(global != nullptr){
+    void set_global() {
+        if(global != nullptr) {
             //set global
             *global = value;
         }
     }
 
-    void set_choices(const std::initializer_list<std::any> &choices_list) override{
-        if constexpr(std::is_arithmetic_v<T> || std::is_same_v<T, std::string>){
-            if constexpr(STR_ARGS > 1){
+    void set_choices(const std::initializer_list<std::any> &choices_list) override {
+        if constexpr(choices_viable()) {
+            if constexpr(STR_ARGS > 1) {
                 throw std::invalid_argument("choices are not applicable to args with more than 1 parameter");
             }
             try{
-                for(auto c : choices_list){
+                for(auto c : choices_list) { //todo: const ref?
                     choices.push_back(std::any_cast<T>(c));
                 }
             }catch(std::bad_any_cast &){
@@ -428,20 +446,12 @@ private:
         }
     }
 
-    DerivedOption(Callable &&func_, const std::tuple<Targs...> &targs) :
-            func(func_),
-            tpl(targs){
-        anyval = value;
-    }
-
-    ~DerivedOption() override = default;
-
     void make_variadic() override {
         anyval = std::vector<T>{};
         variadic = true;
     }
     bool is_variadic() override {return variadic;}
-    void set_nargs(uint8_t n) override {
+    void set_nargs(uint8_t n) override { //todo: int?
         if(n > 1){
             // return vector for nargs > 1
             anyval = std::vector<T>{};
@@ -451,18 +461,18 @@ private:
             single_narg = true;
         }
     }
-    uint8_t get_nargs() override {return nargs;}
 
-    T value {};
-    // func stores functions, function ptrs, lambdas, functors
-    CALLABLE(Callable) func;
-    std::tuple<Targs...> tpl;
-    T *global = nullptr;
-    std::vector<T> choices {};
+    uint8_t get_nargs() override {return nargs;} //todo: int?
 
-    bool variadic = false;
-    uint8_t nargs = 0;
-    bool single_narg = false;
+public:
+    //todo: protected?
+    explicit DerivedOption(std::tuple<Targs...> &&tpl) :
+            value(),
+            targs(std::move(tpl)) {
+        anyval = value;
+    }
+
+    ~DerivedOption() override = default;
 };
 
 struct ARG_DEFS{
@@ -656,6 +666,7 @@ private:
             : m_name(std::move(name)){}
 
     friend class argParser;
+    friend class OptionBuilderHelper;
     std::string m_name;
     std::string m_help;
     std::string m_advanced_help;
@@ -696,6 +707,165 @@ private:
     bool show_default = false;
 };
 
+// forward-declare for option builder
+class argParser;
+
+class OptionBuilderHelper {
+protected:
+    std::string m_key;
+    std::vector<std::string> m_aliases;
+    std::map<std::string, std::unique_ptr<ARG_DEFS>> *m_map_ptr;
+    std::string m_last_mandatory_arg;
+    int m_mandatory_args = 0;
+    std::vector<std::string> m_opts;
+    std::string m_strType;
+    bool m_is_implicit;
+    bool m_has_callable;
+
+    OptionBuilderHelper(std::string &&key,
+                        std::vector<std::string> &&aliases,
+                        std::map<std::string, std::unique_ptr<ARG_DEFS>> *mp)
+                        : m_key(std::move(key)),
+                          m_aliases(std::move(aliases)),
+                          m_map_ptr(mp) {
+    }
+    ARG_DEFS &CreateArg(BaseOption *option) {
+
+        bool flag = m_key[0] == '-';
+        bool starts_with_minus = flag;
+
+        if(m_last_mandatory_arg.empty() && !flag){
+            throw std::invalid_argument(std::string(__func__) + ": " + m_key + " should have at least 1 mandatory parameter");
+        }
+        if (!m_has_callable && !m_is_implicit && m_last_mandatory_arg.empty()) {
+            throw std::invalid_argument(std::string(__func__) + ": " + m_key + " no function provided for arg with arbitrary parameters");
+        }
+
+        // Create arg and add to map
+        auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(m_key));
+        arg->typeStr = std::move(m_strType);
+        arg->option = option;
+        arg->m_options = std::move(m_opts);
+        arg->m_arbitrary = flag;
+        arg->m_implicit = m_is_implicit;
+        arg->m_starts_with_minus = starts_with_minus;
+        arg->mandatory_options = m_mandatory_args;
+        //todo: date format check?
+        m_map_ptr->insert(std::make_pair(m_key, std::move(arg)));
+        //todo: add m_aliases?
+        return *m_map_ptr->at(m_key);
+    }
+};
+
+// option builder
+template<typename... Types>
+class OptionBuilder : public OptionBuilderHelper {
+protected:
+    friend class argParser;
+    std::tuple<Types...> components;
+
+    // add new component
+    template<typename NewType>
+    auto add(NewType newComponent) {
+        //todo: m_ vars not saved here
+        return OptionBuilder<Types..., NewType>(
+                std::move(m_key),
+                std::move(m_aliases),
+                m_map_ptr,
+                std::tuple_cat(components, std::make_tuple(newComponent))
+        );
+    }
+
+public:
+    // ctor
+    explicit OptionBuilder(std::string &&key,
+                           std::vector<std::string> &&aliases,
+                           std::map<std::string, std::unique_ptr<ARG_DEFS>> *mp,
+                           std::tuple<Types...> &&comps)
+            : OptionBuilderHelper(std::move(key), std::move(aliases), mp)
+    {
+        components = std::move(comps);
+    }
+    // add arguments
+    template<typename... Params>
+    auto SetParameters(Params ...strArgs) {
+        static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
+        //todo: check params here and pass further?
+        m_opts = {strArgs...};
+        m_is_implicit = sizeof...(strArgs) == 0;
+        //todo: handle special nargs?
+        std::string m_last_arbitrary_arg;
+        for(const auto & sopt : m_opts){
+            //todo: remove spaces?
+            if(sopt.empty()){
+                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " parameter name cannot be empty");
+            }
+            if(sopt.front() == ' ' || sopt.back() == ' '){
+                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " parameter " + sopt + " cannot begin or end with space");
+            }
+            if(parser_internal::isOptMandatory(sopt)){
+                m_mandatory_args++;
+                m_last_mandatory_arg = sopt;
+                if(!m_last_arbitrary_arg.empty()){
+                    throw std::invalid_argument(std::string(__func__) + ": " + m_key
+                                                + ": arbitrary argument "
+                                                + m_last_arbitrary_arg
+                                                + " cannot be followed by mandatory argument "
+                                                + sopt);
+                }
+            }
+            else{
+                m_last_arbitrary_arg = sopt;
+            }
+        }
+
+        return add(std::make_tuple(strArgs...));
+    }
+    // add callable and side args (if any)
+    template<typename Callable, typename... SideArgs>
+    auto SetCallable(Callable && callable, SideArgs ...sideArgs) {
+        static_assert(std::tuple_size_v<decltype(components)> == 2, "SetParameters() must be called first");
+        using funcType = std::conditional_t<std::is_function_v<Callable>,
+                std::add_pointer_t<Callable>, Callable>;
+        funcType func = std::forward<Callable>(callable);
+        m_has_callable = true;
+        return add(std::make_tuple(func, std::make_tuple(sideArgs...)));
+    }
+    //todo: add Positional() method?
+
+    // finalize and get to runtime params
+    ARG_DEFS &Finalize() {
+        auto val = std::get<0>(components);
+        using VType = decltype(val);
+        const size_t comp_size = std::tuple_size_v<decltype(components)>;
+        static_assert(comp_size > 0, "Should have at least 1 component");
+        const bool implicit = comp_size == 0;
+        const bool has_callable = comp_size > 2;
+        /// get template type string
+        m_strType = parser_internal::GetTypeName<VType>();
+        // if there are string params
+        if constexpr (comp_size > 1) {
+            auto str_params = std::get<1>(components); // string params
+            const size_t str_params_size = std::tuple_size_v<decltype(str_params)>;
+            // if function not provided
+            if constexpr (!has_callable) {
+                static_assert(!implicit || std::is_arithmetic_v<VType>, "Function should be provided for non-arithmetic implicit arg");
+                ///check if default parser for this type is present
+                try{
+                    parser_internal::scan<VType>(nullptr);
+                }catch(std::logic_error &e){
+                    throw std::invalid_argument(std::string(__func__) + ": " + m_key + " no default parser for " + m_strType);
+                }catch(std::runtime_error &){
+                    //do nothing
+                }
+            }
+            return CreateArg(new DerivedOption<VType, str_params_size, Types...>(std::move(components)));
+        } else {
+            return CreateArg(new DerivedOption<VType, 0, Types...>(std::move(components)));
+        }
+    }
+};
+
 class argParser
 {
 public:
@@ -714,247 +884,280 @@ public:
     ~argParser(){
         argMap.clear();
     }
-    /**
-     *
-     * @tparam T
-     * @tparam Callable - func/func ptr/lambda (CANNOT RETURN VOID)
-     * @tparam Targs
-     * @param key
-     * @param func
-     * @param targs
-     * @return
-     */
-    template <typename T, typename Callable = parser_internal::no_action_t, typename...Targs>
-    ARG_DEFS &addPositional(const std::string &key,
-                            Callable &&func = parser_internal::dummy,
-                            const std::tuple<Targs...> &targs = std::tuple<>()){
 
-        /// check if variadic pos already defined
-        for(auto &p : posMap){
-            auto &x = argMap[p];
-            if(x->is_variadic()){
-                throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after variadic positional argument " + p);
-            }
-            for(auto &o : x->m_options){
-                if(!parser_internal::isOptMandatory(o)){
-                    throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after positional argument with arbitrary nargs " + p);
-                }
-            }
-        }
-        // check if positional name is valid
-        sanityCheck(key, __func__);
-        checkForbiddenSymbols(key, __func__);
-        if(!parser_internal::isOptMandatory(key)){
-            throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot be arbitrary");
-        }
-        if(key.front() == '-'){
-            throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot start with '-'");
-        }
-
-        /// get template type string
-        auto strType = parser_internal::GetTypeName<T>();
-
-        ///check if default parser for this type is present
-        if constexpr(std::is_same_v<Callable, parser_internal::no_action_t>){
-            try{
-                parser_internal::scan<T>(nullptr);
-            }catch(std::logic_error &e){
-                throw std::invalid_argument(std::string(__func__) + ": " + key + " no default parser for " + strType);
-            }catch(std::runtime_error &){
-                //do nothing
-            }
-        }
-        auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(key));
-        arg->typeStr = strType;
-        arg->m_options = {};
-        arg->option = new DerivedOption<T, Callable, 1, Targs...>
-                (std::forward<Callable>(func), targs);
-        arg->m_positional = true;
-        if(parser_internal::are_same_type<date_t, T>){
-            arg->m_date_format = DEFAULT_DATE_FORMAT;
-        }
-
-        argMap[key] = std::move(arg);
-        posMap.emplace_back(key);
-
-        return *argMap[key];
-    }
-    /**
-     *
-     * @tparam T - return type
-     * @tparam Callable - func/func_ptr/lambda type (CANNOT RETURN VOID)
-     * @tparam OPT_SZ - size of options array (aka function string args) (CANNOT BE MORE THAN OPTS_SZ_MAGIC)
-     * @tparam Targs - side arguments' types for function/lambda
-     * @param names - argument name + aliases
-     * @param opts_arr - array of string options
-     * @param func - callable itself
-     * @param targs - tuple with side arguments
-     * @return - reference to ARG_DEFS struct
-     */
-    //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
-    template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
-    ARG_DEFS &addArgument(const std::vector<std::string> &names,
-                          const char * const (&opts_arr)[OPT_SZ] = NO_ARGS,
-                          Callable &&func = parser_internal::dummy,
-                          const std::tuple<Targs...> &targs = std::tuple<>()){
-
-        constexpr size_t opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
-        constexpr bool implicit = opt_size == 0; //implicit arg has 0 options
-
-        static_assert(opt_size < MAX_ARGS, "Too many string arguments");
-
-        if(names.empty()){
-            throw std::invalid_argument(std::string(__func__) + ": argument must have a name");
-        }
-        for(auto &el : names){
+    // new arg builder
+    template<typename T, typename... Keys>
+    auto addArgument(Keys ...keys) {
+        static_assert(sizeof...(keys) > 0, "Keys' set cannot be empty");
+        static_assert((std::is_same_v<Keys, const char*> && ...), "Keys must be strings");
+        auto aliases = std::vector<std::string>{keys...};
+        // checks
+        for(auto &el : aliases){
             sanityCheck(el, __func__);
             checkForbiddenSymbols(el, __func__);
         }
+        auto key = std::move(aliases.front());
+        aliases.erase(aliases.begin());
 
-        KEY_ALIAS splitKey;
-        splitKey.aliases = {names};
-        splitKey.key = splitKey.aliases[0];
-        // find longest entry in vector, it'll be key
-        auto idx = splitKey.aliases.begin();
-        for(auto it = splitKey.aliases.begin(); it != splitKey.aliases.end(); ++it){
-            if((*it).length() > splitKey.key.length()){
-                splitKey.key = *it;
-                idx = it;
-            }
-        }
-        // remove key from aliases vector
-        splitKey.aliases.erase(idx);
+        bool flag = key[0] == '-';
+        //todo: handle special nargs?
 
-        /// create opts vector
-        std::vector<std::string> opts {};
-        // opts with size 1 and null is special for nargs,
-        // leave opts vector empty
-        if(!(opt_size == 1 && opts_arr[0] == S_ARG_DUMMY)){
-            /// check for nulls
-            for(int c = 0; c < opt_size; ++c){
-                if(opts_arr[c] == nullptr){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " " +  std::to_string(c) + "th parameter is null");
-                }
-            }
-            // fill vector
-            opts = {opts_arr, opts_arr + opt_size};
-        }
-        /// get template type string
-        auto strType = parser_internal::GetTypeName<T>();
-        ///Check for invalid sequence order of arguments
-        std::string last_arbitrary_arg;
-        std::string last_mandatory_arg;
-        int mnd_vals = 0;
-
-        for(auto & sopt : opts){
-            if(sopt.empty()){
-                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " parameter name cannot be empty");
-            }
-            if(sopt.front() == ' ' || sopt.back() == ' '){
-                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " parameter " + sopt + " cannot begin or end with space");
-            }
-
-            if(parser_internal::isOptMandatory(sopt)){
-                mnd_vals++;
-                last_mandatory_arg = sopt;
-                if(!last_arbitrary_arg.empty()){
-                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key
-                                                + ": arbitrary argument "
-                                                + last_arbitrary_arg
-                                                + " cannot be followed by mandatory argument "
-                                                + sopt);
-                }
-            }
-            else{
-                last_arbitrary_arg = sopt;
-            }
-        }
-
-        bool flag = splitKey.key[0] == '-';
-        bool starts_with_minus = flag;
-        for(auto &el : splitKey.aliases){
+        for(const auto &el : aliases){
             bool match = el[0] == '-';
             if (match != flag){
-                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + ": cannot add alias " + el + ": different type");
+                throw std::invalid_argument(std::string(__func__) + ": " + key + ": cannot add alias " + el + ": different type");
             }
         }
 
-        if(last_mandatory_arg.empty() && !flag){
-            throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " should have at least 1 mandatory parameter");
-        }
-
-        if constexpr(std::is_same_v<Callable, parser_internal::no_action_t>){
-            static_assert(!implicit || std::is_arithmetic_v<T>, "Function should be provided for non-arithmetic implicit arg");
-            if(!implicit && last_mandatory_arg.empty()){
-                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no function provided for arg with arbitrary parameters");
-            }
-            ///check if default parser for this type is present
-            try{
-                parser_internal::scan<T>(nullptr);
-            }catch(std::logic_error &e){
-                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.key + " no default parser for " + strType);
-            }catch(std::runtime_error &){
-                //do nothing
-            }
-        }
-
-        auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(splitKey.key));
-        arg->typeStr = strType;
-        arg->option = new DerivedOption<T, Callable, opt_size, Targs...>
-                (std::forward<Callable>(func), targs);
-        arg->m_options = opts;
-        arg->m_arbitrary = flag;
-        arg->m_implicit = implicit;
-        arg->m_starts_with_minus = starts_with_minus;
-        arg->mandatory_options = mnd_vals;
-        if(parser_internal::are_same_type<date_t, T>
-           && opt_size == 1){
-            arg->m_date_format = DEFAULT_DATE_FORMAT;
-        }
-        argMap[splitKey.key] = std::move(arg);
-
-        // add aliases
-        for(auto &alias : splitKey.aliases){
-            setAlias(splitKey.key, alias);
-        }
-
-        return *argMap[splitKey.key];
+        return OptionBuilder<T>(
+                std::move(key),
+                std::move(aliases),
+                &argMap,
+                std::make_tuple(T{})
+        );
     }
 
-    // another implementation of addArgument with const char *key
-    template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
-    ARG_DEFS &addArgument(const char *key,
-                          const char * const (&opts_arr)[OPT_SZ] = NO_ARGS,
-                          Callable &&func = parser_internal::dummy,
-                          const std::tuple<Targs...> &targs = std::tuple<>()){
-
-        std::string keys = key == nullptr ? "" : std::string(key);
-        std::vector<std::string> vec;
-        std::string::iterator s;
-        size_t c;
-
-        auto checkChars = [](int c) -> bool{
-            return c == ' ' || c == ',' || c == ';' || c == '/' || c == '\\';
-        };
-
-        // split string
-        while((s = std::find_if(keys.begin(), keys.end(), checkChars)) != keys.end()){
-            c = s - keys.begin();
-            auto t = keys.substr(0, c);
-            if(!t.empty()) {
-                vec.push_back(t);
-            }
-            keys = keys.substr(c+1);
-        }
-
-        // add last portion of the string if not empty
-        if(!keys.empty()){
-            vec.push_back(keys);
-        }
-
-        return addArgument<T, Callable, OPT_SZ, Targs...>
-                (vec, opts_arr, std::forward<Callable>(func), targs);
-    }
+//    /**
+//     *
+//     * @tparam T
+//     * @tparam Callable - func/func ptr/lambda (CANNOT RETURN VOID)
+//     * @tparam Targs
+//     * @param m_key
+//     * @param func
+//     * @param targs
+//     * @return
+//     */
+//    template <typename T, typename Callable = parser_internal::no_action_t, typename...Targs>
+//    ARG_DEFS &addPositional(const std::string &m_key,
+//                            Callable &&func = parser_internal::dummy,
+//                            const std::tuple<Targs...> &targs = std::tuple<>()){
+//
+//        /// check if variadic pos already defined
+//        for(auto &p : posMap){
+//            auto &x = argMap[p];
+//            if(x->is_variadic()){
+//                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " cannot add positional argument after variadic positional argument " + p);
+//            }
+//            for(auto &o : x->m_options){
+//                if(!parser_internal::isOptMandatory(o)){
+//                    throw std::invalid_argument(std::string(__func__) + ": " + m_key + " cannot add positional argument after positional argument with arbitrary nargs " + p);
+//                }
+//            }
+//        }
+//        // check if positional name is valid
+//        sanityCheck(m_key, __func__);
+//        checkForbiddenSymbols(m_key, __func__);
+//        if(!parser_internal::isOptMandatory(m_key)){
+//            throw std::invalid_argument(std::string(__func__) + ": " + m_key + " positional argument cannot be arbitrary");
+//        }
+//        if(m_key.front() == '-'){
+//            throw std::invalid_argument(std::string(__func__) + ": " + m_key + " positional argument cannot start with '-'");
+//        }
+//
+//        /// get template type string
+//        auto strType = parser_internal::GetTypeName<T>();
+//
+//        ///check if default parser for this type is present
+//        if constexpr(std::is_same_v<Callable, parser_internal::no_action_t>){
+//            try{
+//                parser_internal::scan<T>(nullptr);
+//            }catch(std::logic_error &e){
+//                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " no default parser for " + strType);
+//            }catch(std::runtime_error &){
+//                //do nothing
+//            }
+//        }
+//        auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(m_key));
+//        arg->typeStr = strType;
+//        arg->m_options = {};
+//        arg->option = new DerivedOption<T, Callable, 1, Targs...>
+//                (std::forward<Callable>(func), targs);
+//        arg->m_positional = true;
+//        if(parser_internal::are_same_type<date_t, T>){
+//            arg->m_date_format = DEFAULT_DATE_FORMAT;
+//        }
+//
+//        argMap[m_key] = std::move(arg);
+//        posMap.emplace_back(m_key);
+//
+//        return *argMap[m_key];
+//    }
+//    /**
+//     *
+//     * @tparam T - return type
+//     * @tparam Callable - func/func_ptr/lambda type (CANNOT RETURN VOID)
+//     * @tparam OPT_SZ - size of options array (aka function string args) (CANNOT BE MORE THAN OPTS_SZ_MAGIC)
+//     * @tparam Targs - side arguments' types for function/lambda
+//     * @param names - argument name + m_aliases
+//     * @param opts_arr - array of string options
+//     * @param func - callable itself
+//     * @param targs - tuple with side arguments
+//     * @return - reference to ARG_DEFS struct
+//     */
+//    //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
+//    template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
+//    ARG_DEFS &addArgument(const std::vector<std::string> &names,
+//                          const char * const (&opts_arr)[OPT_SZ] = NO_ARGS,
+//                          Callable &&func = parser_internal::dummy,
+//                          const std::tuple<Targs...> &targs = std::tuple<>()){
+//
+//        constexpr size_t opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
+//        constexpr bool implicit = opt_size == 0; //implicit arg has 0 options
+//
+//        static_assert(opt_size < MAX_ARGS, "Too many string arguments");
+//
+//        if(names.empty()){
+//            throw std::invalid_argument(std::string(__func__) + ": argument must have a name");
+//        }
+//        for(auto &el : names){
+//            sanityCheck(el, __func__);
+//            checkForbiddenSymbols(el, __func__);
+//        }
+//
+//        KEY_ALIAS splitKey;
+//        splitKey.m_aliases = {names};
+//        splitKey.m_key = splitKey.m_aliases[0];
+//        // find longest entry in vector, it'll be m_key
+//        auto idx = splitKey.m_aliases.begin();
+//        for(auto it = splitKey.m_aliases.begin(); it != splitKey.m_aliases.end(); ++it){
+//            if((*it).length() > splitKey.m_key.length()){
+//                splitKey.m_key = *it;
+//                idx = it;
+//            }
+//        }
+//        // remove m_key from m_aliases vector
+//        splitKey.m_aliases.erase(idx);
+//
+//        /// create opts vector
+//        std::vector<std::string> opts {};
+//        // opts with size 1 and null is special for nargs,
+//        // leave opts vector empty
+//        if(!(opt_size == 1 && opts_arr[0] == S_ARG_DUMMY)){
+//            /// check for nulls
+//            for(int c = 0; c < opt_size; ++c){
+//                if(opts_arr[c] == nullptr){
+//                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " " +  std::to_string(c) + "th parameter is null");
+//                }
+//            }
+//            // fill vector
+//            opts = {opts_arr, opts_arr + opt_size};
+//        }
+//        /// get template type string
+//        auto strType = parser_internal::GetTypeName<T>();
+//        ///Check for invalid sequence order of arguments
+//        std::string m_last_arbitrary_arg;
+//        std::string m_last_mandatory_arg;
+//        int m_mandatory_args = 0;
+//
+//        for(auto & sopt : opts){
+//            if(sopt.empty()){
+//                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " parameter name cannot be empty");
+//            }
+//            if(sopt.front() == ' ' || sopt.back() == ' '){
+//                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " parameter " + sopt + " cannot begin or end with space");
+//            }
+//
+//            if(parser_internal::isOptMandatory(sopt)){
+//                m_mandatory_args++;
+//                m_last_mandatory_arg = sopt;
+//                if(!m_last_arbitrary_arg.empty()){
+//                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key
+//                                                + ": arbitrary argument "
+//                                                + m_last_arbitrary_arg
+//                                                + " cannot be followed by mandatory argument "
+//                                                + sopt);
+//                }
+//            }
+//            else{
+//                m_last_arbitrary_arg = sopt;
+//            }
+//        }
+//
+//        bool flag = splitKey.m_key[0] == '-';
+//        bool starts_with_minus = flag;
+//        for(auto &el : splitKey.m_aliases){
+//            bool match = el[0] == '-';
+//            if (match != flag){
+//                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + ": cannot add alias " + el + ": different type");
+//            }
+//        }
+//
+//        if(m_last_mandatory_arg.empty() && !flag){
+//            throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " should have at least 1 mandatory parameter");
+//        }
+//
+//        if constexpr(std::is_same_v<Callable, parser_internal::no_action_t>){
+//            static_assert(!implicit || std::is_arithmetic_v<T>, "Function should be provided for non-arithmetic implicit arg");
+//            if(!implicit && m_last_mandatory_arg.empty()){
+//                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " no function provided for arg with arbitrary parameters");
+//            }
+//            ///check if default parser for this type is present
+//            try{
+//                parser_internal::scan<T>(nullptr);
+//            }catch(std::logic_error &e){
+//                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " no default parser for " + strType);
+//            }catch(std::runtime_error &){
+//                //do nothing
+//            }
+//        }
+//
+//        auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(splitKey.m_key));
+//        arg->typeStr = strType;
+//        arg->option = new DerivedOption<T, Callable, opt_size, Targs...>
+//                (std::forward<Callable>(func), targs);
+//        arg->m_options = opts;
+//        arg->m_arbitrary = flag;
+//        arg->m_implicit = implicit;
+//        arg->m_starts_with_minus = starts_with_minus;
+//        arg->mandatory_options = m_mandatory_args;
+//        if(parser_internal::are_same_type<date_t, T>
+//           && opt_size == 1){
+//            arg->m_date_format = DEFAULT_DATE_FORMAT;
+//        }
+//        argMap[splitKey.m_key] = std::move(arg);
+//
+//        // add m_aliases
+//        for(auto &alias : splitKey.m_aliases){
+//            setAlias(splitKey.m_key, alias);
+//        }
+//
+//        return *argMap[splitKey.m_key];
+//    }
+//
+//    // another implementation of addArgument with const char *m_key
+//    template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
+//    ARG_DEFS &addArgument(const char *m_key,
+//                          const char * const (&opts_arr)[OPT_SZ] = NO_ARGS,
+//                          Callable &&func = parser_internal::dummy,
+//                          const std::tuple<Targs...> &targs = std::tuple<>()){
+//
+//        std::string keys = m_key == nullptr ? "" : std::string(m_key);
+//        std::vector<std::string> vec;
+//        std::string::iterator s;
+//        size_t c;
+//
+//        auto checkChars = [](int c) -> bool{
+//            return c == ' ' || c == ',' || c == ';' || c == '/' || c == '\\';
+//        };
+//
+//        // split string
+//        while((s = std::find_if(keys.begin(), keys.end(), checkChars)) != keys.end()){
+//            c = s - keys.begin();
+//            auto t = keys.substr(0, c);
+//            if(!t.empty()) {
+//                vec.push_back(t);
+//            }
+//            keys = keys.substr(c+1);
+//        }
+//
+//        // add last portion of the string if not empty
+//        if(!keys.empty()){
+//            vec.push_back(keys);
+//        }
+//
+//        return addArgument<T, Callable, OPT_SZ, Targs...>
+//                (vec, opts_arr, std::forward<Callable>(func), targs);
+//    }
 
     template <typename T>
     T getValue(const std::string &key){
@@ -1054,12 +1257,7 @@ public:
     };
 
 private:
-
-    struct KEY_ALIAS{
-        std::string key;
-        std::vector<std::string> aliases;
-    };
-
+    friend class OptionBuilderHelper;
     std::map<std::string, std::unique_ptr<ARG_DEFS>> argMap;
     std::vector<std::unique_ptr<argParser>> commandMap;
     std::vector<std::string> posMap;
@@ -1093,16 +1291,13 @@ private:
                 }
             }
         }
-
         if(argMap.find(skey) != argMap.end()){
             return *argMap.find(skey)->second;
         }
-
         throw std::invalid_argument(key + " not defined");
     }
 
     void parsedCheck(const char* func = nullptr) const{
-
         if(func == nullptr){
             func = __func__;
         }
@@ -1112,20 +1307,16 @@ private:
     }
 
     void sanityCheck(const std::string &key, const char* func = nullptr){
-
         if(func == nullptr){
             func = __func__;
         }
-
         if(key.empty()){
             throw std::invalid_argument(std::string(func) + ": Key cannot be empty!");
         }
-
         //Check previous definition
         if(argMap.find(key) != argMap.end()){
             throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
         }
-
         for(auto &x : argMap){
             for(auto &alias : x.second->m_aliases){
                 if(alias == key){
@@ -1139,11 +1330,9 @@ private:
         if(func == nullptr){
             func = __func__;
         }
-
         auto charValid = [](int c) -> bool{
             return std::isalnum(c) || c == '-' || c == '_';
         };
-
         auto c = std::find_if_not(key.begin(), key.end(), charValid);
         auto s = key.find(' ');
         if(c != key.end()){
@@ -1261,7 +1450,7 @@ private:
             auto mismatch = std::string::npos;
             for(auto &it : argMap){
                 auto tmp = strMismatch(name, it.first);
-                //check aliases as well
+                //check m_aliases as well
                 for(const auto &al : it.second->m_aliases){
                     auto tmp2 = strMismatch(name, al);
                     if(tmp2 < tmp) tmp = tmp2;
@@ -1315,7 +1504,7 @@ private:
             if(c != std::string::npos){
                 pValue = " " + pName.substr(c+1); //treat string after '=' as value anyway
                 pName = pName.substr(0, c);
-                //change current key and insert value to vector
+                //change current m_key and insert value to vector
                 insertKeyValue(pName, pValue);
                 // check arg name on the next iteration
                 index--;
@@ -1331,7 +1520,7 @@ private:
                     break;
                 }
                 else if(!name.empty()){
-                    // change alias to key
+                    // change alias to m_key
                     pName = name;
                     argVec[index] = name;
                     index += argMap[name]->mandatory_options; //skip mandatory opts
@@ -1371,7 +1560,7 @@ private:
             }
 
             if(pName == HELP_NAME){
-                // if found help key, break
+                // if found help m_key, break
                 break;
             }
         }
@@ -1382,7 +1571,7 @@ private:
             std::string pName = argVec[index];
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
 
-            ///If found unknown key
+            ///If found unknown m_key
             if(argMap.find(pName) == argMap.end()){
                 ///Check if it's an arg with a typo
                 auto proposed_value = closestKey(pName);
@@ -1484,7 +1673,7 @@ private:
                        && left <= positional_places){
                         break;
                     }
-                    //check if next value is also a key
+                    //check if next value is also a m_key
                     bool next_is_key = (argMap.find(argVec[cnt]) != argMap.end());
                     if(next_is_key){
                         break;
