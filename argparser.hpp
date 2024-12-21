@@ -714,24 +714,20 @@ class OptionBuilderHelper {
 protected:
     std::string m_key;
     std::vector<std::string> m_aliases;
-    std::map<std::string, std::unique_ptr<ARG_DEFS>> *m_map_ptr;
-    std::vector<std::string> *m_pos_map;
     std::string m_last_mandatory_arg;
     int m_mandatory_args = 0;
     std::vector<std::string> m_opts;
     std::string m_strType;
     bool m_is_implicit = false;
     bool m_has_callable = false;
-    bool m_is_positional = false;
+    std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> m_callback;
 
     OptionBuilderHelper(std::string &&key,
                         std::vector<std::string> &&aliases,
-                        std::map<std::string, std::unique_ptr<ARG_DEFS>> *mp,
-                        std::vector<std::string> *pos_map)
+                        std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> &&callback)
                         : m_key(std::move(key)),
                           m_aliases(std::move(aliases)),
-                          m_map_ptr(mp),
-                          m_pos_map(pos_map){}
+                          m_callback(std::move(callback)){}
 
     ARG_DEFS &CreateArg(BaseOption *option) {
 
@@ -756,12 +752,7 @@ protected:
         arg->mandatory_options = m_mandatory_args;
 //        arg->m_date_format = DEFAULT_DATE_FORMAT;
         arg->m_aliases = std::move(m_aliases);
-        arg->m_positional = m_is_positional;
-        m_map_ptr->insert(std::make_pair(m_key, std::move(arg)));
-        if (m_is_positional){
-            m_pos_map->push_back(m_key);
-        }
-        return *m_map_ptr->at(m_key);
+        return m_callback(std::move(arg));
     }
 };
 
@@ -774,7 +765,7 @@ protected:
 
     // add new component
     template<typename NewType>
-    auto add(NewType &&newComponent) {
+    auto addComponent(NewType &&newComponent) {
         return OptionBuilder<Types..., NewType>(
                 this, // pass current obj pointer further to create a new object with already existing data
                 std::tuple_cat(std::move(components), std::make_tuple(std::forward<NewType>(newComponent))
@@ -785,10 +776,9 @@ public:
     // ctor
     explicit OptionBuilder(std::string &&key,
                            std::vector<std::string> &&aliases,
-                           std::map<std::string, std::unique_ptr<ARG_DEFS>> *mp,
-                           std::vector<std::string> *pos_map,
+                           std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> &&callback,
                            std::tuple<Types...> &&comps)
-            : OptionBuilderHelper(std::move(key), std::move(aliases), mp, pos_map),
+            : OptionBuilderHelper(std::move(key), std::move(aliases), std::move(callback)),
             components(std::move(comps)){}
     // 'move' ctor
     explicit OptionBuilder(OptionBuilderHelper *prev, std::tuple<Types...> &&comps)
@@ -831,7 +821,7 @@ public:
             }
         }
 
-        return add(std::make_tuple(strArgs...));
+        return addComponent(std::make_tuple(strArgs...));
     }
     // add callable and side args (if any)
     template<typename Callable, typename... SideArgs>
@@ -839,10 +829,10 @@ public:
         static_assert(std::tuple_size_v<decltype(components)> > 1, "SetParameters() must be called first");
         static_assert(std::tuple_size_v<decltype(components)> < 3, "Callable already set");
         m_has_callable = true;
-        return add(std::make_tuple(
+        return addComponent(std::make_tuple(
                 std::forward<Callable>(callable),
                 std::make_tuple(std::forward<SideArgs>(sideArgs)...))
-                );
+        );
     }
 
     // finalize and get to runtime params
@@ -855,8 +845,6 @@ public:
         const bool has_callable = comp_size > 2;
         /// get template type string
         m_strType = parser_internal::GetTypeName<VType>();
-        //todo: something better?
-        m_is_positional = m_pos_map != nullptr; // if null, it's not positional
         // if there are string params
         if constexpr (comp_size > 1) {
             auto str_params = std::get<1>(components); // string params
@@ -926,11 +914,15 @@ public:
             }
         }
 
+        auto callback = [this,m_key=key](std::unique_ptr<ARG_DEFS> &&arg) -> ARG_DEFS& {
+            argMap[m_key] = std::move(arg);
+            return *argMap[m_key];
+        };
+
         return OptionBuilder<T>(
                 std::move(key),
                 std::move(aliases),
-                &argMap,
-                nullptr, //no need for pos map here todo: better?
+                std::forward<decltype(callback)>(callback),
                 std::make_tuple(T{})
         );
     }
@@ -958,11 +950,18 @@ public:
         if(key.front() == '-'){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot start with '-'");
         }
+
+        auto callback = [this,m_key=key](std::unique_ptr<ARG_DEFS> &&arg) -> ARG_DEFS& {
+            arg->m_positional = true;
+            argMap[m_key] = std::move(arg);
+            posMap.push_back(m_key);
+            return *argMap[m_key];
+        };
+
         return OptionBuilder<T>(
                 std::move(key),
                 std::vector<std::string>(),
-                &argMap,
-                &posMap,
+                std::forward<decltype(callback)>(callback),
                 std::make_tuple(T{})
         ).SetParameters(ckey); // set single parameter for positional
     }
