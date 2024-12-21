@@ -333,9 +333,7 @@ private:
     }
     void parse_common(const std::string *args, int size){
         if constexpr(not_void() && has_action()) {
-            auto && func_and_side_args = std::get<2>(targs);
-            auto && func = std::get<0>(func_and_side_args); // function
-            auto && side_args = std::get<1>(func_and_side_args); // arguments in a tuple
+            auto && [func, side_args] = std::get<2>(targs);
             if constexpr(STR_ARGS > 0) {
                 // create array of STR_ARGS size
                 std::array<const char*, STR_ARGS> str_arr {};
@@ -842,11 +840,12 @@ public:
         const size_t comp_size = std::tuple_size_v<decltype(components)>;
         static_assert(comp_size > 0, "Should have at least 1 component");
         const bool implicit = comp_size == 0;
+        const bool has_params = comp_size > 1;
         const bool has_callable = comp_size > 2;
         /// get template type string
         m_strType = parser_internal::GetTypeName<VType>();
         // if there are string params
-        if constexpr (comp_size > 1) {
+        if constexpr (has_params) {
             auto str_params = std::get<1>(components); // string params
             const size_t str_params_size = std::tuple_size_v<decltype(str_params)>;
             // if function not provided
