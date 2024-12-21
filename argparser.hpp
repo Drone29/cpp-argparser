@@ -715,6 +715,7 @@ protected:
     std::string m_key;
     std::vector<std::string> m_aliases;
     std::map<std::string, std::unique_ptr<ARG_DEFS>> *m_map_ptr;
+    std::vector<std::string> *m_pos_map;
     std::string m_last_mandatory_arg;
     int m_mandatory_args = 0;
     std::vector<std::string> m_opts;
@@ -725,11 +726,13 @@ protected:
 
     OptionBuilderHelper(std::string &&key,
                         std::vector<std::string> &&aliases,
-                        std::map<std::string, std::unique_ptr<ARG_DEFS>> *mp)
+                        std::map<std::string, std::unique_ptr<ARG_DEFS>> *mp,
+                        std::vector<std::string> *pos_map)
                         : m_key(std::move(key)),
                           m_aliases(std::move(aliases)),
-                          m_map_ptr(mp) {
-    }
+                          m_map_ptr(mp),
+                          m_pos_map(pos_map){}
+
     ARG_DEFS &CreateArg(BaseOption *option) {
 
         bool flag = m_key[0] == '-';
@@ -751,11 +754,13 @@ protected:
         arg->m_implicit = m_is_implicit;
         arg->m_starts_with_minus = starts_with_minus;
         arg->mandatory_options = m_mandatory_args;
-        arg->m_date_format = DEFAULT_DATE_FORMAT;
+//        arg->m_date_format = DEFAULT_DATE_FORMAT;
         arg->m_aliases = std::move(m_aliases);
         arg->m_positional = m_is_positional;
         m_map_ptr->insert(std::make_pair(m_key, std::move(arg)));
-
+        if (m_is_positional){
+            m_pos_map->push_back(m_key);
+        }
         return *m_map_ptr->at(m_key);
     }
 };
@@ -781,8 +786,9 @@ public:
     explicit OptionBuilder(std::string &&key,
                            std::vector<std::string> &&aliases,
                            std::map<std::string, std::unique_ptr<ARG_DEFS>> *mp,
+                           std::vector<std::string> *pos_map,
                            std::tuple<Types...> &&comps)
-            : OptionBuilderHelper(std::move(key), std::move(aliases), mp),
+            : OptionBuilderHelper(std::move(key), std::move(aliases), mp, pos_map),
             components(std::move(comps)){}
     // 'move' ctor
     explicit OptionBuilder(OptionBuilderHelper *prev, std::tuple<Types...> &&comps)
@@ -798,7 +804,7 @@ public:
         }
         static_assert(std::tuple_size_v<decltype(components)> < 2, "Params already set");
         m_opts = {strArgs...};
-        m_is_implicit = sizeof...(strArgs) == 0;
+        m_is_implicit = m_opts.empty();
         //todo: handle special nargs?
         std::string m_last_arbitrary_arg;
         for(const auto & sopt : m_opts){
@@ -828,7 +834,6 @@ public:
         return add(std::make_tuple(strArgs...));
     }
     // add callable and side args (if any)
-    //todo: not working (only regular functions)
     template<typename Callable, typename... SideArgs>
     auto SetCallable(Callable && callable, SideArgs ...sideArgs) {
         static_assert(std::tuple_size_v<decltype(components)> > 1, "SetParameters() must be called first");
@@ -850,6 +855,8 @@ public:
         const bool has_callable = comp_size > 2;
         /// get template type string
         m_strType = parser_internal::GetTypeName<VType>();
+        //todo: something better?
+        m_is_positional = m_pos_map != nullptr; // if null, it's not positional
         // if there are string params
         if constexpr (comp_size > 1) {
             auto str_params = std::get<1>(components); // string params
@@ -923,6 +930,7 @@ public:
                 std::move(key),
                 std::move(aliases),
                 &argMap,
+                nullptr, //no need for pos map here todo: better?
                 std::make_tuple(T{})
         );
     }
@@ -954,6 +962,7 @@ public:
                 std::move(key),
                 std::vector<std::string>(),
                 &argMap,
+                &posMap,
                 std::make_tuple(T{})
         ).SetParameters(ckey); // set single parameter for positional
     }
