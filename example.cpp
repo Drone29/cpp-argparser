@@ -45,11 +45,12 @@ int main(int argc, char *argv[]) {
 
     argParser parser("program_name", "this program does some pretty useful stuff");
     parser.addArgument<int>("--integer", "-i")
-            .SetParameters("int")
+            .SetParameters("int") //todo: should be possible to set callable with no params
             .SetCallable([](auto a, auto a1){
                 return a + (int)strtol(a1, nullptr, 0);
             }, 4)
             .Finalize()
+//            .nargs(0)
             .help("some int parameter");
     int posint;
     parser.addPositional<int>("posint")
@@ -61,6 +62,15 @@ int main(int argc, char *argv[]) {
             .help("positional with nargs")
             .nargs(0, -1); //todo: narg(0) - what to do?
 
+    // todo: check for positionals
+    // nargs(0)
+    // nargs(1)
+    // nargs(2)
+    // nargs(0,1)
+    // nargs(0,2)
+    // nargs(0,-1)
+    // nargs(1,-1)
+    // nargs(2,-1)
     parser.parseArgs(argc, argv);
 
     /// End Playground

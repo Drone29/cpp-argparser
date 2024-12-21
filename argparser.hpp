@@ -247,6 +247,12 @@ protected:
     std::any anyval;
 };
 
+//todo: add size_t CONFIG param:
+//CONFIG_PARAMETERS_SET = 1
+//CONFIG_FUNCTION_SET = 2
+//in this case, if CONFIG == 3, then both are set, has_function = true, func idx = 2
+//if CONFIG == 1, then no function is present, has_function = false
+//if CONFIG == 2, then no params are present, has_function = true, func idx = 1
 template <typename T, size_t STR_ARGS, typename...Targs>
 class DerivedOption : public BaseOption{
 private:
@@ -333,7 +339,7 @@ private:
     }
     void parse_common(const std::string *args, int size){
         if constexpr(not_void() && has_action()) {
-            auto && [func, side_args] = std::get<2>(targs);
+            auto && [func, side_args] = std::get<2>(targs); //todo: derive index from CONFIG
             if constexpr(STR_ARGS > 0) {
                 // create array of STR_ARGS size
                 std::array<const char*, STR_ARGS> str_arr {};
@@ -791,6 +797,7 @@ public:
         if constexpr (sizeof...(strArgs) > 0) {
             static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
         }
+        //todo: check CONFIG
         static_assert(std::tuple_size_v<decltype(components)> < 2, "Params already set");
         m_opts = {strArgs...};
         m_is_implicit = m_opts.empty();
@@ -825,7 +832,9 @@ public:
     // add callable and side args (if any)
     template<typename Callable, typename... SideArgs>
     auto SetCallable(Callable && callable, SideArgs ...sideArgs) {
+        //todo: remove
         static_assert(std::tuple_size_v<decltype(components)> > 1, "SetParameters() must be called first");
+        //todo: check CONFIG
         static_assert(std::tuple_size_v<decltype(components)> < 3, "Callable already set");
         m_has_callable = true;
         return addComponent(std::make_tuple(
