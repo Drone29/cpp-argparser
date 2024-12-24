@@ -1533,13 +1533,14 @@ private:
                 hidden_args++;
             }
         }
-        for(auto &x : posMap){
-            auto &arg = argMap[x];
-            if(arg->is_variadic() || arg->get_nargs() > 0){
-                positional_places += arg->mandatory_options;
-            }else{
-                positional_places += 1;
-            }
+        for(const auto &x : posMap){
+            const auto &arg = argMap[x];
+            positional_places += arg->mandatory_options;
+//            if(arg->is_variadic() || arg->get_nargs() > 0){ //todo: single pos arbitrary narg
+//                positional_places += arg->mandatory_options;
+//            }else{
+//                positional_places += 1;
+//            }
         }
 
         mandatory_option = mandatory_args || required_args;
