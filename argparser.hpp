@@ -885,7 +885,7 @@ public:
             m_last_mandatory_arg = "NARG"; //force check to pass
         };
 
-        static_assert(!(FRO == 0 && TO == 0), "NArgs cannot be zero!");
+        static_assert(FRO != 0 || TO != 0, "NArgs cannot be zero!");
 
         //if single parameter provided, it's ok
         if constexpr (STR_PARAM_IDX > 0) {
