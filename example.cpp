@@ -53,6 +53,8 @@ int main(int argc, char *argv[]) {
             })
             .Finalize();
 
+    parser.parseArgs(argc, argv);
+
 //    /**
 //     *  Args with implicit values
 //     *

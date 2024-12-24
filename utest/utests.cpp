@@ -444,24 +444,6 @@ MYTEST(ChoicesVarPosThrow){
 }
 
 /// Nargs
-// todo: check all possibilities for positionals and regular args
-// nargs(0)
-// nargs(1)
-// nargs(2)
-// nargs(0,1)
-// nargs(0,2)
-// nargs(0,-1)
-// nargs(1,-1)
-// nargs(2,-1)
-
-//MYTEST(NargsZero){
-//    parser.addArgument<int>("-z")
-//            .NArgs<0>()
-//            .Finalize()
-//            .default_value(3);
-//    CallParser({"-z"});
-//    ASSERT_EQ(parser.getValue<int>("-z"), 4) << "Should treat as implicit";
-//}
 
 MYTEST(NargsSingle){
     parser.addArgument<int>("-z")
@@ -484,6 +466,24 @@ MYTEST(NargsSingleArbitraryNotProvided){
             .NArgs<0,1>()
             .Finalize();
     ASSERT_NO_THROW(CallParser({"-z"}));
+}
+
+MYTEST(NargsSingleMandatoryWithParameter){
+    parser.addArgument<int>("-z")
+            .SetParameters("int")
+            .NArgs<1>()
+            .Finalize();
+    CallParser({"-z", "123"});
+    ASSERT_EQ(parser.getValue<int>("-z"), 123);
+}
+
+MYTEST(NargsSingleArbitraryWithParameter){
+    parser.addArgument<int>("-z")
+            .SetParameters("int")
+            .NArgs<0, 1>()
+            .Finalize();
+    CallParser({"-z", "123"});
+    ASSERT_EQ(parser.getValue<int>("-z"), 123);
 }
 
 MYTEST(NargsTwoArbitrary){
