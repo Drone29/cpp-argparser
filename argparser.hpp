@@ -462,7 +462,6 @@ private:
 
     uint8_t get_nargs() override {return nargs;} //todo: int?
 
-    //todo: protected?
     explicit DerivedOption(std::tuple<Targs...> &&tpl) :
             value(),
             action_and_args(std::move(tpl)) {
@@ -535,6 +534,7 @@ struct ARG_DEFS{
     }
     ///only for date_t
     ///specify date format in terms of strptime()
+    //todo: remove?
     ARG_DEFS &date_format(const char *format, bool hide_in_help = false){
         if(option->anyval.type() == typeid(date_t)
            && (m_positional || m_options.size() == 1)){
@@ -716,7 +716,7 @@ protected:
     int m_mandatory_args = 0;
     std::vector<std::string> m_opts;
     std::string m_strType;
-    bool m_is_implicit = false;
+//    bool m_is_implicit = false;
     bool m_has_callable = false;
     std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> m_callback;
 
@@ -731,11 +731,12 @@ protected:
 
         bool flag = m_key[0] == '-';
         bool starts_with_minus = flag;
+        bool is_implicit = m_opts.empty();
 
         if(m_last_mandatory_arg.empty() && !flag){
             throw std::invalid_argument(std::string(__func__) + ": " + m_key + " should have at least 1 mandatory parameter");
         }
-        if (!m_has_callable && !m_is_implicit && m_last_mandatory_arg.empty()) {
+        if (!m_has_callable && !is_implicit && m_last_mandatory_arg.empty()) {
             throw std::invalid_argument(std::string(__func__) + ": " + m_key + " no function provided for arg with arbitrary parameters");
         }
 
@@ -745,7 +746,7 @@ protected:
         arg->option = option;
         arg->m_options = std::move(m_opts);
         arg->m_arbitrary = flag;
-        arg->m_implicit = m_is_implicit;
+        arg->m_implicit = is_implicit;
         arg->m_starts_with_minus = starts_with_minus;
         arg->mandatory_options = m_mandatory_args;
 //        arg->m_date_format = DEFAULT_DATE_FORMAT;
@@ -804,7 +805,6 @@ public:
         static_assert(STR_PARAM_IDX == 0, "Params already set");
         const size_t current_size = std::tuple_size_v<decltype(components)>;
         m_opts = {strArgs...};
-        m_is_implicit = m_opts.empty();
         std::string m_last_arbitrary_arg;
         for(const auto & sopt : m_opts){
             //todo: remove spaces?
@@ -934,8 +934,8 @@ public:
             checkDuplicates(el, __func__);
             checkForbiddenSymbols(el, __func__);
         }
-        auto key = std::move(aliases.front());
-        aliases.erase(aliases.begin());
+        auto key = std::move(aliases.back());
+        aliases.pop_back();
 
         bool flag = key.front() == '-';
         //todo: handle special nargs?
