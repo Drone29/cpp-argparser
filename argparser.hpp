@@ -232,6 +232,7 @@ class BaseOption{
 protected:
     friend class argParser;
     friend struct ARG_DEFS;
+    friend class OptionBuilderHelper;
     BaseOption() = default;
     virtual ~BaseOption() = default;
     virtual void action (const std::string *args, int size, const char *date_format) {} // todo: do not pass date_format?
@@ -712,19 +713,25 @@ class OptionBuilderHelper {
 protected:
     std::string m_key;
     std::vector<std::string> m_aliases;
+    bool m_is_positional;
+    std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> m_callback;
     std::string m_last_mandatory_arg;
-    int m_mandatory_args = 0;
     std::vector<std::string> m_opts;
     std::string m_strType;
 //    bool m_is_implicit = false;
+    int m_mandatory_args = 0;
     bool m_has_callable = false;
-    std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> m_callback;
+    bool m_is_variadic = false;
+    std::string m_narg_name;
+    int m_nargs_size = 0;
 
     OptionBuilderHelper(std::string &&key,
                         std::vector<std::string> &&aliases,
+                        bool is_positional,
                         std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> &&callback)
                         : m_key(std::move(key)),
                           m_aliases(std::move(aliases)),
+                          m_is_positional(is_positional),
                           m_callback(std::move(callback)){}
 
     ARG_DEFS &CreateArg(BaseOption *option) {
@@ -742,6 +749,13 @@ protected:
 
         // Create arg and add to map
         auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(m_key));
+        if (m_is_variadic) {
+            option->make_variadic();
+        }
+        option->set_nargs(m_nargs_size);
+        if(m_is_positional){
+            m_opts.clear();
+        }
         arg->typeStr = std::move(m_strType);
         arg->option = option;
         arg->m_options = std::move(m_opts);
@@ -749,8 +763,11 @@ protected:
         arg->m_implicit = is_implicit;
         arg->m_starts_with_minus = starts_with_minus;
         arg->mandatory_options = m_mandatory_args;
+        arg->m_positional = m_is_positional;
 //        arg->m_date_format = DEFAULT_DATE_FORMAT;
         arg->m_aliases = std::move(m_aliases);
+        arg->m_nargs_var = std::move(m_narg_name);
+
         return m_callback(std::move(arg));
     }
 
@@ -780,15 +797,24 @@ protected:
                 std::tuple_cat(std::move(components), std::make_tuple(std::forward<NewType>(newComponent))
                 ));
     }
+    // just forward existing state further
+    template<size_t FIRST_IDX, size_t SECOND_IDX>
+    auto forwardComponents() {
+        return OptionBuilder<FIRST_IDX, SECOND_IDX, Types...>(
+                this,
+                std::move(components)
+                );
+    }
 
 
 public:
     // ctor
     explicit OptionBuilder(std::string &&key,
                            std::vector<std::string> &&aliases,
+                           bool is_positional,
                            std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> &&callback,
                            std::tuple<Types...> &&comps)
-            : OptionBuilderHelper(std::move(key), std::move(aliases), std::move(callback)),
+            : OptionBuilderHelper(std::move(key), std::move(aliases), is_positional, std::move(callback)),
             components(std::move(comps)){}
     // 'move' ctor
     explicit OptionBuilder(OptionBuilderHelper *prev, std::tuple<Types...> &&comps)
@@ -802,7 +828,7 @@ public:
         if constexpr (sizeof...(strArgs) > 0) {
             static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
         }
-        static_assert(STR_PARAM_IDX == 0, "Params already set");
+        static_assert(STR_PARAM_IDX == 0, "Params or NArgs already set");
         const size_t current_size = std::tuple_size_v<decltype(components)>;
         std::string m_last_arbitrary_arg;
         // func to check options
@@ -838,6 +864,56 @@ public:
         m_opts = {checkOpts(strArgs)...};
 
         return addComponent<current_size, CALLABLE_IDX>(std::make_tuple(strArgs...));
+    }
+
+    // set NArgs
+    auto NArgs(unsigned int from, int to = 0) {
+
+        auto prepareNargs = [this, to, from](){
+            // handle variadic
+            m_is_variadic = to < 0;
+            int max_size = to > int(from) ? to : int(from);
+            if(max_size > 0){
+                m_opts = std::vector<std::string>(max_size, m_narg_name);
+                for(int i = int(from); i < to; ++i){
+                    m_opts[i] = "[" + m_opts[i] + "]";
+                }
+            }
+            m_nargs_size = max_size;
+            m_mandatory_args = from;
+            m_last_mandatory_arg = "NARG"; //force check to pass
+        };
+
+        //if single parameter provided, it's ok
+        if constexpr (STR_PARAM_IDX > 0) {
+            auto str_params = std::get<STR_PARAM_IDX>(components); // string params
+            const size_t str_params_size = std::tuple_size_v<decltype(str_params)>;
+            // provided param is metavar
+            auto &[param_name] = str_params;
+            m_narg_name = param_name;
+            static_assert(str_params_size < 2, "Nargs only applicable to args with 0 or 1 parameters");
+            prepareNargs();
+            return forwardComponents<STR_PARAM_IDX, CALLABLE_IDX>();
+        } else {
+            // provide our own param idx
+            const size_t current_size = std::tuple_size_v<decltype(components)>;
+            m_narg_name = m_key;
+            // convert non-positional to upper case
+            if(!m_is_positional){
+                //remove --
+                while(parser_internal::starts_with("-", m_narg_name)){
+                    m_narg_name.erase(0, 1);
+                }
+                //convert to upper case
+                for(auto &elem : m_narg_name) {
+                    elem = char(std::toupper(elem));
+                }
+            }
+            prepareNargs();
+            return addComponent<current_size, CALLABLE_IDX>(
+                    std::make_tuple(std::make_tuple(m_narg_name.c_str()))
+            );
+        }
     }
 
     // add callable and side args (if any)
@@ -968,6 +1044,7 @@ public:
         return OptionBuilder<0,0,T>(
                 std::move(key),
                 std::move(aliases),
+                false,
                 std::forward<decltype(callback)>(callback),
                 std::make_tuple(T{})
         );
@@ -1008,6 +1085,7 @@ public:
         return OptionBuilder<0,0,T>(
                 std::move(key),
                 std::vector<std::string>(),
+                true,
                 std::forward<decltype(callback)>(callback),
                 std::make_tuple(T{})
         ).SetParameters(ckey); // set single parameter for positional (for size)

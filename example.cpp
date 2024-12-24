@@ -44,6 +44,12 @@ int main(int argc, char *argv[]) {
     int i_val;
     const char *s_val = nullptr;
 
+    /// new NArgs
+    parser.addArgument<int>("-n")
+//            .SetParameters("int")
+            .NArgs(0,1)
+            .Finalize();
+
     /**
      *  Args with implicit values
      *
