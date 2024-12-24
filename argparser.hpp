@@ -867,22 +867,25 @@ public:
     }
 
     // set NArgs
-    auto NArgs(unsigned int from, int to = 0) {
+    template<unsigned int FRO, int TO = 0>
+    auto NArgs() {
 
-        auto prepareNargs = [this, to, from](){
+        auto prepareNargs = [this](){
             // handle variadic
-            m_is_variadic = to < 0;
-            int max_size = to > int(from) ? to : int(from);
+            m_is_variadic = TO < 0;
+            int max_size = TO > int(FRO) ? TO : int(FRO);
             if(max_size > 0){
                 m_opts = std::vector<std::string>(max_size, m_narg_name);
-                for(int i = int(from); i < to; ++i){
+                for(int i = int(FRO); i < TO; ++i){
                     m_opts[i] = "[" + m_opts[i] + "]";
                 }
             }
             m_nargs_size = max_size;
-            m_mandatory_args = from;
+            m_mandatory_args = FRO;
             m_last_mandatory_arg = "NARG"; //force check to pass
         };
+
+        static_assert(!(FRO == 0 && TO == 0), "NArgs cannot be zero!");
 
         //if single parameter provided, it's ok
         if constexpr (STR_PARAM_IDX > 0) {

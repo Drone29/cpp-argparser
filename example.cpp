@@ -47,7 +47,10 @@ int main(int argc, char *argv[]) {
     /// new NArgs
     parser.addArgument<int>("-n")
 //            .SetParameters("int")
-            .NArgs(0,1)
+            .NArgs<0,-1>()
+            .SetCallable([](auto a){
+                return (int)strtol(a, nullptr, 0);
+            })
             .Finalize();
 
     /**
