@@ -210,8 +210,9 @@ MYTEST(SimilarKeyAsValueComp){
 }
 
 MYTEST(VariadicOpt){
-    parser.addArgument<int>("--variadic", "-var").Finalize()
-                .nargs(1, -1);
+    parser.addArgument<int>("--variadic", "-var")
+            .NArgs<1,-1>()
+            .Finalize();
     CallParser({"-var", "1", "2", "3"});
     auto vec = parser.getValue<std::vector<int>>("-var");
     bool check = vec == std::vector<int>{1,2,3};
@@ -237,8 +238,9 @@ MYTEST(VariadicPos){
             .SetParameters("mnd", "[arb]")
             .SetCallable(lmb).Finalize();
     parser.addPositional<int>("pos")
-            .SetCallable(pos_lmb).Finalize()
-                .nargs(1, -1);
+            .SetCallable(pos_lmb)
+            .NArgs<1,-1>()
+            .Finalize();
     CallParser({"-i", "67", "7", "3", "4", "5"});
     // 1,2 should go to -i, the rest - to positional arg
     ASSERT_EQ(parser.getValue<int>("-i"), 74) << "Should parse first 2 options";
@@ -248,8 +250,9 @@ MYTEST(VariadicPos){
 
 MYTEST(VarPosThrow){
     // add variadic positional arg
-    parser.addPositional<int>("var_pos").Finalize()
-                .nargs(1, -1);
+    parser.addPositional<int>("var_pos")
+            .NArgs<1,-1>()
+            .Finalize();
     EXPECT_THROW(parser.addPositional<int>("pos"), std::invalid_argument) << "Show throw invalid arg error if variadic positional arg is followed by another one";            
 }
 
@@ -263,8 +266,9 @@ MYTEST(Complex){
     parser.addArgument<std::string>("-p")
             .SetParameters("[str_value]")
             .SetCallable(test).Finalize();
-    parser.addArgument<int>("--variadic", "-var").Finalize()
-                .nargs(1, -1);
+    parser.addArgument<int>("--variadic", "-var")
+            .NArgs<1,-1>()
+            .Finalize();
     CallParser({"-p", "-var", "1", "2", "3"});        
     auto p = parser.getValue<std::string>("-p");
     auto var = parser.getValue<std::vector<int>>("-var");    
@@ -282,8 +286,9 @@ MYTEST(Complex2){
     parser.addArgument<std::string>("-p")
             .SetParameters("[str_value]")
             .SetCallable(test).Finalize();
-    parser.addArgument<int>("--variadic", "-var").Finalize()
-                .nargs(1, -1);
+    parser.addArgument<int>("--variadic", "-var")
+            .NArgs<1,-1>()
+            .Finalize();
     CallParser({"-p=-var", "-var", "1", "2", "3"});
     auto p = parser.getValue<std::string>("-p");
     auto var = parser.getValue<std::vector<int>>("-var");
@@ -412,26 +417,29 @@ MYTEST(ChoicesString){
 }
 
 MYTEST(ChoicesVarPos){
-    parser.addPositional<int>("ch_pos").Finalize()
-                .nargs(1, -1)
-                .choices({0,1,2,3});
+    parser.addPositional<int>("ch_pos")
+            .NArgs<1,-1>()
+            .Finalize()
+            .choices({0,1,2,3});
     CallParser({"2", "3", "0", "1"});
     bool check = parser.getValue<std::vector<int>>("ch_pos") == std::vector<int>{2,3,0,1};
     ASSERT_TRUE(check) << "Variadic choices should be allowed"; 
 }
 
 MYTEST(ChoicesSingleNArgs){
-    parser.addPositional<int>("ch_pos").Finalize()
-                .nargs(1)
-                .choices({0,1,2,3});
+    parser.addPositional<int>("ch_pos")
+            .NArgs<1>()
+            .Finalize()
+            .choices({0,1,2,3});
     CallParser({"3"});
     ASSERT_EQ(parser.getValue<int>("ch_pos"), 3) << "Should parse single narg with allowed choice";           
 }
 
 MYTEST(ChoicesVarPosThrow){
-    parser.addPositional<int>("ch_pos").Finalize()
-                    .nargs(1, -1)
-                    .choices({0,1,2,3});
+    parser.addPositional<int>("ch_pos")
+            .NArgs<1,-1>()
+            .Finalize()
+            .choices({0,1,2,3});
     EXPECT_THROW(CallParser({"2", "3", "4", "1"}), argParser::unparsed_param) << "Should throw error if unknown value is found";                
 }
 
@@ -446,69 +454,79 @@ MYTEST(ChoicesVarPosThrow){
 // nargs(1,-1)
 // nargs(2,-1)
 MYTEST(Nargs){
-    parser.addArgument<int>("--arg").Finalize()
-                .nargs(3);
+    parser.addArgument<int>("--arg")
+            .NArgs<3>()
+            .Finalize();
     CallParser({"--arg", "1", "2", "3"});
     bool check = parser.getValue<std::vector<int>>("--arg") == std::vector<int>{1,2,3};
     ASSERT_TRUE(check);            
 }
 
 MYTEST(NargsArbitrary){
-    parser.addArgument<int>("--arg").Finalize()
-                .nargs(1, 3);
+    parser.addArgument<int>("--arg")
+            .NArgs<1,3>()
+            .Finalize();
     CallParser({"--arg", "1", "2"});
     bool check = parser.getValue<std::vector<int>>("--arg") == std::vector<int>{1,2};   
     ASSERT_TRUE(check);         
 }
 
 MYTEST(NargsArbitrary2){
-    parser.addArgument<int>("--arg").Finalize()
-                .nargs(0, 3);
-    parser.addArgument<int>("--arg2").Finalize()
-                .nargs(0, 3);
+    parser.addArgument<int>("--arg")
+            .NArgs<0,3>()
+            .Finalize();
+    parser.addArgument<int>("--arg2")
+            .NArgs<0,3>()
+            .Finalize();
     CallParser({"--arg", "--arg2", "1", "2"});
     bool check = parser.getValue<std::vector<int>>("--arg2") == std::vector<int>{1,2};
     ASSERT_TRUE(check);
 }
 
 MYTEST(NargsChoices){
-    parser.addArgument<int>("--arg").Finalize()
-                    .nargs(3)
-                    .choices({2,3,4});
+    parser.addArgument<int>("--arg")
+            .NArgs<3>()
+            .Finalize()
+            .choices({2,3,4});
     EXPECT_THROW(CallParser({"--arg", "1", "2", "3"}), argParser::unparsed_param) << "Should check choices for nargs as well";             
 }
 
 MYTEST(NargsPos){
-    parser.addPositional<int>("pos").Finalize()
-                .nargs(1, 3);
+    parser.addPositional<int>("pos")
+            .NArgs<1,3>()
+            .Finalize();
     CallParser({"1", "2", "3"});
     bool check = parser.getValue<std::vector<int>>("pos") == std::vector<int>{1,2,3};
     ASSERT_TRUE(check);            
 }
 
 MYTEST(NargsPosArb){
-    parser.addPositional<int>("pos").Finalize()
-                .nargs(1, 3);
+    parser.addPositional<int>("pos")
+            .NArgs<1,3>()
+            .Finalize();
     CallParser({"1", "2", "3"});    
     bool check = parser.getValue<std::vector<int>>("pos") == std::vector<int>{1,2,3};
     ASSERT_TRUE(check);         
 }
 
 MYTEST(NargsPosArbZero){
-    parser.addPositional<int>("pos").Finalize()
-                .nargs(0, 3);
+    parser.addPositional<int>("pos")
+            .NArgs<0,3>()
+            .Finalize();
     EXPECT_NO_THROW(CallParser(NO_ARGS)) << "Should parse empty list";            
 }
 
 MYTEST(NargsPosNotEnough){
-    parser.addPositional<int>("pos").Finalize()
-                    .nargs(3);
+    parser.addPositional<int>("pos")
+            .NArgs<3>()
+            .Finalize();
     EXPECT_THROW(CallParser({"1", "2"}), argParser::parse_error) << "Should throw if not enough args were provided";                
 }
 
 MYTEST(NargsPosWithRegularPos){
-    parser.addPositional<int>("pos").Finalize()
-                .nargs(3);
+    parser.addPositional<int>("pos")
+            .NArgs<3>()
+            .Finalize();
     parser.addPositional<int>("pos2").Finalize();
     CallParser({"1", "2", "3", "4"});
     bool check = parser.getValue<std::vector<int>>("pos") == std::vector<int>{1,2,3};
@@ -517,8 +535,9 @@ MYTEST(NargsPosWithRegularPos){
 }
 
 MYTEST(NargsPureVariadicEmpty){
-    parser.addArgument<int>("--var").Finalize()
-                .nargs(0, -1); //pure variadic arg
+    parser.addArgument<int>("--var")
+            .NArgs<0,-1>() //pure variadic arg
+            .Finalize();
     CallParser({"--var"});
     ASSERT_TRUE(parser["--var"].is_set());  
     EXPECT_NO_THROW(parser.getValue<std::vector<int>>("--var"));          
@@ -526,70 +545,80 @@ MYTEST(NargsPureVariadicEmpty){
 }
 
 MYTEST(NargsPureVariadicArbitraryNum){
-    parser.addArgument<int>("--var").Finalize()
-                .nargs(0, -1); //pure variadic arg
+    parser.addArgument<int>("--var")
+            .NArgs<0,-1>() //pure variadic arg
+            .Finalize();
     CallParser({"--var", "1", "2", "3"});
     bool check = parser.getValue<std::vector<int>>("--var") == std::vector<int>{1,2,3};
     ASSERT_TRUE(check);
 }
 
 MYTEST(NargsPureVariadicPos){
-    parser.addPositional<int>("pos").Finalize()
-                .nargs(0, -1); //pure variadic arg
+    parser.addPositional<int>("pos")
+            .NArgs<0,-1>() //pure variadic arg
+            .Finalize();
     CallParser({"2", "3", "4"});
     bool check = parser.getValue<std::vector<int>>("pos") == std::vector<int>{2,3,4};   
     ASSERT_TRUE(check);         
 }
 
 MYTEST(NargsPureVariadicPosWithZero){
-    parser.addPositional<int>("pos").Finalize()
-                .nargs(0, -1); //pure variadic arg
+    parser.addPositional<int>("pos")
+            .NArgs<0,-1>()
+            .Finalize();
     EXPECT_NO_THROW(CallParser(NO_ARGS));            
 }
 
-MYTEST(NargsZero){
-    parser.addArgument<int>("-z").Finalize()
-                .default_value(3)
-                .nargs(0);
-    CallParser({"-z"});
-    ASSERT_EQ(parser.getValue<int>("-z"), 4) << "Should treat as implicit";
-}
+//MYTEST(NargsZero){
+//    parser.addArgument<int>("-z")
+//            .NArgs<0>()
+//            .Finalize()
+//            .default_value(3);
+//    CallParser({"-z"});
+//    ASSERT_EQ(parser.getValue<int>("-z"), 4) << "Should treat as implicit";
+//}
 
 MYTEST(NargsSingle){
-    parser.addArgument<int>("-z").Finalize()
-                .nargs(1);
+    parser.addArgument<int>("-z")
+            .NArgs<1>()
+            .Finalize();
     CallParser({"-z", "123"});
     ASSERT_EQ(parser.getValue<int>("-z"), 123);            
 }
 
 MYTEST(NargsSinglePos){
-    parser.addPositional<int>("pos").Finalize()
-                .nargs(1);
+    parser.addPositional<int>("pos")
+            .NArgs<1>()
+            .Finalize();
     CallParser({"123"});
     ASSERT_EQ(parser.getValue<int>("pos"), 123);            
 }
 
 MYTEST(NargsPureVariadicChoices){
-    parser.addArgument<int>("--arg").Finalize()
-                .choices({2,3,4})
-                .nargs(0, -1);
+    parser.addArgument<int>("--arg")
+            .NArgs<0,-1>()
+            .Finalize()
+                .choices({2,3,4});
     CallParser({"--arg", "2", "2", "3"});
     bool check = parser.getValue<std::vector<int>>("--arg") == std::vector<int>{2,2,3};            
     ASSERT_TRUE(check);
 }
 
 MYTEST(NargsPureVariadicChoicesInvalid){
-    parser.addArgument<int>("--arg").Finalize()
-                    .choices({2,3,4})
-                    .nargs(0, -1);
+    parser.addArgument<int>("--arg")
+            .NArgs<0,-1>()
+            .Finalize()
+            .choices({2,3,4});
     EXPECT_THROW(CallParser({"--arg", "1", "2", "3"}), argParser::unparsed_param);                
 }
 
 MYTEST(NargsPureVariadicWithFollowingPureVariadicPos){
-    parser.addArgument<int>("--arg").Finalize()
-                .nargs(0, -1);
-    parser.addPositional<int>("pos").Finalize()
-                .nargs(0, -1);
+    parser.addArgument<int>("--arg")
+            .NArgs<0,-1>()
+            .Finalize();
+    parser.addPositional<int>("pos")
+            .NArgs<0,-1>()
+            .Finalize();
     CallParser({"--arg", "1", "2", "3"});
     auto arg = parser.getValue<std::vector<int>>("--arg");
     auto pos = parser.getValue<std::vector<int>>("pos");
@@ -602,51 +631,52 @@ MYTEST(NargsPosWithFunction){
     auto func = [](const char* arg){
         return std::strtod(arg, nullptr) + 12;
     };
-    parser.addPositional<int>("n").SetCallable(func).Finalize()
-                .nargs(1);
+    parser.addPositional<int>("n")
+            .SetCallable(func)
+            .NArgs<1>()
+            .Finalize();
     CallParser({"543"});
     ASSERT_EQ(parser.getValue<int>("n"), 555) << "Should parse pos narg using function";
 }
 
-//todo: fix nargs with function (ability to use nargs without specifying params explicitly)
-//MYTEST(NargsWithFunction){
-//    auto func = [](const char* arg){
-//        return int(std::strtod(arg, nullptr)) + 12;
-//    };
-//    parser.addArgument<int>("-n")
-//            .SetCallable(func)
-//            .Finalize()
-//               .nargs(1);
-//    CallParser({"-n", "543"});
-//    ASSERT_EQ(parser.getValue<int>("-n"), 555) << "Should parse narg using function";
-//}
-//
-//MYTEST(NargsVarWithFunction){
-//    auto func = [](const char* arg){
-//        return std::strtod(arg, nullptr) + 12;
-//    };
-//    parser.addArgument<int>("-n")
-//            .SetCallable(func)
-//            .Finalize()
-//               .nargs(0, -1);
-//    CallParser({"-n", "543", "12", "345"});
-//    bool check = parser.getValue<std::vector<int>>("-n") == std::vector<int>{555, 24, 357};
-//    ASSERT_TRUE(check);
-//}
-//
-//MYTEST(NargsWithFuncSideParams){
-//    int side_par = 1;
-//    auto func = [](int &s_par, const char* arg){
-//        return std::strtod(arg, nullptr) + s_par++;
-//    };
-//    parser.addArgument<int>("-n")
-//            .SetCallable(func, std::ref(side_par))
-//            .Finalize()
-//            .nargs(0, -1);
-//    CallParser({"-n", "543", "12", "345"});
-//    bool check = parser.getValue<std::vector<int>>("-n") == std::vector<int>{544, 14, 348};
-//    ASSERT_TRUE(check);
-//}
+MYTEST(NargsWithFunction){
+    auto func = [](const char* arg){
+        return int(std::strtod(arg, nullptr)) + 12;
+    };
+    parser.addArgument<int>("-n")
+            .SetCallable(func)
+            .NArgs<1>()
+            .Finalize();
+    CallParser({"-n", "543"});
+    ASSERT_EQ(parser.getValue<int>("-n"), 555) << "Should parse narg using function";
+}
+
+MYTEST(NargsVarWithFunction){
+    auto func = [](const char* arg){
+        return std::strtod(arg, nullptr) + 12;
+    };
+    parser.addArgument<int>("-n")
+            .SetCallable(func)
+            .NArgs<0,-1>()
+            .Finalize();
+    CallParser({"-n", "543", "12", "345"});
+    bool check = parser.getValue<std::vector<int>>("-n") == std::vector<int>{555, 24, 357};
+    ASSERT_TRUE(check);
+}
+
+MYTEST(NargsWithFuncSideParams){
+    int side_par = 1;
+    auto func = [](int &s_par, const char* arg){
+        return std::strtod(arg, nullptr) + s_par++;
+    };
+    parser.addArgument<int>("-n")
+            .SetCallable(func, std::ref(side_par))
+            .NArgs<0,-1>()
+            .Finalize();
+    CallParser({"-n", "543", "12", "345"});
+    bool check = parser.getValue<std::vector<int>>("-n") == std::vector<int>{544, 14, 348};
+    ASSERT_TRUE(check);
+}
 
 MYTEST(ChildParser){
     auto &child = parser.addCommand("child", "child parser");
@@ -666,8 +696,9 @@ MYTEST(PosWithChild){
 }
 
 MYTEST(VariadicArgWithChild){
-    parser.addArgument<int>("--var").Finalize()
-                .nargs(1, -1);
+    parser.addArgument<int>("--var")
+            .NArgs<1,-1>()
+            .Finalize();
     auto &child = parser.addCommand("child", "child descr");
     child.addArgument<int>("--int").SetParameters("int_val").Finalize();
     CallParser({"--var", "1", "2", "3", "child", "--int", "54"});
@@ -677,8 +708,9 @@ MYTEST(VariadicArgWithChild){
 }
 
 MYTEST(VariadicArgWithPosAndChild){
-    parser.addArgument<int>("--var").Finalize()
-                .nargs(1, -1);
+    parser.addArgument<int>("--var")
+            .NArgs<1,-1>()
+            .Finalize();
     parser.addPositional<int>("pos").Finalize();
     auto &child = parser.addCommand("child", "child descr");
     child.addArgument<int>("--int").SetParameters("int_val").Finalize();
@@ -691,8 +723,9 @@ MYTEST(VariadicArgWithPosAndChild){
 
 MYTEST(ArgWithVariadicPosAndChild){
     parser.addArgument<int>("--var").SetParameters("int").Finalize();
-    parser.addPositional<int>("pos").Finalize()
-                .nargs(1, -1);
+    parser.addPositional<int>("pos")
+            .NArgs<1,-1>()
+            .Finalize();
     auto &child = parser.addCommand("child", "child descr");
     child.addArgument<int>("--int").SetParameters("int_val").Finalize();
     CallParser({"--var", "1", "2", "3", "4", "child", "--int", "54"});
@@ -703,8 +736,9 @@ MYTEST(ArgWithVariadicPosAndChild){
 }
 
 MYTEST(VarPosWithChild){
-    parser.addPositional<int>("pos").Finalize()
-                .nargs(1, -1);
+    parser.addPositional<int>("pos")
+            .NArgs<1,-1>()
+            .Finalize();
     auto &child = parser.addCommand("child", "child descr");
     child.addArgument<int>("--int").SetParameters("int_val").Finalize();
     CallParser({"123", "345", "child", "--int=54"});

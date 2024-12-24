@@ -567,48 +567,48 @@ struct ARG_DEFS{
         return *this;
     }
     /// nargs
-    ARG_DEFS &nargs(uint8_t from, int8_t to = 0, const std::string &metavar = "") {
-        if(!m_options.empty()){
-            throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs can be applied only to args with 0 parameters");
-        }
-
-        std::string narg_name;
-        if(metavar.empty()){
-            narg_name = m_name;
-            // convert non-positional to upper case
-            if(!m_positional){
-                //remove --
-                while(parser_internal::starts_with("-", narg_name)){
-                    narg_name.erase(0, 1);
-                }
-                //convert to upper case
-                for(auto &elem : narg_name) {
-                    elem = std::toupper(elem);
-                }
-            }
-        }else{
-            //todo: metavar in help?
-            narg_name = metavar;
-        }
-
-        // handle variadic
-        if(to < 0){
-            option->make_variadic();
-        }
-
-        int max_size = to > from ? to : from;
-        if(max_size > 0){
-            m_options = std::vector<std::string>(max_size, narg_name);
-            for(int i = from; i < to; ++i){
-                m_options[i] = "[" + m_options[i] + "]";
-            }
-        }
-
-        mandatory_options = from;
-        option->set_nargs(max_size);
-        m_nargs_var = narg_name;
-        return *this;
-    }
+//    ARG_DEFS &nargs(uint8_t from, int8_t to = 0, const std::string &metavar = "") {
+//        if(!m_options.empty()){
+//            throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs can be applied only to args with 0 parameters");
+//        }
+//
+//        std::string narg_name;
+//        if(metavar.empty()){
+//            narg_name = m_name;
+//            // convert non-positional to upper case
+//            if(!m_positional){
+//                //remove --
+//                while(parser_internal::starts_with("-", narg_name)){
+//                    narg_name.erase(0, 1);
+//                }
+//                //convert to upper case
+//                for(auto &elem : narg_name) {
+//                    elem = std::toupper(elem);
+//                }
+//            }
+//        }else{
+//            //todo: metavar in help?
+//            narg_name = metavar;
+//        }
+//
+//        // handle variadic
+//        if(to < 0){
+//            option->make_variadic();
+//        }
+//
+//        int max_size = to > from ? to : from;
+//        if(max_size > 0){
+//            m_options = std::vector<std::string>(max_size, narg_name);
+//            for(int i = from; i < to; ++i){
+//                m_options[i] = "[" + m_options[i] + "]";
+//            }
+//        }
+//
+//        mandatory_options = from;
+//        option->set_nargs(max_size);
+//        m_nargs_var = narg_name;
+//        return *this;
+//    }
 
     [[nodiscard]] bool is_set() const{
         return m_set;
