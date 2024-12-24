@@ -1,6 +1,5 @@
 #include <iostream>
 #include "argparser.hpp"
-#include "test.h"
 
 std::string test(const char* a){
     if(a == nullptr){
@@ -23,17 +22,6 @@ CL createStruct(const char *bl, const char *itgr = nullptr){
     bool b = argParser::scanValue<bool>(bl);
     int i = argParser::scanValue<int>(itgr);
     return CL{b, i};
-}
-
-template <typename T, typename Tuple, std::size_t Index = 0>
-constexpr std::size_t findIndex() {
-    if constexpr (Index == std::tuple_size_v<Tuple>) {
-        return std::size_t(-1); // Not found
-    } else if constexpr (std::is_same_v<T, std::tuple_element_t<Index, Tuple>>) {
-        return Index;
-    } else {
-        return findIndex<T, Tuple, Index + 1>();
-    }
 }
 
 int main(int argc, char *argv[]) {

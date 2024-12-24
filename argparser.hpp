@@ -32,9 +32,6 @@
 /// help self-explanation
 #define HELP_GENERIC_MESSAGE \
     "Show this message and exit. " HELP_PARAM_EXPLANATION
-/// callable macro, handles both function pointers and lambdas
-#define CALLABLE(Callable) std::conditional_t<std::is_function_v<Callable>, \
-        std::add_pointer_t<Callable>, Callable>
 /// bool parsable strings
 constexpr const char* BOOL_POSITIVES[] = {"true", "1", "yes", "on", "enable"};
 constexpr const char* BOOL_NEGATIVES[] = {"false", "0", "no", "off", "disable"};
@@ -56,24 +53,10 @@ constexpr size_t MAX_ARGS = 10;
 /// magic number for options array in addArgument
 constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
 
-//constexpr const char *S_ARG_DUMMY = "";
-/// Useful m_aliases ///
-/// identifier for implicit argument
-//static const char * const NO_ARGS[OPTS_SZ_MAGIC] = {};
-/// when used with nargs
-//static const char * const SINGLE_ARG[1] = {S_ARG_DUMMY};
 /// std::tm alias
 using date_t = std::tm;
 
 namespace parser_internal{
-    /// fold expression to check if pack parameters are of the same type S
-    template <typename S, typename ...T>
-    inline constexpr bool are_same_type = (std::is_same_v<S, T> && ...);
-
-    // dummy function for default template parameter
-    void dummy(){}
-
-    using no_action_t = decltype(dummy);
 
     namespace internal
     {
