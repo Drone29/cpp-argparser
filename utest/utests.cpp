@@ -521,6 +521,14 @@ MYTEST(NargsMandatoryAndVariadicPartial){
     ASSERT_TRUE(check);
 }
 
+MYTEST(NargsTotalLessThanFromButGreaterThanZero){
+    parser.addArgument<int>("-i")
+            .NArgs<3,1>()
+            .Finalize();
+    EXPECT_THROW(CallParser({"-i", "1", "2", "3", "4"}), argParser::parse_error)
+        << "Should ignore second narg param if less than first but > 0";
+}
+
 MYTEST(NargsSinglePosArbitrary){
     parser.addPositional<int>("pos")
             .NArgs<0,1>()
@@ -544,6 +552,14 @@ MYTEST(NargsSinglePosArbitraryWithRegularPos){
         << "Should not allow adding regular positional after positional with arbitrary narg";
     CallParser({"123"});
     ASSERT_EQ(parser.getValue<int>("pos"), 123);
+}
+
+MYTEST(NargsPosTotalLessThanFromButGreaterThanZero){
+    parser.addPositional<int>("pos")
+            .NArgs<3,1>()
+            .Finalize();
+    EXPECT_THROW(CallParser({"1", "2", "3", "4"}), argParser::parse_error)
+                        << "Should ignore second narg param if less than first but > 0";
 }
 
 MYTEST(NargsFixedMandatory){

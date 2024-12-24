@@ -829,11 +829,9 @@ public:
             // handle variadic
             m_is_variadic = TO < 0;
             int max_size = TO > int(FRO) ? TO : int(FRO);
-            if(max_size > 0){
-                m_opts = std::vector<std::string>(max_size, m_narg_name);
-                for(int i = int(FRO); i < TO; ++i){
-                    m_opts[i] = "[" + m_opts[i] + "]";
-                }
+            m_opts = std::vector<std::string>(max_size, m_narg_name);
+            for(int i = int(FRO); i < TO; ++i){
+                m_opts[i] = "[" + m_opts[i] + "]";
             }
             m_nargs_size = max_size;
             m_mandatory_args = FRO;
