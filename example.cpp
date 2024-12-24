@@ -38,17 +38,6 @@ constexpr std::size_t findIndex() {
 
 int main(int argc, char *argv[]) {
 
-//
-//    // todo: check for positionals
-//    // nargs(0)
-//    // nargs(1)
-//    // nargs(2)
-//    // nargs(0,1)
-//    // nargs(0,2)
-//    // nargs(0,-1)
-//    // nargs(1,-1)
-//    // nargs(2,-1)
-
     argParser parser("program_name", "this program does some pretty useful stuff");
 
     int pos_val = 0;

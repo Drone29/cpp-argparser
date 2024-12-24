@@ -436,6 +436,15 @@ MYTEST(ChoicesVarPosThrow){
 }
 
 /// Nargs
+// todo: check all possibilities for positionals and regular args
+// nargs(0)
+// nargs(1)
+// nargs(2)
+// nargs(0,1)
+// nargs(0,2)
+// nargs(0,-1)
+// nargs(1,-1)
+// nargs(2,-1)
 MYTEST(Nargs){
     parser.addArgument<int>("--arg").Finalize()
                 .nargs(3);
@@ -599,35 +608,41 @@ MYTEST(NargsPosWithFunction){
     ASSERT_EQ(parser.getValue<int>("n"), 555) << "Should parse pos narg using function";
 }
 
-//todo: fix nargs with function
+//todo: fix nargs with function (ability to use nargs without specifying params explicitly)
 //MYTEST(NargsWithFunction){
 //    auto func = [](const char* arg){
 //        return int(std::strtod(arg, nullptr)) + 12;
 //    };
-//    parser.addArgument<int>("-n").SetCallable(func).Finalize()
+//    parser.addArgument<int>("-n")
+//            .SetCallable(func)
+//            .Finalize()
 //               .nargs(1);
 //    CallParser({"-n", "543"});
 //    ASSERT_EQ(parser.getValue<int>("-n"), 555) << "Should parse narg using function";
 //}
-
+//
 //MYTEST(NargsVarWithFunction){
 //    auto func = [](const char* arg){
 //        return std::strtod(arg, nullptr) + 12;
 //    };
-//    parser.addArgument<int>("-n").SetCallable(func).Finalize()
+//    parser.addArgument<int>("-n")
+//            .SetCallable(func)
+//            .Finalize()
 //               .nargs(0, -1);
 //    CallParser({"-n", "543", "12", "345"});
 //    bool check = parser.getValue<std::vector<int>>("-n") == std::vector<int>{555, 24, 357};
 //    ASSERT_TRUE(check);
 //}
-
+//
 //MYTEST(NargsWithFuncSideParams){
 //    int side_par = 1;
 //    auto func = [](int &s_par, const char* arg){
 //        return std::strtod(arg, nullptr) + s_par++;
 //    };
-//    parser.addArgument<int>("-n").SetCallable(func, std::ref(side_par)).Finalize()
-//                .nargs(0, -1);
+//    parser.addArgument<int>("-n")
+//            .SetCallable(func, std::ref(side_par))
+//            .Finalize()
+//            .nargs(0, -1);
 //    CallParser({"-n", "543", "12", "345"});
 //    bool check = parser.getValue<std::vector<int>>("-n") == std::vector<int>{544, 14, 348};
 //    ASSERT_TRUE(check);

@@ -56,12 +56,12 @@ constexpr size_t MAX_ARGS = 10;
 /// magic number for options array in addArgument
 constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
 
-constexpr const char *S_ARG_DUMMY = "";
+//constexpr const char *S_ARG_DUMMY = "";
 /// Useful m_aliases ///
 /// identifier for implicit argument
 //static const char * const NO_ARGS[OPTS_SZ_MAGIC] = {};
 /// when used with nargs
-static const char * const SINGLE_ARG[1] = {S_ARG_DUMMY};
+//static const char * const SINGLE_ARG[1] = {S_ARG_DUMMY};
 /// std::tm alias
 using date_t = std::tm;
 
