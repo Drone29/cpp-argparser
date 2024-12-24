@@ -247,22 +247,14 @@ protected:
     std::any anyval;
 };
 
-//todo: add size_t CONFIG param:
-//CONFIG_PARAMETERS_SET = 1
-//CONFIG_FUNCTION_SET = 2
-//in this case, if CONFIG == 3, then both are set, has_function = true, func idx = 2
-//if CONFIG == 1, then no function is present, has_function = false
-//if CONFIG == 2, then no params are present, has_function = true, func idx = 1
+//todo: add size_t FUNC_IDX param:
 template <typename T, size_t STR_ARGS, typename...Targs>
 class DerivedOption : public BaseOption{
 private:
     friend class argParser;
 
     T value;
-    // 0 - type T
-    // 1 - tuple(string_args)
-    // 2 - tuple(func, tuple(func_side_args))
-    std::tuple<Targs...> targs;
+    std::tuple<Targs...> action_and_args; //holds action (function, lambda, etc) and side args supplied to it
     T *global = nullptr;
     std::vector<T> choices {};
     bool variadic = false;
@@ -270,8 +262,8 @@ private:
     bool single_narg = false;
 
     [[nodiscard]] static constexpr bool has_action() {
-        // if tuple has 3 args, it has function
-        return std::tuple_size_v<decltype(targs)> > 2;
+        // if tuple is not empty, it has function
+        return std::tuple_size_v<decltype(action_and_args)> > 0;
     }
     [[nodiscard]] static constexpr bool not_void(){
         return !std::is_void_v<T>;
@@ -339,7 +331,8 @@ private:
     }
     void parse_common(const std::string *args, int size){
         if constexpr(not_void() && has_action()) {
-            auto && [func, side_args] = std::get<2>(targs); //todo: derive index from CONFIG
+            // obtain action and side args from tuple
+            auto && [func, side_args] = action_and_args;
             if constexpr(STR_ARGS > 0) {
                 // create array of STR_ARGS size
                 std::array<const char*, STR_ARGS> str_arr {};
@@ -472,7 +465,7 @@ public:
     //todo: protected?
     explicit DerivedOption(std::tuple<Targs...> &&tpl) :
             value(),
-            targs(std::move(tpl)) {
+            action_and_args(std::move(tpl)) {
         anyval = value;
     }
 
@@ -762,19 +755,28 @@ protected:
 };
 
 // option builder
-template<typename... Types>
+template<size_t STR_PARAM_IDX, size_t CALLABLE_IDX, typename... Types>
 class OptionBuilder : public OptionBuilderHelper {
 protected:
     friend class argParser;
     std::tuple<Types...> components;
 
     // add new component
-    template<typename NewType>
+    template<size_t FIRST_IDX, size_t SECOND_IDX, typename NewType>
     auto addComponent(NewType &&newComponent) {
-        return OptionBuilder<Types..., NewType>(
+        return OptionBuilder<FIRST_IDX, SECOND_IDX, Types..., NewType>(
                 this, // pass current obj pointer further to create a new object with already existing data
                 std::tuple_cat(std::move(components), std::make_tuple(std::forward<NewType>(newComponent))
                 ));
+    }
+    // Helper function to forward all types in the tuple
+    template<typename VType, size_t STR_PARAMS, size_t... I, typename TupleType>
+    BaseOption *createOption(std::index_sequence<I...>, TupleType &&t) {
+        return new DerivedOption<
+                VType,
+                STR_PARAMS,
+                std::tuple_element_t<I, TupleType>...
+                >(std::forward<TupleType>(t));
     }
 
 public:
@@ -797,8 +799,8 @@ public:
         if constexpr (sizeof...(strArgs) > 0) {
             static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
         }
-        //todo: check CONFIG
-        static_assert(std::tuple_size_v<decltype(components)> < 2, "Params already set");
+        static_assert(STR_PARAM_IDX == 0, "Params already set");
+        const size_t current_size = std::tuple_size_v<decltype(components)>;
         m_opts = {strArgs...};
         m_is_implicit = m_opts.empty();
         std::string m_last_arbitrary_arg;
@@ -826,18 +828,16 @@ public:
             }
         }
 
-        return addComponent(std::make_tuple(strArgs...));
+        return addComponent<current_size, CALLABLE_IDX>(std::make_tuple(strArgs...));
     }
 
     // add callable and side args (if any)
     template<typename Callable, typename... SideArgs>
     auto SetCallable(Callable && callable, SideArgs ...sideArgs) {
-        //todo: remove
-        static_assert(std::tuple_size_v<decltype(components)> > 1, "SetParameters() must be called first");
-        //todo: check CONFIG
-        static_assert(std::tuple_size_v<decltype(components)> < 3, "Callable already set");
+        static_assert(CALLABLE_IDX == 0, "Callable already set");
+        const size_t current_size = std::tuple_size_v<decltype(components)>;
         m_has_callable = true;
-        return addComponent(std::make_tuple(
+        return addComponent<STR_PARAM_IDX, current_size>(std::make_tuple(
                 std::forward<Callable>(callable),
                 std::make_tuple(std::forward<SideArgs>(sideArgs)...))
         );
@@ -849,31 +849,53 @@ public:
         using VType = decltype(val);
         const size_t comp_size = std::tuple_size_v<decltype(components)>;
         static_assert(comp_size > 0, "Should have at least 1 component");
-        const bool implicit = comp_size == 0;
-        const bool has_params = comp_size > 1;
-        const bool has_callable = comp_size > 2;
+//        const bool implicit = comp_size == 0;
+        const bool has_params = STR_PARAM_IDX > 0;
+        const bool has_callable = CALLABLE_IDX > 0;
         /// get template type string
         m_strType = parser_internal::GetTypeName<VType>();
+        BaseOption *option = nullptr;
+        auto checkScan = [&, func=__func__]() {
+            ///check if default parser for this type is present
+            try{
+                parser_internal::scan<VType>(nullptr);
+            }catch(std::logic_error &e){
+                throw std::invalid_argument(std::string(func) + ": " + m_key + " no default parser for " + m_strType);
+            }catch(std::runtime_error &){
+                //do nothing
+            }
+        };
         // if there are string params
         if constexpr (has_params) {
-            auto str_params = std::get<1>(components); // string params
+            auto str_params = std::get<STR_PARAM_IDX>(components); // string params
             const size_t str_params_size = std::tuple_size_v<decltype(str_params)>;
             // if function not provided
             if constexpr (!has_callable) {
-                static_assert(!implicit || std::is_arithmetic_v<VType>, "Function should be provided for non-arithmetic implicit arg");
-                ///check if default parser for this type is present
-                try{
-                    parser_internal::scan<VType>(nullptr);
-                }catch(std::logic_error &e){
-                    throw std::invalid_argument(std::string(__func__) + ": " + m_key + " no default parser for " + m_strType);
-                }catch(std::runtime_error &){
-                    //do nothing
-                }
+                static_assert(str_params_size < 2, "A parsing function should be provided for arguments with more than 1 parameter");
+                checkScan();
+                option = createOption<VType, str_params_size>
+                        (std::make_index_sequence<0>{}, std::tuple<>()); //empty tuple for no function
+            } else {
+                auto func_tpl = std::get<CALLABLE_IDX>(components);
+                const size_t func_tpl_size = std::tuple_size_v<decltype(func_tpl)>;
+                option = createOption<VType, str_params_size>
+                        (std::make_index_sequence<func_tpl_size>{}, std::move(func_tpl));
             }
-            return CreateArg(new DerivedOption<VType, str_params_size, Types...>(std::move(components)));
         } else {
-            return CreateArg(new DerivedOption<VType, 0, Types...>(std::move(components)));
+            // no params = implicit
+            if constexpr(!has_callable) {
+                static_assert(std::is_arithmetic_v<VType>, "Function should be provided for non-arithmetic implicit arg");
+                checkScan();
+                option = createOption<VType, 0>
+                        (std::make_index_sequence<0>{}, std::tuple<>()); //empty tuple for no function
+            } else {
+                auto func_tpl = std::get<CALLABLE_IDX>(components);
+                const size_t func_tpl_size = std::tuple_size_v<decltype(func_tpl)>;
+                option = createOption<VType, 0>
+                        (std::make_index_sequence<func_tpl_size>{}, std::move(func_tpl));
+            }
         }
+        return CreateArg(option);
     }
 };
 
@@ -928,7 +950,7 @@ public:
             return *argMap[m_key];
         };
 
-        return OptionBuilder<T>(
+        return OptionBuilder<0,0,T>(
                 std::move(key),
                 std::move(aliases),
                 std::forward<decltype(callback)>(callback),
@@ -968,7 +990,7 @@ public:
             return *argMap[m_key];
         };
 
-        return OptionBuilder<T>(
+        return OptionBuilder<0,0,T>(
                 std::move(key),
                 std::vector<std::string>(),
                 std::forward<decltype(callback)>(callback),
@@ -983,13 +1005,13 @@ public:
 //     * @tparam Targs
 //     * @param m_key
 //     * @param func
-//     * @param targs
+//     * @param action_and_args
 //     * @return
 //     */
 //    template <typename T, typename Callable = parser_internal::no_action_t, typename...Targs>
 //    ARG_DEFS &addPositional(const std::string &m_key,
 //                            Callable &&func = parser_internal::dummy,
-//                            const std::tuple<Targs...> &targs = std::tuple<>()){
+//                            const std::tuple<Targs...> &action_and_args = std::tuple<>()){
 //
 //        /// check if variadic pos already defined
 //        for(auto &p : posMap){
@@ -1030,7 +1052,7 @@ public:
 //        arg->typeStr = strType;
 //        arg->m_options = {};
 //        arg->option = new DerivedOption<T, Callable, 1, Targs...>
-//                (std::forward<Callable>(func), targs);
+//                (std::forward<Callable>(func), action_and_args);
 //        arg->m_positional = true;
 //        if(parser_internal::are_same_type<date_t, T>){
 //            arg->m_date_format = DEFAULT_DATE_FORMAT;
@@ -1050,7 +1072,7 @@ public:
 //     * @param names - argument name + m_aliases
 //     * @param opts_arr - array of string options
 //     * @param func - callable itself
-//     * @param targs - tuple with side arguments
+//     * @param action_and_args - tuple with side arguments
 //     * @return - reference to ARG_DEFS struct
 //     */
 //    //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
@@ -1058,7 +1080,7 @@ public:
 //    ARG_DEFS &addArgument(const std::vector<std::string> &names,
 //                          const char * const (&opts_arr)[OPT_SZ] = NO_ARGS,
 //                          Callable &&func = parser_internal::dummy,
-//                          const std::tuple<Targs...> &targs = std::tuple<>()){
+//                          const std::tuple<Targs...> &action_and_args = std::tuple<>()){
 //
 //        constexpr size_t opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
 //        constexpr bool implicit = opt_size == 0; //implicit arg has 0 options
@@ -1163,7 +1185,7 @@ public:
 //        auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(splitKey.m_key));
 //        arg->typeStr = strType;
 //        arg->option = new DerivedOption<T, Callable, opt_size, Targs...>
-//                (std::forward<Callable>(func), targs);
+//                (std::forward<Callable>(func), action_and_args);
 //        arg->m_options = opts;
 //        arg->m_arbitrary = flag;
 //        arg->m_implicit = implicit;
@@ -1188,7 +1210,7 @@ public:
 //    ARG_DEFS &addArgument(const char *m_key,
 //                          const char * const (&opts_arr)[OPT_SZ] = NO_ARGS,
 //                          Callable &&func = parser_internal::dummy,
-//                          const std::tuple<Targs...> &targs = std::tuple<>()){
+//                          const std::tuple<Targs...> &action_and_args = std::tuple<>()){
 //
 //        std::string keys = m_key == nullptr ? "" : std::string(m_key);
 //        std::vector<std::string> vec;
@@ -1215,7 +1237,7 @@ public:
 //        }
 //
 //        return addArgument<T, Callable, OPT_SZ, Targs...>
-//                (vec, opts_arr, std::forward<Callable>(func), targs);
+//                (vec, opts_arr, std::forward<Callable>(func), action_and_args);
 //    }
 
     template <typename T>
