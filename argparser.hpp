@@ -252,6 +252,7 @@ template <typename T, size_t STR_ARGS, typename...Targs>
 class DerivedOption : public BaseOption{
 private:
     friend class argParser;
+    friend class OptionBuilderHelper;
 
     T value;
     std::tuple<Targs...> action_and_args; //holds action (function, lambda, etc) and side args supplied to it
@@ -461,7 +462,6 @@ private:
 
     uint8_t get_nargs() override {return nargs;} //todo: int?
 
-public:
     //todo: protected?
     explicit DerivedOption(std::tuple<Targs...> &&tpl) :
             value(),
@@ -752,6 +752,16 @@ protected:
         arg->m_aliases = std::move(m_aliases);
         return m_callback(std::move(arg));
     }
+
+    // Helper function to forward all types in the tuple
+    template<typename VType, size_t STR_PARAMS, size_t... I, typename TupleType>
+    BaseOption *createOption(std::index_sequence<I...>, TupleType &&t) {
+        return new DerivedOption<
+                VType,
+                STR_PARAMS,
+                std::tuple_element_t<I, TupleType>...
+        >(std::forward<TupleType>(t));
+    }
 };
 
 // option builder
@@ -769,15 +779,7 @@ protected:
                 std::tuple_cat(std::move(components), std::make_tuple(std::forward<NewType>(newComponent))
                 ));
     }
-    // Helper function to forward all types in the tuple
-    template<typename VType, size_t STR_PARAMS, size_t... I, typename TupleType>
-    BaseOption *createOption(std::index_sequence<I...>, TupleType &&t) {
-        return new DerivedOption<
-                VType,
-                STR_PARAMS,
-                std::tuple_element_t<I, TupleType>...
-                >(std::forward<TupleType>(t));
-    }
+
 
 public:
     // ctor
