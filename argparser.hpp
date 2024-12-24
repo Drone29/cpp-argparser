@@ -304,7 +304,9 @@ private:
                 parse_common(args, size);
             }else{
                 // simple scan of single value
-                set(parser_internal::scan<T>(args[0].c_str(), date_format));
+                if (size > 0) {
+                    set(parser_internal::scan<T>(args[0].c_str(), date_format));
+                }
             }
             check_choices();
             return;
@@ -1078,8 +1080,8 @@ public:
         }
 
         auto callback = [this,m_key=key](std::unique_ptr<ARG_DEFS> &&arg) -> ARG_DEFS& {
-            arg->m_positional = true;
-            arg->m_options.clear(); // no opts for positional
+//            arg->m_positional = true;
+//            arg->m_options.clear(); // no opts for positional
             argMap[m_key] = std::move(arg);
             posMap.push_back(m_key);
             return *argMap[m_key];
