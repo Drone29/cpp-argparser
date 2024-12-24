@@ -59,7 +59,7 @@ constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
 constexpr const char *S_ARG_DUMMY = "";
 /// Useful m_aliases ///
 /// identifier for implicit argument
-static const char * const NO_ARGS[OPTS_SZ_MAGIC] = {};
+//static const char * const NO_ARGS[OPTS_SZ_MAGIC] = {};
 /// when used with nargs
 static const char * const SINGLE_ARG[1] = {S_ARG_DUMMY};
 /// std::tm alias
@@ -804,21 +804,25 @@ public:
         }
         static_assert(STR_PARAM_IDX == 0, "Params already set");
         const size_t current_size = std::tuple_size_v<decltype(components)>;
-        m_opts = {strArgs...};
         std::string m_last_arbitrary_arg;
-        for(const auto & sopt : m_opts){
-            //todo: remove spaces?
-            if(sopt.empty()){
-                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " parameter name cannot be empty");
+        // func to check options
+        auto checkOpts = [this, func=__func__, &m_last_arbitrary_arg](const char *k) {
+            if (!k){
+                throw std::invalid_argument("Arg cannot be null!");
             }
+            auto sopt = std::string(k);
+            if (sopt.empty()){
+                throw std::invalid_argument(std::string(func) + ": " + m_key + " parameter name cannot be empty");
+            }
+            //todo: remove spaces?
             if(sopt.front() == ' ' || sopt.back() == ' '){
-                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " parameter " + sopt + " cannot begin or end with space");
+                throw std::invalid_argument(std::string(func) + ": " + m_key + " parameter " + sopt + " cannot begin or end with space");
             }
             if(parser_internal::isOptMandatory(sopt)){
                 m_mandatory_args++;
                 m_last_mandatory_arg = sopt;
                 if(!m_last_arbitrary_arg.empty()){
-                    throw std::invalid_argument(std::string(__func__) + ": " + m_key
+                    throw std::invalid_argument(std::string(func) + ": " + m_key
                                                 + ": arbitrary argument "
                                                 + m_last_arbitrary_arg
                                                 + " cannot be followed by mandatory argument "
@@ -828,7 +832,10 @@ public:
             else{
                 m_last_arbitrary_arg = sopt;
             }
-        }
+            return sopt;
+        };
+        // populate opts
+        m_opts = {checkOpts(strArgs)...};
 
         return addComponent<current_size, CALLABLE_IDX>(std::make_tuple(strArgs...));
     }
@@ -925,15 +932,21 @@ public:
     auto addArgument(Keys ...keys) {
         static_assert(sizeof...(keys) > 0, "Keys' set cannot be empty");
         static_assert((std::is_same_v<Keys, const char*> && ...), "Keys must be strings");
-        auto aliases = std::vector<std::string>{keys...};
-        // checks
-        for(const auto &el : aliases){
-            if(el.empty()){
-                throw std::invalid_argument(std::string(__func__) + ": alias cannot be empty");
+        // sanity checks
+        auto checkKeys = [this, func=__func__](const char *k) {
+            if (!k) {
+                throw std::invalid_argument("Key cannot be null!");
             }
-            checkDuplicates(el, __func__);
-            checkForbiddenSymbols(el, __func__);
-        }
+            auto skey = std::string(k);
+            if (skey.empty()) {
+                throw std::invalid_argument(std::string(func) + ": alias cannot be empty");
+            }
+            checkDuplicates(skey, func);
+            checkForbiddenSymbols(skey, func);
+            return skey;
+        };
+        //populate aliases
+        auto aliases = std::vector<std::string>{checkKeys(keys)...};
         auto key = std::move(aliases.back());
         aliases.pop_back();
 
