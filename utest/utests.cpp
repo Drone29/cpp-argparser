@@ -486,12 +486,39 @@ MYTEST(NargsSingleArbitraryNotProvided){
     ASSERT_NO_THROW(CallParser({"-z"}));
 }
 
-MYTEST(NargsSinglePos){
-    parser.addPositional<int>("pos")
-            .NArgs<1>()
+MYTEST(NargsTwoArbitrary){
+    parser.addArgument<int>("-z")
+            .NArgs<0,2>()
             .Finalize();
-    CallParser({"123"});
-    ASSERT_EQ(parser.getValue<int>("pos"), 123);
+    CallParser({"-z", "123"});
+    bool check = parser.getValue<std::vector<int>>("-z") == std::vector<int>{123};
+    ASSERT_TRUE(check);
+}
+
+MYTEST(NargsTwoArbitraryNotProvided){
+    parser.addArgument<int>("-z")
+            .NArgs<0,2>()
+            .Finalize();
+    ASSERT_NO_THROW(CallParser({"-z"}));
+    ASSERT_TRUE(parser.getValue<std::vector<int>>("-z").empty());
+}
+
+MYTEST(NargsMandatoryAndVariadic){
+    parser.addArgument<int>("-i")
+            .NArgs<1,-1>()
+            .Finalize();
+    EXPECT_NO_THROW(CallParser({"-i", "1", "2", "3"}));
+    bool check = parser.getValue<std::vector<int>>("-i") == std::vector<int>{1,2,3};
+    ASSERT_TRUE(check);
+}
+
+MYTEST(NargsMandatoryAndVariadicPartial){
+    parser.addArgument<int>("-i")
+            .NArgs<2,-1>()
+            .Finalize();
+    EXPECT_NO_THROW(CallParser({"-i", "1", "2"}));
+    bool check = parser.getValue<std::vector<int>>("-i") == std::vector<int>{1,2};
+    ASSERT_TRUE(check);
 }
 
 MYTEST(NargsSinglePosArbitrary){
@@ -507,6 +534,16 @@ MYTEST(NargsSinglePosArbitraryNotProvided){
             .NArgs<0,1>()
             .Finalize();
     EXPECT_NO_THROW(CallParser(NO_ARGS));
+}
+
+MYTEST(NargsSinglePosArbitraryWithRegularPos){
+    parser.addPositional<int>("pos")
+            .NArgs<0,1>()
+            .Finalize();
+    EXPECT_THROW(parser.addPositional<int>("pos2"), std::invalid_argument)
+        << "Should not allow adding regular positional after positional with arbitrary narg";
+    CallParser({"123"});
+    ASSERT_EQ(parser.getValue<int>("pos"), 123);
 }
 
 MYTEST(NargsFixedMandatory){
@@ -547,7 +584,7 @@ MYTEST(NargsChoices){
     EXPECT_THROW(CallParser({"--arg", "1", "2", "3"}), argParser::unparsed_param) << "Should check choices for nargs as well";             
 }
 
-MYTEST(NargsPos){
+MYTEST(NargsPosMandatoryAndArbitrary){
     parser.addPositional<int>("pos")
             .NArgs<1,3>()
             .Finalize();
@@ -556,13 +593,30 @@ MYTEST(NargsPos){
     ASSERT_TRUE(check);            
 }
 
-MYTEST(NargsPosArb){
+MYTEST(NargsPosMandatoryAndArbitraryPartial){
     parser.addPositional<int>("pos")
             .NArgs<1,3>()
             .Finalize();
-    CallParser({"1", "2", "3"});    
+    EXPECT_NO_THROW(CallParser({"1"}));
+    bool check = parser.getValue<std::vector<int>>("pos") == std::vector<int>{1};
+    ASSERT_TRUE(check);
+}
+
+MYTEST(NargsPosMandatoryAndVariadic){
+    parser.addPositional<int>("pos")
+            .NArgs<1,-1>()
+            .Finalize();
+    EXPECT_NO_THROW(CallParser({"1", "2", "3"}));
     bool check = parser.getValue<std::vector<int>>("pos") == std::vector<int>{1,2,3};
-    ASSERT_TRUE(check);         
+    ASSERT_TRUE(check);
+}
+
+MYTEST(NargsSinglePos){
+    parser.addPositional<int>("pos")
+            .NArgs<1>()
+            .Finalize();
+    CallParser({"123"});
+    ASSERT_EQ(parser.getValue<int>("pos"), 123);
 }
 
 MYTEST(NargsPosArbZero){
@@ -629,7 +683,7 @@ MYTEST(NargsPureVariadicChoices){
     parser.addArgument<int>("--arg")
             .NArgs<0,-1>()
             .Finalize()
-                .choices({2,3,4});
+            .choices({2,3,4});
     CallParser({"--arg", "2", "2", "3"});
     bool check = parser.getValue<std::vector<int>>("--arg") == std::vector<int>{2,2,3};            
     ASSERT_TRUE(check);

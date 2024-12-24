@@ -248,7 +248,6 @@ protected:
     std::any anyval;
 };
 
-//todo: add size_t FUNC_IDX param:
 template <typename T, size_t STR_ARGS, typename...Targs>
 class DerivedOption : public BaseOption{
 private:
@@ -568,49 +567,6 @@ struct ARG_DEFS{
         }
         return *this;
     }
-    /// nargs
-//    ARG_DEFS &nargs(uint8_t from, int8_t to = 0, const std::string &metavar = "") {
-//        if(!m_options.empty()){
-//            throw std::logic_error(std::string(__func__) + ": " + m_name + " nargs can be applied only to args with 0 parameters");
-//        }
-//
-//        std::string narg_name;
-//        if(metavar.empty()){
-//            narg_name = m_name;
-//            // convert non-positional to upper case
-//            if(!m_positional){
-//                //remove --
-//                while(parser_internal::starts_with("-", narg_name)){
-//                    narg_name.erase(0, 1);
-//                }
-//                //convert to upper case
-//                for(auto &elem : narg_name) {
-//                    elem = std::toupper(elem);
-//                }
-//            }
-//        }else{
-//            //todo: metavar in help?
-//            narg_name = metavar;
-//        }
-//
-//        // handle variadic
-//        if(to < 0){
-//            option->make_variadic();
-//        }
-//
-//        int max_size = to > from ? to : from;
-//        if(max_size > 0){
-//            m_options = std::vector<std::string>(max_size, narg_name);
-//            for(int i = from; i < to; ++i){
-//                m_options[i] = "[" + m_options[i] + "]";
-//            }
-//        }
-//
-//        mandatory_options = from;
-//        option->set_nargs(max_size);
-//        m_nargs_var = narg_name;
-//        return *this;
-//    }
 
     [[nodiscard]] bool is_set() const{
         return m_set;
@@ -755,9 +711,6 @@ protected:
             option->make_variadic();
         }
         option->set_nargs(m_nargs_size);
-        if(m_is_positional){
-            m_opts.clear();
-        }
         arg->typeStr = std::move(m_strType);
         arg->option = option;
         arg->m_options = std::move(m_opts);
@@ -1032,7 +985,6 @@ public:
         aliases.pop_back();
 
         bool flag = key.front() == '-';
-        //todo: handle special nargs?
 
         for(const auto &el : aliases){
             bool match = el.front() == '-';
@@ -1080,8 +1032,6 @@ public:
         }
 
         auto callback = [this,m_key=key](std::unique_ptr<ARG_DEFS> &&arg) -> ARG_DEFS& {
-//            arg->m_positional = true;
-//            arg->m_options.clear(); // no opts for positional
             argMap[m_key] = std::move(arg);
             posMap.push_back(m_key);
             return *argMap[m_key];
@@ -1095,248 +1045,6 @@ public:
                 std::make_tuple(T{})
         ).SetParameters(ckey); // set single parameter for positional (for size)
     }
-
-//    /**
-//     *
-//     * @tparam T
-//     * @tparam Callable - func/func ptr/lambda (CANNOT RETURN VOID)
-//     * @tparam Targs
-//     * @param m_key
-//     * @param func
-//     * @param action_and_args
-//     * @return
-//     */
-//    template <typename T, typename Callable = parser_internal::no_action_t, typename...Targs>
-//    ARG_DEFS &addPositional(const std::string &m_key,
-//                            Callable &&func = parser_internal::dummy,
-//                            const std::tuple<Targs...> &action_and_args = std::tuple<>()){
-//
-//        /// check if variadic pos already defined
-//        for(auto &p : posMap){
-//            auto &x = argMap[p];
-//            if(x->is_variadic()){
-//                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " cannot add positional argument after variadic positional argument " + p);
-//            }
-//            for(auto &o : x->m_options){
-//                if(!parser_internal::isOptMandatory(o)){
-//                    throw std::invalid_argument(std::string(__func__) + ": " + m_key + " cannot add positional argument after positional argument with arbitrary nargs " + p);
-//                }
-//            }
-//        }
-//        // check if positional name is valid
-//        checkDuplicates(m_key, __func__);
-//        checkForbiddenSymbols(m_key, __func__);
-//        if(!parser_internal::isOptMandatory(m_key)){
-//            throw std::invalid_argument(std::string(__func__) + ": " + m_key + " positional argument cannot be arbitrary");
-//        }
-//        if(m_key.front() == '-'){
-//            throw std::invalid_argument(std::string(__func__) + ": " + m_key + " positional argument cannot start with '-'");
-//        }
-//
-//        /// get template type string
-//        auto strType = parser_internal::GetTypeName<T>();
-//
-//        ///check if default parser for this type is present
-//        if constexpr(std::is_same_v<Callable, parser_internal::no_action_t>){
-//            try{
-//                parser_internal::scan<T>(nullptr);
-//            }catch(std::logic_error &e){
-//                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " no default parser for " + strType);
-//            }catch(std::runtime_error &){
-//                //do nothing
-//            }
-//        }
-//        auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(m_key));
-//        arg->typeStr = strType;
-//        arg->m_options = {};
-//        arg->option = new DerivedOption<T, Callable, 1, Targs...>
-//                (std::forward<Callable>(func), action_and_args);
-//        arg->m_positional = true;
-//        if(parser_internal::are_same_type<date_t, T>){
-//            arg->m_date_format = DEFAULT_DATE_FORMAT;
-//        }
-//
-//        argMap[m_key] = std::move(arg);
-//        posMap.emplace_back(m_key);
-//
-//        return *argMap[m_key];
-//    }
-//    /**
-//     *
-//     * @tparam T - return type
-//     * @tparam Callable - func/func_ptr/lambda type (CANNOT RETURN VOID)
-//     * @tparam OPT_SZ - size of options array (aka function string args) (CANNOT BE MORE THAN OPTS_SZ_MAGIC)
-//     * @tparam Targs - side arguments' types for function/lambda
-//     * @param names - argument name + m_aliases
-//     * @param opts_arr - array of string options
-//     * @param func - callable itself
-//     * @param action_and_args - tuple with side arguments
-//     * @return - reference to ARG_DEFS struct
-//     */
-//    //OPT_SZ cannot be 0 as c++ doesn't support zero-length arrays
-//    template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
-//    ARG_DEFS &addArgument(const std::vector<std::string> &names,
-//                          const char * const (&opts_arr)[OPT_SZ] = NO_ARGS,
-//                          Callable &&func = parser_internal::dummy,
-//                          const std::tuple<Targs...> &action_and_args = std::tuple<>()){
-//
-//        constexpr size_t opt_size = OPT_SZ != OPTS_SZ_MAGIC ? OPT_SZ : 0; // number of options
-//        constexpr bool implicit = opt_size == 0; //implicit arg has 0 options
-//
-//        static_assert(opt_size < MAX_ARGS, "Too many string arguments");
-//
-//        if(names.empty()){
-//            throw std::invalid_argument(std::string(__func__) + ": argument must have a name");
-//        }
-//        for(auto &el : names){
-//            checkDuplicates(el, __func__);
-//            checkForbiddenSymbols(el, __func__);
-//        }
-//
-//        KEY_ALIAS splitKey;
-//        splitKey.m_aliases = {names};
-//        splitKey.m_key = splitKey.m_aliases[0];
-//        // find longest entry in vector, it'll be m_key
-//        auto idx = splitKey.m_aliases.begin();
-//        for(auto it = splitKey.m_aliases.begin(); it != splitKey.m_aliases.end(); ++it){
-//            if((*it).length() > splitKey.m_key.length()){
-//                splitKey.m_key = *it;
-//                idx = it;
-//            }
-//        }
-//        // remove m_key from m_aliases vector
-//        splitKey.m_aliases.erase(idx);
-//
-//        /// create opts vector
-//        std::vector<std::string> opts {};
-//        // opts with size 1 and null is special for nargs,
-//        // leave opts vector empty
-//        if(!(opt_size == 1 && opts_arr[0] == S_ARG_DUMMY)){
-//            /// check for nulls
-//            for(int c = 0; c < opt_size; ++c){
-//                if(opts_arr[c] == nullptr){
-//                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " " +  std::to_string(c) + "th parameter is null");
-//                }
-//            }
-//            // fill vector
-//            opts = {opts_arr, opts_arr + opt_size};
-//        }
-//        /// get template type string
-//        auto strType = parser_internal::GetTypeName<T>();
-//        ///Check for invalid sequence order of arguments
-//        std::string m_last_arbitrary_arg;
-//        std::string m_last_mandatory_arg;
-//        int m_mandatory_args = 0;
-//
-//        for(auto & sopt : opts){
-//            if(sopt.empty()){
-//                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " parameter name cannot be empty");
-//            }
-//            if(sopt.front() == ' ' || sopt.back() == ' '){
-//                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " parameter " + sopt + " cannot begin or end with space");
-//            }
-//
-//            if(parser_internal::isOptMandatory(sopt)){
-//                m_mandatory_args++;
-//                m_last_mandatory_arg = sopt;
-//                if(!m_last_arbitrary_arg.empty()){
-//                    throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key
-//                                                + ": arbitrary argument "
-//                                                + m_last_arbitrary_arg
-//                                                + " cannot be followed by mandatory argument "
-//                                                + sopt);
-//                }
-//            }
-//            else{
-//                m_last_arbitrary_arg = sopt;
-//            }
-//        }
-//
-//        bool flag = splitKey.m_key[0] == '-';
-//        bool starts_with_minus = flag;
-//        for(auto &el : splitKey.m_aliases){
-//            bool match = el[0] == '-';
-//            if (match != flag){
-//                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + ": cannot add alias " + el + ": different type");
-//            }
-//        }
-//
-//        if(m_last_mandatory_arg.empty() && !flag){
-//            throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " should have at least 1 mandatory parameter");
-//        }
-//
-//        if constexpr(std::is_same_v<Callable, parser_internal::no_action_t>){
-//            static_assert(!implicit || std::is_arithmetic_v<T>, "Function should be provided for non-arithmetic implicit arg");
-//            if(!implicit && m_last_mandatory_arg.empty()){
-//                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " no function provided for arg with arbitrary parameters");
-//            }
-//            ///check if default parser for this type is present
-//            try{
-//                parser_internal::scan<T>(nullptr);
-//            }catch(std::logic_error &e){
-//                throw std::invalid_argument(std::string(__func__) + ": " + splitKey.m_key + " no default parser for " + strType);
-//            }catch(std::runtime_error &){
-//                //do nothing
-//            }
-//        }
-//
-//        auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(splitKey.m_key));
-//        arg->typeStr = strType;
-//        arg->option = new DerivedOption<T, Callable, opt_size, Targs...>
-//                (std::forward<Callable>(func), action_and_args);
-//        arg->m_options = opts;
-//        arg->m_arbitrary = flag;
-//        arg->m_implicit = implicit;
-//        arg->m_starts_with_minus = starts_with_minus;
-//        arg->mandatory_options = m_mandatory_args;
-//        if(parser_internal::are_same_type<date_t, T>
-//           && opt_size == 1){
-//            arg->m_date_format = DEFAULT_DATE_FORMAT;
-//        }
-//        argMap[splitKey.m_key] = std::move(arg);
-//
-//        // add m_aliases
-//        for(auto &alias : splitKey.m_aliases){
-//            setAlias(splitKey.m_key, alias);
-//        }
-//
-//        return *argMap[splitKey.m_key];
-//    }
-//
-//    // another implementation of addArgument with const char *m_key
-//    template <typename T, typename Callable = parser_internal::no_action_t, size_t OPT_SZ = OPTS_SZ_MAGIC, typename...Targs>
-//    ARG_DEFS &addArgument(const char *m_key,
-//                          const char * const (&opts_arr)[OPT_SZ] = NO_ARGS,
-//                          Callable &&func = parser_internal::dummy,
-//                          const std::tuple<Targs...> &action_and_args = std::tuple<>()){
-//
-//        std::string keys = m_key == nullptr ? "" : std::string(m_key);
-//        std::vector<std::string> vec;
-//        std::string::iterator s;
-//        size_t c;
-//
-//        auto checkChars = [](int c) -> bool{
-//            return c == ' ' || c == ',' || c == ';' || c == '/' || c == '\\';
-//        };
-//
-//        // split string
-//        while((s = std::find_if(keys.begin(), keys.end(), checkChars)) != keys.end()){
-//            c = s - keys.begin();
-//            auto t = keys.substr(0, c);
-//            if(!t.empty()) {
-//                vec.push_back(t);
-//            }
-//            keys = keys.substr(c+1);
-//        }
-//
-//        // add last portion of the string if not empty
-//        if(!keys.empty()){
-//            vec.push_back(keys);
-//        }
-//
-//        return addArgument<T, Callable, OPT_SZ, Targs...>
-//                (vec, opts_arr, std::forward<Callable>(func), action_and_args);
-//    }
 
     template <typename T>
     T getValue(const std::string &key){
@@ -1536,11 +1244,6 @@ private:
         for(const auto &x : posMap){
             const auto &arg = argMap[x];
             positional_places += arg->mandatory_options;
-//            if(arg->is_variadic() || arg->get_nargs() > 0){ //todo: single pos arbitrary narg
-//                positional_places += arg->mandatory_options;
-//            }else{
-//                positional_places += 1;
-//            }
         }
 
         mandatory_option = mandatory_args || required_args;
