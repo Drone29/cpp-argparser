@@ -48,6 +48,8 @@ constexpr const char* KEY_OPTION_DELIMITER = "=";
 constexpr const char* ARG_TYPE_HELP = "HELP";
 
 namespace parser_internal{
+    template <typename T, typename ...Ts>
+    struct areSameType : std::conjunction<std::is_same<T,Ts>...> {};
 
     namespace internal
     {
@@ -493,6 +495,8 @@ struct ARG_DEFS{
     ARG_DEFS &choices(Choices ...choices){
         static_assert(((std::is_arithmetic_v<Choices> || std::is_convertible_v<Choices, std::string>) && ...),
                 "Choices should be either arithmetic or strings");
+        static_assert(parser_internal::areSameType<Choices...>::value,
+                "Choices should be of the same type");
         auto validate_and_convert = [](auto &&choice) -> std::any {
             using T = decltype(choice);
             if constexpr (std::is_convertible_v<T, std::string>) {
