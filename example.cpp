@@ -257,13 +257,13 @@ int main(int argc, char *argv[]) {
     parser.addArgument<int>("--choices")
             .SetParameters("int")
             .Finalize()
-            .choices({0,1,2,3}) // create list of possible valid choices for that argument
+            .choices(0,1,2,3) // create list of possible valid choices for that argument
             .help("list with choices");
     // the same, but with nargs
     parser.addArgument<int>("--choices2")
             .NArgs<1>()
             .Finalize()
-            .choices({0,1,2,3}) // create list of possible valid choices for that argument
+            .choices(0,1,2,3) // create list of possible valid choices for that argument
             .help("list with choices");
 
     /**

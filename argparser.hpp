@@ -194,7 +194,7 @@ protected:
     virtual std::string get_str_val() {return "";}
     virtual std::vector<std::string> get_str_choices() {return {};}
     virtual void set_global_ptr(std::any ptr) {}
-    virtual void set_choices(const std::initializer_list<std::any> &choices_list) {}
+    virtual void set_choices(std::initializer_list<std::any> &&choices_list) {}
     virtual void make_variadic() {}
     virtual bool is_variadic() {return false;}
     virtual void set_nargs(unsigned int n) {}
@@ -383,13 +383,13 @@ private:
         }
     }
 
-    void set_choices(const std::initializer_list<std::any> &choices_list) override {
+    void set_choices(std::initializer_list<std::any> &&choices_list) override {
         if constexpr(choices_viable()) {
             if constexpr(STR_ARGS > 1) {
                 throw std::invalid_argument("choices are not applicable to args with more than 1 parameter");
             }
             try{
-                for(const auto &c : choices_list) {
+                for(auto &&c : choices_list) {
                     choices.push_back(std::any_cast<T>(c));
                 }
             }catch(std::bad_any_cast &){
@@ -489,9 +489,20 @@ struct ARG_DEFS{
         return *this;
     }
     /// choices
-    ARG_DEFS &choices(const std::initializer_list<std::any> &choice_list){
+    template<typename... Choices>
+    ARG_DEFS &choices(Choices ...choices){
+        static_assert(((std::is_arithmetic_v<Choices> || std::is_convertible_v<Choices, std::string>) && ...),
+                "Choices should be either arithmetic or strings");
+        auto validate_and_convert = [](auto &&choice) -> std::any {
+            using T = decltype(choice);
+            if constexpr (std::is_convertible_v<T, std::string>) {
+                return std::string(std::forward<T>(choice)); // Convert strings
+            } else {
+                return std::forward<T>(choice); // Arithmetic types or others
+            }
+        };
         try{
-            option->set_choices(choice_list);
+            option->set_choices({validate_and_convert(choices)...});
         }catch(std::invalid_argument &e){
             throw std::logic_error(std::string(__func__) + "(" + typeStr + "): error: " + e.what());
         }

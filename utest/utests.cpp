@@ -355,40 +355,52 @@ MYTEST(SideArgsPos){
 // Choices
 MYTEST(Choices){
     parser.addArgument<int>("--choices").SetParameters("int").Finalize()
-                .choices({0,1,2,3});
+                .choices(0,1,2,3);
     EXPECT_THROW(CallParser({"--choices=4"}), argParser::unparsed_param) << "Should throw if not a valid choice";            
 }
 
 MYTEST(ChoicesThrow){
     EXPECT_THROW(parser.addArgument<const char*>("--choices").SetParameters("str").Finalize()
-                    .choices({"1","2","3","4"}),
+                    .choices("1","2","3","4"),
                     std::logic_error) << "Should throw if not arithmetic or not std::string";
 }
 
 MYTEST(ChoicesFloat){
     parser.addArgument<float>("--choices").SetParameters("float").Finalize()
-                .choices({0.12f, 0.15f, 1.14f});
+                .choices(0.12f, 0.15f, 1.14f);
     EXPECT_NO_THROW(CallParser({"--choices=0.15"}));            
 }
 
 MYTEST(ChoicesChar){
     parser.addArgument<char>("--choices").SetParameters("char").Finalize()
-                .choices({'a', 'b', 'c'});
+                .choices('a', 'b', 'c');
     EXPECT_NO_THROW(CallParser({"--choices=b"}));              
 }
 
 MYTEST(ChoicesString){
     using namespace std::string_literals;
     parser.addArgument<std::string>("--choices").SetParameters("int").Finalize()
-                .choices({"abc"s, "def"s, "ghi"s});
+                .choices("abc"s, "def"s, "ghi"s);
     EXPECT_NO_THROW(CallParser({"--choices=def"}));             
+}
+
+MYTEST(ChoicesStringConversion){
+    using namespace std::string_literals;
+    EXPECT_NO_THROW(parser.addArgument<std::string>("--choices").SetParameters("int").Finalize()
+            .choices("abc", "def", "ghi"));
+    EXPECT_NO_THROW(CallParser({"--choices=def"}));
+}
+
+MYTEST(ChoicesNull){
+    EXPECT_THROW(parser.addArgument<std::string>("--choices").SetParameters("char").Finalize()
+            .choices(nullptr, nullptr, nullptr), std::logic_error);
 }
 
 MYTEST(ChoicesVarPos){
     parser.addPositional<int>("ch_pos")
             .NArgs<1,-1>()
             .Finalize()
-            .choices({0,1,2,3});
+            .choices(0,1,2,3);
     CallParser({"2", "3", "0", "1"});
     bool check = parser.getValue<std::vector<int>>("ch_pos") == std::vector<int>{2,3,0,1};
     ASSERT_TRUE(check) << "Variadic choices should be allowed"; 
@@ -398,7 +410,7 @@ MYTEST(ChoicesSingleNArgs){
     parser.addPositional<int>("ch_pos")
             .NArgs<1>()
             .Finalize()
-            .choices({0,1,2,3});
+            .choices(0,1,2,3);
     CallParser({"3"});
     ASSERT_EQ(parser.getValue<int>("ch_pos"), 3) << "Should parse single narg with allowed choice";           
 }
@@ -407,7 +419,7 @@ MYTEST(ChoicesVarPosThrow){
     parser.addPositional<int>("ch_pos")
             .NArgs<1,-1>()
             .Finalize()
-            .choices({0,1,2,3});
+            .choices(0,1,2,3);
     EXPECT_THROW(CallParser({"2", "3", "4", "1"}), argParser::unparsed_param) << "Should throw error if unknown value is found";                
 }
 
@@ -564,7 +576,7 @@ MYTEST(NargsChoices){
     parser.addArgument<int>("--arg")
             .NArgs<3>()
             .Finalize()
-            .choices({2,3,4});
+            .choices(2,3,4);
     EXPECT_THROW(CallParser({"--arg", "1", "2", "3"}), argParser::unparsed_param) << "Should check choices for nargs as well";             
 }
 
@@ -667,7 +679,7 @@ MYTEST(NargsPureVariadicChoices){
     parser.addArgument<int>("--arg")
             .NArgs<0,-1>()
             .Finalize()
-            .choices({2,3,4});
+            .choices(2,3,4);
     CallParser({"--arg", "2", "2", "3"});
     bool check = parser.getValue<std::vector<int>>("--arg") == std::vector<int>{2,2,3};            
     ASSERT_TRUE(check);
@@ -677,7 +689,7 @@ MYTEST(NargsPureVariadicChoicesInvalid){
     parser.addArgument<int>("--arg")
             .NArgs<0,-1>()
             .Finalize()
-            .choices({2,3,4});
+            .choices(2,3,4);
     EXPECT_THROW(CallParser({"--arg", "1", "2", "3"}), argParser::unparsed_param);                
 }
 
