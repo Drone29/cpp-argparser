@@ -1021,8 +1021,7 @@ public:
             std::string self_name = std::string(argv[0]);
             binary_name = self_name.substr(self_name.find_last_of('/') + 1);
         }
-        std::vector<std::string> arg_vec = {argv + 1, argv + argc};
-        return parseArgs(arg_vec, hide_hidden_hint);
+        return parseArgs({argv + 1, argv + argc}, hide_hidden_hint);
     }
 
     const ARG_DEFS &operator [] (const std::string &key) const { return getArg(key); }
@@ -1206,13 +1205,7 @@ protected:
             return nullptr;
     }
 
-    int parseArgs(const std::vector<std::string> &arg_vec, bool hide_hidden_hint = false){
-
-        argVec = arg_vec;
-        int parsed_mnd_args = 0;
-        int parsed_required_args = 0;
-        size_t command_offset = 0;
-
+    void setParseCounters(bool hide_hidden_hint) {
         //count mandatory/required arguments
         for(const auto &x : argMap){
             if(!x.second->m_arbitrary
@@ -1227,37 +1220,58 @@ protected:
             }
         }
         for(const auto &x : posMap){
-            const auto &arg = argMap[x];
+            const auto &arg = argMap.at(x);
             positional_places += arg->mandatory_options;
         }
 
         mandatory_option = mandatory_args || required_args;
+    }
 
-        auto parseArgument = [this](const std::string &key, int start, int end) -> int{
-            try{
-                // end not included
-                // remove spaces added while preparing
-                for(auto it = argVec.begin() + start; it != argVec.begin() + end; ++it){
-                    if((*it).front() == ' '){
-                        *it = (*it).substr(1);
-                    }
+    int parseSingleArgument(const std::string &key, int start, int end) {
+        try{
+            // end not included
+            // remove spaces added while preparing
+            for(auto it = argVec.begin() + start; it != argVec.begin() + end; ++it){
+                if((*it).front() == ' '){
+                    *it = (*it).substr(1);
                 }
-                const std::string *ptr = nullptr;
-                // preserve out of range vector error
-                if(start < argVec.size()){
-                    // save raw cli parameters
-                    argMap[key]->m_cli_params = {argVec.begin() + start, argVec.begin() + end};
-                    // set pointer to start
-                    ptr = &argVec.at(start);
-                }
-                argMap[key]->option->action(ptr, end - start);
-            }catch(std::exception &e){
-                //save last unparsed arg
-                last_unparsed_arg = argMap[key].get();
-                throw unparsed_param(key + " : " + e.what());
             }
-            return end-start;
-            };
+            const std::string *ptr = nullptr;
+            // preserve out of range vector error
+            if(start < argVec.size()){
+                // save raw cli parameters
+                argMap[key]->m_cli_params = {argVec.begin() + start, argVec.begin() + end};
+                // set pointer to start
+                ptr = &argVec.at(start);
+            }
+            argMap[key]->option->action(ptr, end - start);
+        }catch(std::exception &e){
+            //save last unparsed arg
+            last_unparsed_arg = argMap[key].get();
+            throw unparsed_param(key + " : " + e.what());
+        }
+        return end-start;
+    }
+
+    std::string findKeyByAlias(const std::string &key) {
+        for(const auto &x : argMap){
+            for(const auto &el : x.second->m_aliases){
+                if(el == key){
+                    return x.first;
+                }
+            }
+        }
+        return "";
+    }
+
+    int parseArgs(std::vector<std::string> &&arg_vec, bool hide_hidden_hint = false){
+
+        argVec = std::move(arg_vec);
+        int parsed_mnd_args = 0;
+        int parsed_required_args = 0;
+        size_t command_offset = 0;
+
+        setParseCounters(hide_hidden_hint);
 
         auto setArgument = [this, &parsed_mnd_args, &parsed_required_args](const std::string &pName){
             argMap[pName]->m_set = true;
@@ -1267,17 +1281,6 @@ protected:
             }else if(argMap[pName]->m_required){
                 parsed_required_args++;
             }
-        };
-
-        auto findKeyByAlias = [this](const std::string &key) -> std::string{
-            for(const auto &x : argMap){
-                for(const auto &el : x.second->m_aliases){
-                    if(el == key){
-                        return x.first;
-                    }
-                }
-            }
-            return "";
         };
 
         auto checkParsedNonPos = [this, &parsed_mnd_args, &parsed_required_args](){
@@ -1377,7 +1380,7 @@ protected:
             std::string pName = argVec[index];
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
 
-            ///If found unknown m_key
+            ///If found unknown key
             if(argMap.find(pName) == argMap.end()){
                 ///Check if it's an arg with a typo
                 auto proposed_value = closestKey(pName);
@@ -1400,14 +1403,13 @@ protected:
                     /// Parse children
                     auto child = findChildByName(argVec[index]);
                     if(child != nullptr){
-                        std::vector<std::string> restvec = {argVec.begin() + index + 1, argVec.end()};
-                        child->parseArgs(restvec, hide_hidden_hint);
+                        child->parseArgs({argVec.begin() + index + 1, argVec.end()}, hide_hidden_hint);
                         command_parsed = true;
                         break;
                     }
                     ///Try parsing positional args
                     if(positional_args_parsed < posMap.size()){
-                        auto pos_name = posMap[positional_args_parsed++];
+                        const auto &pos_name = posMap[positional_args_parsed++];
                         int opts_cnt = 0;
                         int nargs = argMap[pos_name]->get_nargs();
                         bool variadic = argMap[pos_name]->is_variadic();
@@ -1429,7 +1431,7 @@ protected:
                             opts_cnt = 1;
                         }
                         positional_cnt += opts_cnt;
-                        index += parseArgument(pos_name, index, index+opts_cnt);
+                        index += parseSingleArgument(pos_name, index, index+opts_cnt);
                         --index;
                     }else if(!posMap.empty()){  //if(!posMap.empty())
                         throw parse_error("Error: trailing argument after positionals: " + argVec[index]);
@@ -1492,7 +1494,7 @@ protected:
                                       + std::to_string(argMap[pName]->mandatory_options) + " parameters, but " + std::to_string(opts_cnt) + " were provided");
                 }
 
-                parseArgument(pName, index + 1, index + 1 + opts_cnt);
+                parseSingleArgument(pName, index + 1, index + 1 + opts_cnt);
 
                 index += opts_cnt;
                 setArgument(pName);
