@@ -1336,7 +1336,7 @@ protected:
         return index;
     }
 
-    int parseHandleKnownArg(int &index, const std::string &pName) {
+    int parseHandleKnownArg(int index, const std::string &pName) {
         ///If non-repeatable and occurred again, throw error
         if(argMap[pName]->m_set
            && !argMap[pName]->m_repeatable){
