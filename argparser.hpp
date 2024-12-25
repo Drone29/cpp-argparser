@@ -1208,54 +1208,6 @@ protected:
             return nullptr;
     }
 
-    void setParseCounters(bool hide_hidden_hint) {
-        //count mandatory/required arguments
-        for(const auto &x : argMap){
-            if(!x.second->m_arbitrary
-               && !x.second->m_positional){
-                mandatory_args++;
-            }else if(x.second->m_arbitrary
-                     && x.second->m_required){
-                required_args++;
-            }
-            if(x.second->m_hidden && !hide_hidden_hint){
-                hidden_args++;
-            }
-        }
-        for(const auto &x : posMap){
-            const auto &arg = argMap.at(x);
-            positional_places += arg->mandatory_options;
-        }
-
-        mandatory_option = mandatory_args || required_args;
-    }
-
-    int parseSingleArgument(const std::string &key, int start, int end) {
-        try{
-            // end not included
-            // remove spaces added while preparing
-            for(auto it = argVec.begin() + start; it != argVec.begin() + end; ++it){
-                if((*it).front() == ' '){
-                    *it = (*it).substr(1);
-                }
-            }
-            const std::string *ptr = nullptr;
-            // preserve out of range vector error
-            if(start < argVec.size()){
-                // save raw cli parameters
-                argMap[key]->m_cli_params = {argVec.begin() + start, argVec.begin() + end};
-                // set pointer to start
-                ptr = &argVec.at(start);
-            }
-            argMap[key]->option->action(ptr, end - start);
-        }catch(std::exception &e){
-            //save last unparsed arg
-            last_unparsed_arg = argMap[key].get();
-            throw unparsed_param(key + " : " + e.what());
-        }
-        return end-start;
-    }
-
     static bool parseHandleEqualsSign(std::string &pName, std::string &pValue) {
         auto c = pName.find(KEY_OPTION_DELIMITER);
         if(c != std::string::npos){
@@ -1294,7 +1246,7 @@ protected:
         return false;
     }
 
-    void parseHandleEqualsAndCombined() {
+    void parsePreprocessArgVec() {
         for(auto index = 0; index < argVec.size(); ++index){
             auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
                 argVec[index] = key;
@@ -1480,15 +1432,63 @@ protected:
         return proposed_value;
     }
 
+    void setParseCounters(bool hide_hidden_hint) {
+        //count mandatory/required arguments
+        for(const auto &x : argMap){
+            if(!x.second->m_arbitrary
+               && !x.second->m_positional){
+                mandatory_args++;
+            }else if(x.second->m_arbitrary
+                     && x.second->m_required){
+                required_args++;
+            }
+            if(x.second->m_hidden && !hide_hidden_hint){
+                hidden_args++;
+            }
+        }
+        for(const auto &x : posMap){
+            const auto &arg = argMap.at(x);
+            positional_places += arg->mandatory_options;
+        }
+
+        mandatory_option = mandatory_args || required_args;
+    }
+
+    int parseSingleArgument(const std::string &key, int start, int end) {
+        try{
+            // end not included
+            // remove spaces added while preparing
+            for(auto it = argVec.begin() + start; it != argVec.begin() + end; ++it){
+                if((*it).front() == ' '){
+                    *it = (*it).substr(1);
+                }
+            }
+            const std::string *ptr = nullptr;
+            // preserve out of range vector error
+            if(start < argVec.size()){
+                // save raw cli parameters
+                argMap[key]->m_cli_params = {argVec.begin() + start, argVec.begin() + end};
+                // set pointer to start
+                ptr = &argVec.at(start);
+            }
+            argMap[key]->option->action(ptr, end - start);
+        }catch(std::exception &e){
+            //save last unparsed arg
+            last_unparsed_arg = argMap[key].get();
+            throw unparsed_param(key + " : " + e.what());
+        }
+        return end-start;
+    }
+
     int parseArgs(std::vector<std::string> &&arg_vec, bool hide_hidden_hint = false){
         argVec = std::move(arg_vec);
         setParseCounters(hide_hidden_hint);
-        /// Handle '=' and combined args
-        parseHandleEqualsAndCombined();
+        /// Preprocess argVec (handle '=', aliases, combined args, etc)
+        parsePreprocessArgVec();
         /// Main parser loop
         for(int index = 0; index < argVec.size(); ++index){
-            std::string pName = argVec[index];
-            std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
+            const auto &pName = argVec.at(index);
+            const auto &pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
             ///If found unknown key
             if(argMap.find(pName) == argMap.end()){
                 ///Check if it's an arg with a typo
@@ -1509,7 +1509,7 @@ protected:
                 throw parse_error(thrError);
             }
             ///Show help
-            if(argMap[pName]->typeStr == ARG_TYPE_HELP){
+            if(argMap.at(pName)->typeStr == ARG_TYPE_HELP){
                 helpDefault(pValue);
                 exit(0);
             }
