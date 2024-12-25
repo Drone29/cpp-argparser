@@ -1109,21 +1109,46 @@ protected:
 
     std::string closestKey (const std::string &name)  {
         auto calculateMismatch = [](const std::string &target, const std::string &candidate) {
-            size_t mismatchCount = 0;
-            // figure out which string is longer
-            auto maxLen = std::max(target.length(), candidate.length());
-            for(size_t i = 0; i < maxLen; ++i) {
-                // if target shorter, pad with spaces
-                char targetChar = i < target.length() ? target[i] : ' ';
-                char candidateChar = i < candidate.length() ? candidate[i] : ' ';
-                if (targetChar != candidateChar) {
-                    // check if char exists later in the candidate
-                    if (candidate.find(targetChar, i+1) == std::string::npos) {
-                        ++mismatchCount;
+            // use Levenstein distance
+            auto targetLen = target.length();
+            auto candidateLen = candidate.length();
+            // distanceTable[i][j] is the minimum number of edits (Levenstein distance) required to convert
+            // the first i chars of target into the first j chars of candidate
+            std::vector<std::vector<size_t>> distanceTable(targetLen + 1, std::vector<size_t>(candidateLen + 1));
+
+            // base case - one string is empty
+            // (to convert first i chars of target into empty string requires i deletions)
+            for (auto i = 0; i <= targetLen; ++i) distanceTable[i][0] = i; // Default deletion cost
+            for (auto j = 0; j <= candidateLen; ++j) distanceTable[0][j] = j; // Default insertion cost
+
+            // populate distanceTable table
+            for (auto tIdx = 1; tIdx <= targetLen; ++tIdx) {
+                for (auto cIdx = 1; cIdx <= candidateLen; ++cIdx) {
+                    char targetChar = target[tIdx - 1];
+                    char candidateChar = candidate[cIdx - 1];
+                    if (targetChar == candidateChar) {
+                        //if chars match, no edit needed, copy previous value
+                        distanceTable[tIdx][cIdx] = distanceTable[tIdx - 1][cIdx - 1];
+                    } else {
+                        // if don't match, figure out which operation is less costly
+                        size_t insertionCost = distanceTable[tIdx][cIdx - 1] + 1;
+                        size_t deletionCost = distanceTable[tIdx - 1][cIdx] + 1;
+                        size_t substitutionCost = distanceTable[tIdx - 1][cIdx - 1] + 1;
+                        distanceTable[tIdx][cIdx] = std::min({insertionCost,deletionCost,substitutionCost});
+                    }
+                    // check transpositions (swapped adjacent chars)
+                    if (tIdx > 1 && cIdx > 1) {
+                        char prevTargetChar = target[tIdx-2];
+                        char prevCandidateChar = candidate[cIdx-2];
+                        if (targetChar == prevCandidateChar && candidateChar == prevTargetChar) {
+                            size_t transpositionCost = distanceTable[tIdx-2][cIdx-2] + 1;
+                            distanceTable[tIdx][cIdx] = std::min(distanceTable[tIdx][cIdx], transpositionCost);
+                        }
                     }
                 }
             }
-            return mismatchCount;
+            // return result
+            return distanceTable[targetLen][candidateLen];
         };
 
         std::string closestMatch;

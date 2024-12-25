@@ -21,13 +21,13 @@ protected:
         const char* a[sz];
         a[0] = "binary_name"; // add dummy first argument
         if constexpr(sz > 1){
-            std::cout << "\tPassed args: ";
+//            std::cout << "\tPassed args: ";
             auto ptr = &a[1];
             for(auto &j : arr){
                 *ptr++ = j;
-                std::cout << "\"" << j << "\" ";
+//                std::cout << "\"" << j << "\" ";
             }
-            std::cout << std::endl;
+//            std::cout << std::endl;
         }
         parser.parseArgs(sz, const_cast<char **>(a));
     }
