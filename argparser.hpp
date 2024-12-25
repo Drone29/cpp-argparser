@@ -234,7 +234,7 @@ private:
         if constexpr(choices_viable()) {
             if(!choices.empty()){
                 // check if result corresponds to one of the choices
-                for(auto v : choices){ //todo: const ref?
+                for(const auto &v : choices){
                     if(value == v){
                         return;
                     }
@@ -389,7 +389,7 @@ private:
                 throw std::invalid_argument("choices are not applicable to args with more than 1 parameter");
             }
             try{
-                for(auto c : choices_list) { //todo: const ref?
+                for(const auto &c : choices_list) {
                     choices.push_back(std::any_cast<T>(c));
                 }
             }catch(std::bad_any_cast &){
