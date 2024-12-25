@@ -1161,7 +1161,9 @@ protected:
             for(const auto &al : it.second->m_aliases){
                 mismatch = std::min(mismatch, calculateMismatch(name, al));
             }
-            if(mismatch < minMismatch){
+            // check lexicographical distance
+            bool lex_less = mismatch == minMismatch && it.first < closestMatch;
+            if(mismatch < minMismatch || lex_less){
                 minMismatch = mismatch;
                 closestMatch = it.first;
                 // early exit for optimal match
