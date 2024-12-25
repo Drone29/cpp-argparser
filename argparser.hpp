@@ -130,10 +130,10 @@ namespace parser_internal{
             return temp;
         }else if constexpr(std::is_same_v<T, bool>){
             auto isTrue = [func=__func__](const char *s){
-                for(auto &i : BOOL_POSITIVES){
+                for(const auto &i : BOOL_POSITIVES){
                     if(!strcmp(s, i)) return true;
                 }
-                for(auto &i : BOOL_NEGATIVES){
+                for(const auto &i : BOOL_NEGATIVES){
                     if(!strcmp(s, i)) return false;
                 }
                 throw std::runtime_error(std::string(func) + ": unable to convert " + s + " to bool");
@@ -276,7 +276,7 @@ private:
             check_choices();
             res.push_back(value);
         }
-        anyval = res; //todo: set?
+        anyval = res;
     }
     // for implicit args only
     void parse_implicit(){
@@ -308,7 +308,7 @@ private:
             }
         }
         set_global();
-        anyval = value; //todo: set?
+        anyval = value;
     }
     void increment() {
         if constexpr(std::is_arithmetic_v<T>) {
@@ -321,7 +321,7 @@ private:
             }
         }
         set_global();
-        anyval = value; //todo: set?
+        anyval = value;
     }
 
     std::string get_str_val(T val){
@@ -349,7 +349,7 @@ private:
 
     std::vector<std::string> get_str_choices() override{
         std::vector<std::string> res;
-        for(auto v : choices){
+        for(const auto &v : choices){
             std::string s = get_str_val(v);
             if(!s.empty()){
                 res.push_back(get_str_val(v));
@@ -405,7 +405,7 @@ private:
         variadic = true;
     }
     bool is_variadic() override {return variadic;}
-    void set_nargs(unsigned int n) override { //todo: int?
+    void set_nargs(unsigned int n) override {
         if(n > 1){
             // return vector for nargs > 1
             anyval = std::vector<T>{};
@@ -416,7 +416,7 @@ private:
         }
     }
 
-    unsigned int get_nargs() override {return nargs;} //todo: int?
+    unsigned int get_nargs() override {return nargs;}
 
     explicit DerivedOption(std::tuple<Targs...> &&tpl) :
             value(),
@@ -716,7 +716,6 @@ public:
             if (sopt.empty()){
                 throw std::invalid_argument(std::string(func) + ": " + m_key + " parameter name cannot be empty");
             }
-            //todo: remove spaces?
             if(sopt.front() == ' ' || sopt.back() == ' '){
                 throw std::invalid_argument(std::string(func) + ": " + m_key + " parameter " + sopt + " cannot begin or end with space");
             }
@@ -1065,8 +1064,8 @@ private:
     [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
         std::string skey = key;
         if(argMap.find(skey) == argMap.end()){
-            for(auto &x : argMap){
-                for(auto &alias : x.second->m_aliases){
+            for(const auto &x : argMap){
+                for(const auto &alias : x.second->m_aliases){
                     if(alias == skey){
                         skey = x.first;
                         break;
@@ -1100,8 +1099,8 @@ private:
         if(argMap.find(key) != argMap.end()){
             throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
         }
-        for(auto &x : argMap){
-            for(auto &alias : x.second->m_aliases){
+        for(const auto &x : argMap){
+            for(const auto &alias : x.second->m_aliases){
                 if(alias == key){
                     throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
                 }
@@ -1148,7 +1147,7 @@ private:
         size_t command_offset = 0;
 
         //count mandatory/required arguments
-        for(auto &x : argMap){
+        for(const auto &x : argMap){
             if(!x.second->m_arbitrary
                && !x.second->m_positional){
                 mandatory_args++;
@@ -1227,7 +1226,7 @@ private:
         auto closestKey = [this, &strMismatch](const std::string &name) -> std::string {
             std::string proposed_value;
             auto mismatch = std::string::npos;
-            for(auto &it : argMap){
+            for(const auto &it : argMap){
                 auto tmp = strMismatch(name, it.first);
                 //check m_aliases as well
                 for(const auto &al : it.second->m_aliases){
@@ -1243,8 +1242,8 @@ private:
         };
 
         auto findKeyByAlias = [this](const std::string &key) -> std::string{
-            for(auto &x : argMap){
-                for(auto &el : x.second->m_aliases){
+            for(const auto &x : argMap){
+                for(const auto &el : x.second->m_aliases){
                     if(el == key){
                         return x.first;
                     }
@@ -1256,7 +1255,7 @@ private:
         auto checkParsedNonPos = [this, &parsed_mnd_args, &parsed_required_args](){
             if(mandatory_option){
                 if(parsed_mnd_args != mandatory_args){
-                    for(auto &x : argMap){
+                    for(const auto &x : argMap){
                         if(!x.second->m_arbitrary && !x.second->m_positional && !x.second->m_set){
                             throw parse_error(x.first + " not specified");
                         }
@@ -1500,7 +1499,7 @@ private:
             if(!choices.empty()){
                 opt = "{";
                 bool notFirst = false;
-                for(auto &c : choices){
+                for(const auto &c : choices){
                     if(notFirst){
                         opt += ",";
                     }
@@ -1514,7 +1513,7 @@ private:
 
         auto printParam = [&get_choices](const auto &j, bool notab = false){
             std::string alias_str = notab ? "" : "\t";
-            for(auto &alias : j.second->m_aliases){
+            for(const auto &alias : j.second->m_aliases){
                 alias_str += alias + KEY_ALIAS_DELIMITER + " ";
             }
             std::cout <<  alias_str + j.first;
@@ -1524,7 +1523,7 @@ private:
                 // override metavar
                 opt = choices;
             }
-            for(auto &x : j.second->m_options){
+            for(const auto &x : j.second->m_options){
                 opt = std::string(x);
                 if(!choices.empty()){
                     opt = choices;
@@ -1586,8 +1585,8 @@ private:
             //seek alias
             if(j == argMap.end()){
                 bool found = false;
-                for(auto &x : argMap){
-                    for(auto &alias : x.second->m_aliases){
+                for(const auto &x : argMap){
+                    for(const auto &alias : x.second->m_aliases){
                         if(alias == param){
                             j = argMap.find(x.first);
                             found = true;
@@ -1614,7 +1613,7 @@ private:
         }
 
         std::string positional;
-        for(auto &x : posMap){
+        for(const auto &x : posMap){
             std::string opt = x;
             if(!argMap[x]->m_nargs_var.empty()){
                 opt = argMap[x]->m_nargs_var;
@@ -1623,7 +1622,7 @@ private:
             if(!choices.empty()){
                 opt = choices;
             }
-            for(auto &o : argMap[x]->m_options){
+            for(const auto &o : argMap[x]->m_options){
                 std::string tmp = opt;
                 tmp = !parser_internal::isOptMandatory(o) ? ("[" + tmp + "]") : tmp;
                 positional += " " + tmp;
@@ -1637,7 +1636,7 @@ private:
         }
 
         int flag_cnt = 0, opt_cnt = 0;
-        for(auto &x : argMap){
+        for(const auto &x : argMap){
             if(x.second->m_arbitrary
                && !x.second->m_required){
                 flag_cnt++;
@@ -1666,7 +1665,7 @@ private:
 
         if(!posMap.empty()){
             std::cout << "Positional arguments:" << std::endl;
-            for(auto &x : posMap){
+            for(const auto &x : posMap){
                 std::cout << "\t" << x << " : " << argMap[x]->m_help << std::endl;
             }
         }
