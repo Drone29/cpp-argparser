@@ -46,15 +46,6 @@ constexpr const char* KEY_ALIAS_DELIMITER = ",";
 constexpr const char* KEY_OPTION_DELIMITER = "=";
 /// help argument identifier
 constexpr const char* ARG_TYPE_HELP = "HELP";
-/// date format by default
-constexpr const char* DEFAULT_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S";
-/// max size of function string arguments
-constexpr size_t MAX_ARGS = 10;
-/// magic number for options array in addArgument
-constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
-
-/// std::tm alias
-using date_t = std::tm;
 
 namespace parser_internal{
 
@@ -128,9 +119,8 @@ namespace parser_internal{
         }
         return r;
     }
-    /// format is applicable only to date_t type
     template<typename T>
-    T scan(const char* arg, const char* date_format = nullptr){
+    T scan(const char* arg){
         std::string temp = (arg == nullptr) ? "" : std::string(arg);
         T res;
 
@@ -152,28 +142,9 @@ namespace parser_internal{
             std::string lVal;
             //convert to lower case
             for(auto elem : temp) {
-                lVal += std::tolower(elem);
+                lVal += char(std::tolower(elem));
             }
             return isTrue(lVal.c_str());
-        }else if constexpr(std::is_same_v<T, date_t>){
-            date_t tt = {0};
-            if(date_format == nullptr){
-                date_format = DEFAULT_DATE_FORMAT;
-            }
-            std::stringstream ss(temp);
-            std::stringstream chk; //check stream
-            ss >> std::get_time(&tt, date_format); //convert string to time
-            // ss.fail() does not cover all possible errors
-            // so we're also checking equality of strings before and after conversion
-            if (ss.fail()){
-                throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date");
-            }
-            // std::put_time is not good with empty strings, so we're checking it after ss.fail()
-            chk << std::put_time(&tt, date_format); //convert result to string with the same format
-            if (chk.fail() || ss.str() != chk.str()){
-                throw std::runtime_error(std::string(__func__) + ": unable to convert " + temp + " to date");
-            }
-            return tt;
         }
             /// arithmetic
         else if constexpr(std::is_arithmetic_v<T>){
@@ -218,7 +189,7 @@ protected:
     friend class OptionBuilderHelper;
     BaseOption() = default;
     virtual ~BaseOption() = default;
-    virtual void action (const std::string *args, int size, const char *date_format) {} // todo: do not pass date_format?
+    virtual void action (const std::string *args, int size) {}
     virtual void set(std::any x) {}
     virtual std::string get_str_val() {return "";}
     virtual std::vector<std::string> get_str_choices() {return {};}
@@ -274,7 +245,7 @@ private:
     }
 
     // parse variadic params, single scan and common action
-    void action(const std::string *args, int size, const char *date_format) override {
+    void action(const std::string *args, int size) override {
         if(!variadic && nargs == 0) {
             // if implicit
             if(STR_ARGS == 0 && !single_narg){
@@ -287,7 +258,7 @@ private:
             }else{
                 // simple scan of single value
                 if (size > 0) {
-                    set(parser_internal::scan<T>(args[0].c_str(), date_format));
+                    set(parser_internal::scan<T>(args[0].c_str()));
                 }
             }
             check_choices();
@@ -300,12 +271,12 @@ private:
             if constexpr(has_action()){
                 parse_common(&args[i], 1);
             }else{
-                value = parser_internal::scan<T>(args[i].c_str(), date_format);
+                value = parser_internal::scan<T>(args[i].c_str());
             }
             check_choices();
             res.push_back(value);
         }
-        anyval = res;
+        anyval = res; //todo: set?
     }
     // for implicit args only
     void parse_implicit(){
@@ -337,7 +308,7 @@ private:
             }
         }
         set_global();
-        anyval = value;
+        anyval = value; //todo: set?
     }
     void increment() {
         if constexpr(std::is_arithmetic_v<T>) {
@@ -350,7 +321,7 @@ private:
             }
         }
         set_global();
-        anyval = value;
+        anyval = value; //todo: set?
     }
 
     std::string get_str_val(T val){
@@ -517,30 +488,6 @@ struct ARG_DEFS{
         }
         return *this;
     }
-    ///only for date_t
-    ///specify date format in terms of strptime()
-    //todo: remove?
-    ARG_DEFS &date_format(const char *format, bool hide_in_help = false){
-        if(option->anyval.type() == typeid(date_t)
-           && (m_positional || m_options.size() == 1)){
-
-            if(format != nullptr){
-                time_t t = 0;
-                // Microsoft marks localtime as deprecated for some reason,
-                // but localtime_s is not portable, so I'll leave it as it is
-                std::tm tt = *std::localtime(&t);
-                std::stringstream ss;
-                ss << std::put_time(&tt, format);
-                ss >> std::get_time(&tt, format);
-                if (ss.fail()){
-                    throw std::logic_error(std::string(__func__) + ": " + m_name + " invalid date format " + format);
-                }
-                m_date_format = format;
-            }
-            m_hide_date_format = hide_in_help;
-        }
-        return *this;
-    }
     /// choices
     ARG_DEFS &choices(const std::initializer_list<std::any> &choice_list){
         try{
@@ -572,10 +519,7 @@ struct ARG_DEFS{
     [[nodiscard]] bool is_variadic() const{
         return option->is_variadic();
     };
-    // applicable only for date_t type
-    [[nodiscard]] const char *get_date_format() const{
-        return m_date_format;
-    }
+
     [[nodiscard]] auto options_size() const{
         return m_options.size();
     }
@@ -637,10 +581,6 @@ private:
     bool m_repeatable = false;
     //If starts with minus
     bool m_starts_with_minus = false;
-    //Date format (only for date_t type)
-    const char *m_date_format = nullptr;
-    //If needed to be shown in help
-    bool m_hide_date_format = false;
     //Mandatory opts
     int mandatory_options = 0;
     //show default
@@ -702,7 +642,6 @@ protected:
         arg->m_starts_with_minus = starts_with_minus;
         arg->mandatory_options = m_mandatory_args;
         arg->m_positional = m_is_positional;
-//        arg->m_date_format = DEFAULT_DATE_FORMAT;
         arg->m_aliases = std::move(m_aliases);
         arg->m_nargs_var = std::move(m_narg_name);
 
@@ -1046,11 +985,11 @@ public:
      * @return
      */
     template <typename T>
-    static T scanValue(const char *value, const char *date_format = DEFAULT_DATE_FORMAT){
+    static T scanValue(const char *value){
         if(value == nullptr){
             return T{};
         }
-        return parser_internal::scan<T>(value, date_format);
+        return parser_internal::scan<T>(value);
     }
 
     /// Get last unparsed argument
@@ -1246,7 +1185,7 @@ private:
                     // set pointer to start
                     ptr = &argVec.at(start);
                 }
-                argMap[key]->option->action(ptr, end - start, argMap[key]->m_date_format);
+                argMap[key]->option->action(ptr, end - start);
             }catch(std::exception &e){
                 //save last unparsed arg
                 last_unparsed_arg = argMap[key].get();
@@ -1621,12 +1560,9 @@ private:
                 std::string def_val = j.second->option->get_str_val();
                 def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
                 std::string repeatable = j.second->m_repeatable ? " [repeatable]" : "";
-                // show date format if not prohibited
-                std::string date_format = j.second->m_hide_date_format ? ""
-                                          : (j.second->m_date_format == nullptr ? ""
-                                             : (" {" + j.second->m_options[0] + " format: " + std::string(j.second->m_date_format) + "}"));
+
                 std::string required = j.second->m_required ? (required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
-                std::cout << " : " + j.second->m_help + repeatable + date_format + def_val + required << std::endl;
+                std::cout << " : " + j.second->m_help + repeatable + def_val + required << std::endl;
                 j.second->m_set = true; //help_set
             };
 
@@ -1732,8 +1668,7 @@ private:
         if(!posMap.empty()){
             std::cout << "Positional arguments:" << std::endl;
             for(auto &x : posMap){
-                std::string date_format = argMap[x]->m_date_format == nullptr ? "" : (" { format: " + std::string(argMap[x]->m_date_format) + "}");
-                std::cout << "\t" << x << " : " << argMap[x]->m_help << date_format << std::endl;
+                std::cout << "\t" << x << " : " << argMap[x]->m_help << std::endl;
             }
         }
 

@@ -157,21 +157,6 @@ int main(int argc, char *argv[]) {
             .hidden() // specify argument as hidden
             .help("hidden int argument with mandatory value (can be viewed with --help -a)");
 
-    // there's a date_t type which is an alias for std::tm struct (specified in argparser.hpp)
-    // such parameter can be parsed according to the strptime() format
-    // format can be specified with date_format() method
-    // NOTE: not applicable for types other than date_t (std::tm)
-    parser.addArgument<date_t>("date")
-            .SetParameters("date_str").Finalize()
-                    // date_format can be specified for date_t type.
-                    // Format shouldn't contain any spaces and must correspond to strptime() format, otherwise std::logic_error is thrown
-                    // If format not specified or specified as nullptr, default format used (defined as DEFAULT_DATE_FORMAT in argparser.hpp)
-                    // date_format takes optional bool argument hide_in_help.
-                    // If set to true, the format will not be shown in help.
-                    // Otherwise it'll be shown in {} brackets exactly as it's specified in the 1st argument
-            .date_format("%d.%m.%Y-%H:%M")
-            .help("Converts date string to date struct");
-
     // an argument can be made variadic
     // in this case, an arbitrary number of options (but not less than 1) can be specified by the caller
     // for example, the following will add a variadic argument '--variadic'
@@ -378,7 +363,6 @@ int main(int argc, char *argv[]) {
     int v = parser["v"];
     int req = parser["--req1"];
     int ppos = parser["pos"];
-    date_t dat = parser["date"];
 
     return 0;
 }

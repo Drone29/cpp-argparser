@@ -4,6 +4,9 @@
 #define FIXTURE Utest
 #define MYTEST(NAME) TEST_F(FIXTURE, NAME)
 
+/// max size of function string arguments
+constexpr size_t MAX_ARGS = 10;
+constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
 static const char * const NO_ARGS[OPTS_SZ_MAGIC] = {};
 
 // Create a test fixture
@@ -340,38 +343,6 @@ MYTEST(FormatScientific){
     parser.addArgument<float>("-f").SetParameters("float_value").Finalize();
     CallParser({"-f", "1.000000e-05"});
     ASSERT_EQ(parser.getValue<float>("-f"), float(0.00001));
-}
-
-MYTEST(InvalidDateFormat){
-    EXPECT_THROW(parser.addArgument<date_t>("date").SetParameters("date_str").Finalize()
-                    .date_format("%d.%m.%"),
-                    std::logic_error) << "Should throw if invalid date format";
-}
-
-MYTEST(DateWithSpacesSeparate){
-    parser.addArgument<date_t>("date").SetParameters("date_str").Finalize()
-                .date_format("%d.%m.%Y %H:%M");
-    CallParser({"date", "01.02.2022 12:34"});
-    auto date = parser.getValue<date_t>("date");
-    ASSERT_EQ(date.tm_sec, 0);
-    ASSERT_EQ(date.tm_min, 34);
-    ASSERT_EQ(date.tm_hour, 12);
-    ASSERT_EQ(date.tm_year, 2022-1900);
-    ASSERT_EQ(date.tm_mon, 2-1);
-    ASSERT_EQ(date.tm_mday, 1);
-}
-
-MYTEST(DateWithSpacesEq){
-    parser.addArgument<date_t>("date").SetParameters("date_str").Finalize()
-                .date_format("%d.%m.%Y %H:%M");
-    CallParser({"date=01.02.2022 12:34"});
-    auto date = parser.getValue<date_t>("date");
-    ASSERT_EQ(date.tm_sec, 0);
-    ASSERT_EQ(date.tm_min, 34);
-    ASSERT_EQ(date.tm_hour, 12);
-    ASSERT_EQ(date.tm_year, 2022-1900);
-    ASSERT_EQ(date.tm_mon, 2-1);
-    ASSERT_EQ(date.tm_mday, 1);
 }
 
 MYTEST(SideArgsPos){

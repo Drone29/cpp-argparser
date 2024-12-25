@@ -460,9 +460,8 @@ with aliases
 * `NArgs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
 * `Finalize()` - finalizes argument definition
 * `getValue<T>("name or alias")` - returns value of type T of specified argument
-* `scanValue<T>(value, date_format)` - static method to parse some value from string using built-in parser.
-Applicable to `arithmetic` or `string` values and `date_t` type. 
-`date_format` - optional, applicable to `date_t` type only
+* `scanValue<T>(value)` - static method to parse some value from string using built-in parser.
+Applicable to `arithmetic` or `string` values.
 * `getLastUnparsed()` - get last unparsed argument (in case of argparser::unparsed_parameter error).
 Returns a reference to the instance of unparsed argument
 * `setAlias("name", "aliases")` - set aliases to argument name if wasn't set in addArgument
@@ -492,11 +491,6 @@ Cannot be applied to `hidden` arguments
 * `required()` - make `arbitrary` or `mandatory` argument `required`.
 Cannot be applied to `hidden` arguments
 In that case, an arbitrary number (not less than 1) of parameters can be passed by the caller
-* `date_format("format", hide_in_help=false)` - special modifier, 
-applicable only to `positional` or `single-parameter` arguments whose type is `date_t` (alias for std::tm).
-`format` must be valid strptime() format `without spaces`, for example `%d.%m.%YT%H:%M`.
-If not set, `default format` is used: `%Y-%m-%dT%H:%M:%S`.
-`hide_in_help` - optional, set to true to hide format from help message
 * `choices({choices_list})` - adds a list of possible valid choices for the argument. Applicable only to arithmetic types and strings
 
 There are also some useful const methods for arguments:
@@ -508,8 +502,6 @@ There are also some useful const methods for arguments:
 * `is_implicit()` - returns `true` if argument is implicit
 * `is_repeatable()` - returns `true` if argument is repeatable
 * `is_variadic()`   - returns `true` if argument is variadic
-* `get_date_format()` - returns `const char*` date format. 
-applicable only for `date_t` type, otherwise `nullptr` returned
 * `options_size()` - returns `size_t` size of argument parameters
 * `get_cli_params()` - returns an `std::vector<std::string>` of parameters passed by the caller.
 Applicable only after parseArgs is called
@@ -519,7 +511,7 @@ Applicable only after parseArgs is called
 
 Some methods may throw exceptions on the stage where arguments are added if some conditions are not met:
 
-* `std::logic_error` is thrown by arg modifiers like `default_value()`, `date_format()` and some others
+* `std::logic_error` is thrown by arg modifiers like `default_value()` and some others
 * `std::invalid_argument` is thrown by parser methods like `addArgument()`, `addPositional()`, `getValue()`, etc...        
 * `std::runtime_error` is thrown by `scanValue()` method along with some internal methods     
 
@@ -558,11 +550,11 @@ try{
 }
 
 
-> ./app date=01.34.22 
+> ./app -b345 
 Output:
-Caught error: scan: unable to convert 01.34.22 to date
-Last unparsed arg: date
-Passed parameters: 01.34.22
+Caught error: scan: unable to convert 345 to bool
+Last unparsed arg: -b
+Passed parameters: 345
 ```
         
 
