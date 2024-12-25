@@ -1331,7 +1331,7 @@ protected:
         }
     }
 
-    void parseHandlePositional(int &index) {
+    [[nodiscard]] int parseHandlePositional(int index) {
         const auto &pos_name = posMap[positional_args_parsed++];
         int opts_cnt = 0;
         auto nargs = argMap[pos_name]->get_nargs();
@@ -1355,10 +1355,10 @@ protected:
         }
         positional_cnt += opts_cnt;
         index += parseSingleArgument(pos_name, index, index+opts_cnt);
-        --index;
+        return --index;
     }
 
-    void parseHandleChildAndPositional(int &index, bool hide_hidden_hint) {
+    [[nodiscard]] int parseHandleChildAndPositional(int index, bool hide_hidden_hint) {
         for(;index < argVec.size(); ++index){
             /// Parse children
             auto child = findChildByName(argVec[index]);
@@ -1369,11 +1369,12 @@ protected:
             }
             ///Try parsing positional args
             if(positional_args_parsed < posMap.size()){
-                parseHandlePositional(index);
+                index = parseHandlePositional(index);
             }else if(!posMap.empty()){  //if(!posMap.empty())
                 throw parse_error("Error: trailing argument after positionals: " + argVec[index]);
             }
         }
+        return index;
     }
 
     int parseHandleKnownArg(int &index, const std::string &pName) {
@@ -1486,7 +1487,7 @@ protected:
                 ///Check if it's an arg with a typo
                 auto proposed_value = checkTypos(pName);
                 /// Handle positional args and child parsers
-                parseHandleChildAndPositional(index, hide_hidden_hint);
+                index = parseHandleChildAndPositional(index, hide_hidden_hint);
                 if(command_parsed){
                     break;
                 }
