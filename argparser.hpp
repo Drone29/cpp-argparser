@@ -1256,6 +1256,44 @@ protected:
         return end-start;
     }
 
+    static bool parseHandleEqualsSign(std::string &pName, std::string &pValue) {
+        auto c = pName.find(KEY_OPTION_DELIMITER);
+        if(c != std::string::npos){
+            pValue = " " + pName.substr(c+1); //treat string after '=' as value anyway
+            pName = pName.substr(0, c);
+            return true;
+        }
+        return false;
+    }
+
+    bool parseHandleContiguousAndCombinedArgs(std::string &pName, std::string &pValue, std::string &name) {
+        auto len = pName.front() == '-' ? 2 : 1;
+        std::string startsWith = pName.substr(0, len);
+        if(argMap.find(startsWith) != argMap.end()){
+            name = startsWith;
+        }else{
+            name = findKeyByAlias(startsWith);
+        }
+        if(!name.empty()){
+            const auto &x = argMap.at(name);
+            // implicit contiguous (-vvv/-it or vvv/it style) argument
+            if(x->m_implicit){
+                //set '-' to other portion to extract it later
+                pValue = x->m_starts_with_minus ? "-" : "";
+                pValue += pName.substr(startsWith.length());
+                return true;
+            }
+                //check if it's a contiguous keyValue or aliasValue pair (-k123 or k123 style)
+                //only for args with 1 option
+            else if(x->m_options.size() == 1){
+                pValue = " " + pName.substr(startsWith.length()); //treat as value
+                pName = name;
+                return true;
+            }
+        }
+        return false;
+    }
+
     void parseHandleEqualsAndCombined() {
         for(auto index = 0; index < argVec.size(); ++index){
             auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
@@ -1266,61 +1304,30 @@ protected:
             std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
 
             ///Handle '='
-            auto c = pName.find(KEY_OPTION_DELIMITER);
-            if(c != std::string::npos){
-                pValue = " " + pName.substr(c+1); //treat string after '=' as value anyway
-                pName = pName.substr(0, c);
+            if (parseHandleEqualsSign(pName, pValue)) {
                 //change current m_key and insert value to vector
                 insertKeyValue(pName, pValue);
                 // check arg name on the next iteration
                 index--;
                 continue;
             }
-
             if(argMap.find(pName) == argMap.end()){
                 ///Find alias
                 std::string name = findKeyByAlias(pName);
-                if(findChildByName(pName) != nullptr){
+                if (findChildByName(pName) != nullptr) {
                     // if found child, break
                     command_offset = argVec.size() - index;
                     break;
-                }
-                else if(!name.empty()){
-                    // change alias to m_key
+                } else if (!name.empty()) {
+                    // change alias to key
                     pName = name;
                     argVec[index] = name;
                     index += argMap[name]->mandatory_options; //skip mandatory opts
-                }
-                else{
+                } else if (parseHandleContiguousAndCombinedArgs(pName, pValue, name)) {
                     ///check contiguous or combined arguments
-                    int len = pName.front() == '-' ? 2 : 1;
-                    std::string startsWith = pName.substr(0, len);
-                    if(argMap.find(startsWith) != argMap.end()){
-                        name = startsWith;
-                    }else{
-                        name = findKeyByAlias(startsWith);
-                    }
-
-                    if(!name.empty()){
-                        auto &x = argMap[name];
-                        // implicit contiguous (-vvv/-it or vvv/it style) argument
-                        if(x->m_implicit){
-                            //set '-' to other portion to extract it later
-                            pValue = x->m_starts_with_minus ? "-" : "";
-                            pValue += pName.substr(startsWith.length());
-                            insertKeyValue(name, pValue);
-                        }
-                            //check if it's a contiguous keyValue or aliasValue pair (-k123 or k123 style)
-                            //only for args with 1 option
-                        else if(x->m_options.size() == 1){
-                            pValue = " " + pName.substr(startsWith.length()); //treat as value
-                            pName = name;
-                            insertKeyValue(name, pValue);
-                        }
-                    }
+                    insertKeyValue(name, pValue);
                 }//if name.empty()
-            } //argMap.find(pName) == argMap.end()
-            else{
+            } else{
                 // if found in argMap, skip mandatory opts
                 index += argMap[pName]->mandatory_options;
             }
