@@ -197,8 +197,8 @@ protected:
     virtual void set_choices(const std::initializer_list<std::any> &choices_list) {}
     virtual void make_variadic() {}
     virtual bool is_variadic() {return false;}
-    virtual void set_nargs(uint8_t n) {} // todo: int?
-    virtual uint8_t get_nargs() {return 0;} // todo: int?
+    virtual void set_nargs(unsigned int n) {}
+    virtual unsigned int get_nargs() {return 0;}
     std::any anyval;
 };
 
@@ -213,7 +213,7 @@ private:
     T *global = nullptr;
     std::vector<T> choices {};
     bool variadic = false;
-    uint8_t nargs = 0; // todo: int? move to base?
+    unsigned int nargs = 0;
     bool single_narg = false;
 
     [[nodiscard]] static constexpr bool has_action() {
@@ -405,7 +405,7 @@ private:
         variadic = true;
     }
     bool is_variadic() override {return variadic;}
-    void set_nargs(uint8_t n) override { //todo: int?
+    void set_nargs(unsigned int n) override { //todo: int?
         if(n > 1){
             // return vector for nargs > 1
             anyval = std::vector<T>{};
@@ -416,7 +416,7 @@ private:
         }
     }
 
-    uint8_t get_nargs() override {return nargs;} //todo: int?
+    unsigned int get_nargs() override {return nargs;} //todo: int?
 
     explicit DerivedOption(std::tuple<Targs...> &&tpl) :
             value(),
@@ -531,7 +531,7 @@ struct ARG_DEFS{
         return m_name;
     }
     // get nargs
-    [[nodiscard]] uint8_t get_nargs() const{
+    [[nodiscard]] unsigned int get_nargs() const{
         return option->get_nargs();
     };
 
@@ -599,7 +599,6 @@ protected:
     std::string m_last_mandatory_arg;
     std::vector<std::string> m_opts;
     std::string m_strType;
-//    bool m_is_implicit = false;
     int m_mandatory_args = 0;
     bool m_has_callable = false;
     bool m_is_variadic = false;
