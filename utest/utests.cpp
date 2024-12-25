@@ -13,11 +13,8 @@ static const char * const NO_ARGS[OPTS_SZ_MAGIC] = {};
 class FIXTURE : public testing::Test {
 protected: 
     argParser parser;
-    explicit FIXTURE(const std::string &name = "", 
-        const std::string &descr = "") 
-        : parser(name, descr){
-
-    }
+    explicit FIXTURE()
+        : parser("", ""){}
     template <size_t SIZE>
     void CallParser(const char * const(&arr)[SIZE]){
         constexpr size_t sz = SIZE != OPTS_SZ_MAGIC ? SIZE+1 : 1;

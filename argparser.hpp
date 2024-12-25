@@ -810,7 +810,6 @@ public:
         using VType = decltype(val);
         const size_t comp_size = std::tuple_size_v<decltype(components)>;
         static_assert(comp_size > 0, "Should have at least 1 component");
-//        const bool implicit = comp_size == 0;
         const bool has_params = STR_PARAM_IDX > 0;
         const bool has_callable = CALLABLE_IDX > 0;
         /// get template type string
@@ -1041,7 +1040,7 @@ public:
         explicit parse_error(const std::string& s) : std::runtime_error(s){}
     };
 
-private:
+protected:
     friend class OptionBuilderHelper;
     std::map<std::string, std::unique_ptr<ARG_DEFS>> argMap;
     std::vector<std::unique_ptr<argParser>> commandMap;
@@ -1107,6 +1106,47 @@ private:
             }
         }
     }
+
+    std::string closestKey (const std::string &name)  {
+        auto calculateMismatch = [](const std::string &target, const std::string &candidate) {
+            size_t mismatchCount = 0;
+            // figure out which string is longer
+            auto maxLen = std::max(target.length(), candidate.length());
+            for(size_t i = 0; i < maxLen; ++i) {
+                // if target shorter, pad with spaces
+                char targetChar = i < target.length() ? target[i] : ' ';
+                char candidateChar = i < candidate.length() ? candidate[i] : ' ';
+                if (targetChar != candidateChar) {
+                    // check if char exists later in the candidate
+                    if (candidate.find(targetChar, i+1) == std::string::npos) {
+                        ++mismatchCount;
+                    }
+                }
+            }
+            return mismatchCount;
+        };
+
+        std::string closestMatch;
+        auto minMismatch = std::string::npos;
+
+        for(const auto &it : argMap){
+            // check mismatch for the key
+            auto mismatch = calculateMismatch(name, it.first);
+            //check aliases as well
+            for(const auto &al : it.second->m_aliases){
+                mismatch = std::min(mismatch, calculateMismatch(name, al));
+            }
+            if(mismatch < minMismatch){
+                minMismatch = mismatch;
+                closestMatch = it.first;
+                // early exit for optimal match
+                if(mismatch == 0) {
+                    return closestMatch;
+                }
+            }
+        }
+        return minMismatch < 2 ? closestMatch : "";
+    };
 
     static void checkForbiddenSymbols(const std::string &key, const char* func = nullptr){
         if(func == nullptr){
@@ -1200,45 +1240,6 @@ private:
             }else if(argMap[pName]->m_required){
                 parsed_required_args++;
             }
-        };
-
-        auto strMismatch = [](const std::string &compareWhat, const std::string &compareWith) -> size_t{
-            auto tmpWhat = compareWhat;
-            size_t result = 0;
-            int idx = 0;
-            if(compareWith.length() < compareWhat.length()){
-                return std::string::npos;
-            }
-            //make string same length
-            tmpWhat += std::string(compareWith.length()-tmpWhat.length(), ' ');
-            for(auto x : compareWith){
-                char c = tmpWhat[idx++];
-                auto remStr = compareWith.substr(idx);
-                if(x != c){
-                    if(remStr.find(c) == std::string::npos){
-                        ++result;
-                    }
-                }
-            }
-            return result;
-        };
-
-        auto closestKey = [this, &strMismatch](const std::string &name) -> std::string {
-            std::string proposed_value;
-            auto mismatch = std::string::npos;
-            for(const auto &it : argMap){
-                auto tmp = strMismatch(name, it.first);
-                //check m_aliases as well
-                for(const auto &al : it.second->m_aliases){
-                    auto tmp2 = strMismatch(name, al);
-                    if(tmp2 < tmp) tmp = tmp2;
-                }
-                if(tmp < mismatch){
-                    mismatch = tmp;
-                    proposed_value = it.first;
-                }
-            }
-            return mismatch < 2 ? proposed_value : "";
         };
 
         auto findKeyByAlias = [this](const std::string &key) -> std::string{
