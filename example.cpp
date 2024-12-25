@@ -364,7 +364,7 @@ int main(int argc, char *argv[]) {
     auto b = parser.getValue<bool>("-b");
     auto s = parser.getValue<const char*>("-s");
     auto p = parser.getValue<std::string>("-p");
-//     auto pos = parser.getValue<int>("pos");
+    // get variadic
     auto a = parser.getValue<std::vector<const char*>>("-a");
 
     // get value of variadic argument
