@@ -183,7 +183,7 @@ namespace parser_internal{
             return std::isalnum(c) || c == '-' || c == '_' || c == '[' || c == ']';
         };
         auto isDigitOnly = [](int c) -> bool {
-            return std::isdigit(c);
+            return std::isdigit(c) || c == '-';
         };
         auto isValidCharCond = is_param ? isValidParamChar : isValidKeyChar;
         auto invalidChar = std::find_if_not(key.begin(), key.end(), isValidCharCond);

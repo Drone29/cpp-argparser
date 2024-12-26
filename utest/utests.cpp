@@ -42,6 +42,12 @@ MYTEST(OnlyNumbers){
     EXPECT_THROW(parser.addCommand("0", ""), std::invalid_argument);
 }
 
+MYTEST(OnlyNegativeNumbers){
+    EXPECT_THROW(parser.addArgument<int>("-123"), std::invalid_argument);
+    EXPECT_THROW(parser.addPositional<int>("-123"), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("-123",""), std::invalid_argument);
+}
+
 MYTEST(InvalidKey){
     EXPECT_THROW(parser.addArgument<int>("=y"), std::invalid_argument);
     EXPECT_THROW(parser.addPositional<int>("=y"), std::invalid_argument);
