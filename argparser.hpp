@@ -755,7 +755,7 @@ public:
             m_is_variadic = TO < 0;
             int max_size = TO > int(FRO) ? TO : int(FRO);
             m_opts = std::vector<std::string>(max_size, m_narg_name);
-            for(int i = int(FRO); i < TO; ++i){
+            for(int i = int(FRO); i < TO; ++i) {
                 m_opts[i] = "[" + m_opts[i] + "]";
             }
             m_nargs_size = max_size;
@@ -770,6 +770,9 @@ public:
             const size_t str_params_size = std::tuple_size_v<decltype(str_params)>;
             // provided param is metavar
             auto &[param_name] = str_params;
+            if (!parser_internal::isOptMandatory(param_name)) {
+                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " ambiguity detected: arbitrary param used along with NArgs");
+            }
             m_narg_name = param_name;
             static_assert(str_params_size < 2, "Nargs only applicable to args with 0 or 1 parameters");
             prepareNargs();
