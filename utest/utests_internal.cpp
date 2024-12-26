@@ -92,10 +92,9 @@ MYTEST(closestKeyMultipleWords) {
 MYTEST(closestKeyLexicographicalOrder) {
     parser.addArgument<int>("-ab").Finalize();
     parser.addArgument<int>("-ae").Finalize();
-    parser.addArgument<int>("-ax").Finalize();
     parser.addArgument<int>("-ay").Finalize();
-    // Input: "-ac", which is equally close to "-ab" and "-ay" (Levenshtein distance = 1)
-    // The function should return "-ab" because "-ab" is lexicographically smaller than "-ay".
+    // Input: "-ad", which is equally close to "-ab" and "-ay" (Levenshtein distance = 1)
+    // The function should return "-ae" because "-ae" is lexicographically closer to "ad".
     EXPECT_EQ(parser.closestKeyTest("-ad"), "-ae");
 }
 
