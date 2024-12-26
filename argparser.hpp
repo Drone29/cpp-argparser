@@ -40,10 +40,6 @@ constexpr const char* REQUIRED_OPTION_SIGN  = "(*)";
 /// help m_key
 constexpr const char* HELP_NAME = "--help";
 constexpr const char* HELP_ALIAS = "-h";
-/// delimiter for m_key m_aliases
-constexpr const char* KEY_ALIAS_DELIMITER = ",";
-/// additional m_key/option delimiter (default is space)
-constexpr const char* KEY_OPTION_DELIMITER = "=";
 /// help argument identifier
 constexpr const char* ARG_TYPE_HELP = "HELP";
 
@@ -1230,7 +1226,7 @@ protected:
     }
 
     static bool parseHandleEqualsSign(std::string &pName, std::string &pValue) {
-        auto c = pName.find(KEY_OPTION_DELIMITER);
+        auto c = pName.find('=');
         if(c != std::string::npos){
             pValue = " " + pName.substr(c+1); //treat string after '=' as value anyway
             pName = pName.substr(0, c);
