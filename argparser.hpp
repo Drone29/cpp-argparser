@@ -201,7 +201,7 @@ protected:
     virtual bool is_variadic() {return false;}
     virtual void set_nargs(unsigned int n) {}
     virtual unsigned int get_nargs() {return 0;}
-    std::any anyval;
+    std::any m_anyval;
 };
 
 template <typename T, size_t STR_ARGS, typename...Targs>
@@ -210,17 +210,17 @@ private:
     friend class argParser;
     friend class OptionBuilderHelper;
 
-    T value;
-    std::tuple<Targs...> action_and_args; //holds action (function, lambda, etc) and side args supplied to it
-    T *global = nullptr;
-    std::vector<T> choices {};
-    bool variadic = false;
-    unsigned int nargs = 0;
-    bool single_narg = false;
+    T m_value;
+    std::tuple<Targs...> m_action_and_args; //holds action (function, lambda, etc) and side args supplied to it
+    T *m_global = nullptr;
+    std::vector<T> m_choices {};
+    bool m_variadic = false;
+    unsigned int m_nargs = 0;
+    bool m_single_narg = false;
 
     [[nodiscard]] static constexpr bool has_action() {
         // if tuple is not empty, it has function
-        return std::tuple_size_v<decltype(action_and_args)> > 0;
+        return std::tuple_size_v<decltype(m_action_and_args)> > 0;
     }
     [[nodiscard]] static constexpr bool not_void(){
         return !std::is_void_v<T>;
@@ -234,28 +234,28 @@ private:
     void check_choices(){
         // applicable only to arithmetic or strings
         if constexpr(choices_viable()) {
-            if(!choices.empty()){
-                // check if result corresponds to one of the choices
-                for(const auto &v : choices){
-                    if(value == v){
+            if(!m_choices.empty()){
+                // check if result corresponds to one of the m_choices
+                for(const auto &v : m_choices){
+                    if(m_value == v){
                         return;
                     }
                 }
-                throw std::runtime_error("value does not correspond to any of given choices");
+                throw std::runtime_error("value does not correspond to any of given m_choices");
             }
         }
     }
 
     // parse variadic params, single scan and common action
     void action(const std::string *args, int size) override {
-        if(!variadic && nargs == 0) {
+        if(!m_variadic && m_nargs == 0) {
             // if implicit
-            if(STR_ARGS == 0 && !single_narg){
+            if(STR_ARGS == 0 && !m_single_narg){
                 parse_implicit();
                 return;
             }
             if constexpr(has_action()){
-                // non-variadic action
+                // non-m_variadic action
                 parse_common(args, size);
             }else{
                 // simple scan of single value
@@ -273,12 +273,12 @@ private:
             if constexpr(has_action()){
                 parse_common(&args[i], 1);
             }else{
-                value = parser_internal::scan<T>(args[i].c_str());
+                m_value = parser_internal::scan<T>(args[i].c_str());
             }
             check_choices();
-            res.push_back(value);
+            res.push_back(m_value);
         }
-        anyval = res;
+        m_anyval = res;
     }
     // for implicit args only
     void parse_implicit(){
@@ -291,7 +291,7 @@ private:
     void parse_common(const std::string *args, int size){
         if constexpr(not_void() && has_action()) {
             // obtain action and side args from tuple
-            auto && [func, side_args] = action_and_args;
+            auto && [func, side_args] = m_action_and_args;
             if constexpr(STR_ARGS > 0) {
                 // create array of STR_ARGS size
                 std::array<const char*, STR_ARGS> str_arr {};
@@ -302,28 +302,28 @@ private:
                 // resulting tuple
                 auto tpl_res = std::tuple_cat(side_args, str_arr);
                 // call function with resulting tuple
-                value = std::apply(func, tpl_res);
+                m_value = std::apply(func, tpl_res);
             }
             else{
                 // call function with initial tuple
-                value = std::apply(func, side_args);
+                m_value = std::apply(func, side_args);
             }
         }
         set_global();
-        anyval = value;
+        m_anyval = m_value;
     }
     void increment() {
         if constexpr(std::is_arithmetic_v<T>) {
             if constexpr(std::is_same_v<T, bool>) {
                 // treat bool as special type and toggle value
-                value = !value;
+                m_value = !m_value;
             }else{
                 // increment other arithmetic types
-                value += 1;
+                m_value += 1;
             }
         }
         set_global();
-        anyval = value;
+        m_anyval = m_value;
     }
 
     std::string get_str_val(T val){
@@ -346,12 +346,12 @@ private:
     }
 
     std::string get_str_val() override{
-        return get_str_val(value);
+        return get_str_val(m_value);
     }
 
     std::vector<std::string> get_str_choices() override{
         std::vector<std::string> res;
-        for(const auto &v : choices){
+        for(const auto &v : m_choices){
             std::string s = get_str_val(v);
             if(!s.empty()){
                 res.push_back(get_str_val(v));
@@ -362,8 +362,8 @@ private:
 
     void set(std::any x) override {
         try{
-            anyval = x;
-            value = std::any_cast<T>(anyval);
+            m_anyval = x;
+            m_value = std::any_cast<T>(m_anyval);
             set_global();
         }catch(std::bad_any_cast &e){
             throw std::invalid_argument("invalid type");
@@ -372,30 +372,30 @@ private:
 
     void set_global_ptr(std::any ptr) override {
         try{
-            global = std::any_cast<T*>(ptr);
+            m_global = std::any_cast<T*>(ptr);
         }catch(std::bad_any_cast &e){
             throw std::invalid_argument("invalid pointer type");
         }
     }
 
     void set_global() {
-        if(global != nullptr) {
+        if(m_global != nullptr) {
             //set global
-            *global = value;
+            *m_global = m_value;
         }
     }
 
     void set_choices(std::initializer_list<std::any> &&choices_list) override {
         if constexpr(choices_viable()) {
             if constexpr(STR_ARGS > 1) {
-                throw std::invalid_argument("choices are not applicable to args with more than 1 parameter");
+                throw std::invalid_argument("m_choices are not applicable to args with more than 1 parameter");
             }
             try{
                 for(auto &&c : choices_list) {
-                    choices.push_back(std::any_cast<T>(c));
+                    m_choices.push_back(std::any_cast<T>(c));
                 }
             }catch(std::bad_any_cast &){
-                throw std::invalid_argument("invalid choices list");
+                throw std::invalid_argument("invalid m_choices list");
             }
         }else{
             throw std::invalid_argument("type can be either arithmetic or string");
@@ -403,27 +403,27 @@ private:
     }
 
     void make_variadic() override {
-        anyval = std::vector<T>{};
-        variadic = true;
+        m_anyval = std::vector<T>{};
+        m_variadic = true;
     }
-    bool is_variadic() override {return variadic;}
+    bool is_variadic() override {return m_variadic;}
     void set_nargs(unsigned int n) override {
         if(n > 1){
-            // return vector for nargs > 1
-            anyval = std::vector<T>{};
-            nargs = n;
-        }else if(n == 1 && !variadic){
+            // return vector for m_nargs > 1
+            m_anyval = std::vector<T>{};
+            m_nargs = n;
+        }else if(n == 1 && !m_variadic){
             // single narg treated as parameter
-            single_narg = true;
+            m_single_narg = true;
         }
     }
 
-    unsigned int get_nargs() override {return nargs;}
+    unsigned int get_nargs() override {return m_nargs;}
 
     explicit DerivedOption(std::tuple<Targs...> &&tpl) :
-            value(),
-            action_and_args(std::move(tpl)) {
-        anyval = value;
+            m_value(),
+            m_action_and_args(std::move(tpl)) {
+        m_anyval = m_value;
     }
 
     ~DerivedOption() override = default;
@@ -455,19 +455,19 @@ struct ARG_DEFS{
     ARG_DEFS &default_value(std::any val, bool hide_in_help = false){
         try{
             if(m_arbitrary && !m_positional && !is_variadic()){
-                option->set(std::move(val));
-                show_default = !hide_in_help;
+                m_option->set(std::move(val));
+                m_show_default = !hide_in_help;
             }
         }catch(std::invalid_argument &e){
-            throw std::logic_error(std::string(__func__) + "(" + typeStr + "): error: " + e.what());
+            throw std::logic_error(std::string(__func__) + "(" + m_type_str + "): error: " + e.what());
         }
         return *this;
     }
     ARG_DEFS &global_ptr(std::any ptr){
         try {
-            option->set_global_ptr(std::move(ptr));
+            m_option->set_global_ptr(std::move(ptr));
         }catch(std::invalid_argument &e){
-            throw std::logic_error(std::string(__func__) + "(" + typeStr + "): error: " + e.what());
+            throw std::logic_error(std::string(__func__) + "(" + m_type_str + "): error: " + e.what());
         }
         return *this;
     }
@@ -506,9 +506,9 @@ struct ARG_DEFS{
             }
         };
         try{
-            option->set_choices({validate_and_convert(choices)...});
+            m_option->set_choices({validate_and_convert(choices)...});
         }catch(std::invalid_argument &e){
-            throw std::logic_error(std::string(__func__) + "(" + typeStr + "): error: " + e.what());
+            throw std::logic_error(std::string(__func__) + "(" + m_type_str + "): error: " + e.what());
         }
         return *this;
     }
@@ -532,7 +532,7 @@ struct ARG_DEFS{
         return m_repeatable;
     }
     [[nodiscard]] bool is_variadic() const{
-        return option->is_variadic();
+        return m_option->is_variadic();
     };
 
     [[nodiscard]] auto options_size() const{
@@ -547,17 +547,17 @@ struct ARG_DEFS{
     }
     // get nargs
     [[nodiscard]] unsigned int get_nargs() const{
-        return option->get_nargs();
+        return m_option->get_nargs();
     };
 
     // conversion operator template
     template<typename T>
     operator T() const {
-        return std::any_cast<T>(option->anyval);
+        return std::any_cast<T>(m_option->m_anyval);
     }
 
     ~ARG_DEFS() {
-        delete option;
+        delete m_option;
     }
 private:
 
@@ -577,9 +577,9 @@ private:
     //raw cli parameters
     std::vector<std::string> m_cli_params;
     //stringified type
-    std::string typeStr;
+    std::string m_type_str;
     //Option/flag
-    BaseOption* option = nullptr;
+    BaseOption* m_option = nullptr;
     //in use
     bool m_set = false;
     //alias
@@ -597,9 +597,9 @@ private:
     //If starts with minus
     bool m_starts_with_minus = false;
     //Mandatory opts
-    int mandatory_options = 0;
+    int m_mandatory_options = 0;
     //show default
-    bool show_default = false;
+    bool m_show_default = false;
 };
 
 // forward-declare for option builder
@@ -648,13 +648,13 @@ protected:
             option->make_variadic();
         }
         option->set_nargs(m_nargs_size);
-        arg->typeStr = std::move(m_strType);
-        arg->option = option;
+        arg->m_type_str = std::move(m_strType);
+        arg->m_option = option;
         arg->m_options = std::move(m_opts);
         arg->m_arbitrary = flag;
         arg->m_implicit = is_implicit;
         arg->m_starts_with_minus = starts_with_minus;
-        arg->mandatory_options = m_mandatory_args;
+        arg->m_mandatory_options = m_mandatory_args;
         arg->m_positional = m_is_positional;
         arg->m_aliases = std::move(m_aliases);
         arg->m_nargs_var = std::move(m_narg_name);
@@ -678,14 +678,14 @@ template<size_t STR_PARAM_IDX, size_t CALLABLE_IDX, typename... Types>
 class OptionBuilder : public OptionBuilderHelper {
 protected:
     friend class argParser;
-    std::tuple<Types...> components;
+    std::tuple<Types...> m_components;
 
     // add new component
     template<size_t FIRST_IDX, size_t SECOND_IDX, typename NewType>
     auto addComponent(NewType &&newComponent) {
         return OptionBuilder<FIRST_IDX, SECOND_IDX, Types..., NewType>(
                 this, // pass current obj pointer further to create a new object with already existing data
-                std::tuple_cat(std::move(components), std::make_tuple(std::forward<NewType>(newComponent))
+                std::tuple_cat(std::move(m_components), std::make_tuple(std::forward<NewType>(newComponent))
                 ));
     }
     // just forward existing state further
@@ -693,7 +693,7 @@ protected:
     auto forwardComponents() {
         return OptionBuilder<FIRST_IDX, SECOND_IDX, Types...>(
                 this,
-                std::move(components)
+                std::move(m_components)
                 );
     }
 
@@ -706,12 +706,12 @@ public:
                            std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> &&callback,
                            std::tuple<Types...> &&comps)
             : OptionBuilderHelper(std::move(key), std::move(aliases), is_positional, std::move(callback)),
-            components(std::move(comps)){}
+              m_components(std::move(comps)){}
     // 'move' ctor
     explicit OptionBuilder(OptionBuilderHelper *prev, std::tuple<Types...> &&comps)
     // use move semantics to construct the helper
             : OptionBuilderHelper(*prev),
-            components(std::move(comps)){}
+              m_components(std::move(comps)){}
 
     // add arguments
     template<typename... Params>
@@ -720,7 +720,7 @@ public:
             static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
         }
         static_assert(STR_PARAM_IDX == 0, "Params or NArgs already set");
-        const size_t current_size = std::tuple_size_v<decltype(components)>;
+        const size_t current_size = std::tuple_size_v<decltype(m_components)>;
         std::string m_last_arbitrary_arg;
         // func to check options
         auto checkOpts = [this, func=__func__, &m_last_arbitrary_arg](const char *k) {
@@ -777,7 +777,7 @@ public:
 
         //if single parameter provided, it's ok
         if constexpr (STR_PARAM_IDX > 0) {
-            auto str_params = std::get<STR_PARAM_IDX>(components); // string params
+            auto str_params = std::get<STR_PARAM_IDX>(m_components); // string params
             const size_t str_params_size = std::tuple_size_v<decltype(str_params)>;
             // provided param is metavar
             auto &[param_name] = str_params;
@@ -787,7 +787,7 @@ public:
             return forwardComponents<STR_PARAM_IDX, CALLABLE_IDX>();
         } else {
             // provide our own param idx
-            const size_t current_size = std::tuple_size_v<decltype(components)>;
+            const size_t current_size = std::tuple_size_v<decltype(m_components)>;
             m_narg_name = m_key;
             // convert non-positional to upper case
             if(!m_is_positional){
@@ -811,7 +811,7 @@ public:
     template<typename Callable, typename... SideArgs>
     auto SetCallable(Callable && callable, SideArgs ...sideArgs) {
         static_assert(CALLABLE_IDX == 0, "Callable already set");
-        const size_t current_size = std::tuple_size_v<decltype(components)>;
+        const size_t current_size = std::tuple_size_v<decltype(m_components)>;
         m_has_callable = true;
         return addComponent<STR_PARAM_IDX, current_size>(std::make_tuple(
                 std::forward<Callable>(callable),
@@ -821,9 +821,9 @@ public:
 
     // finalize and get to runtime params
     ARG_DEFS &Finalize() {
-        auto val = std::get<0>(components);
+        auto val = std::get<0>(m_components);
         using VType = decltype(val);
-        const size_t comp_size = std::tuple_size_v<decltype(components)>;
+        const size_t comp_size = std::tuple_size_v<decltype(m_components)>;
         static_assert(comp_size > 0, "Should have at least 1 component");
         const bool has_params = STR_PARAM_IDX > 0;
         const bool has_callable = CALLABLE_IDX > 0;
@@ -842,7 +842,7 @@ public:
         };
         // if there are string params
         if constexpr (has_params) {
-            auto str_params = std::get<STR_PARAM_IDX>(components); // string params
+            auto str_params = std::get<STR_PARAM_IDX>(m_components); // string params
             const size_t str_params_size = std::tuple_size_v<decltype(str_params)>;
             // if function not provided
             if constexpr (!has_callable) {
@@ -851,7 +851,7 @@ public:
                 option = createOption<VType, str_params_size>
                         (std::make_index_sequence<0>{}, std::tuple<>()); //empty tuple for no function
             } else {
-                auto func_tpl = std::get<CALLABLE_IDX>(components);
+                auto func_tpl = std::get<CALLABLE_IDX>(m_components);
                 const size_t func_tpl_size = std::tuple_size_v<decltype(func_tpl)>;
                 option = createOption<VType, str_params_size>
                         (std::make_index_sequence<func_tpl_size>{}, std::move(func_tpl));
@@ -864,7 +864,7 @@ public:
                 option = createOption<VType, 0>
                         (std::make_index_sequence<0>{}, std::tuple<>()); //empty tuple for no function
             } else {
-                auto func_tpl = std::get<CALLABLE_IDX>(components);
+                auto func_tpl = std::get<CALLABLE_IDX>(m_components);
                 const size_t func_tpl_size = std::tuple_size_v<decltype(func_tpl)>;
                 option = createOption<VType, 0>
                         (std::make_index_sequence<func_tpl_size>{}, std::move(func_tpl));
@@ -878,19 +878,19 @@ class argParser
 {
 public:
     explicit argParser(const std::string &name = "", const std::string &descr = ""){
-        argMap[HELP_NAME] = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(HELP_NAME));
-        argMap[HELP_NAME]->typeStr = ARG_TYPE_HELP;
-        argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
-        argMap[HELP_NAME]->m_options = {HELP_OPT_BRACED};
-        argMap[HELP_NAME]->m_arbitrary = true;
-        argMap[HELP_NAME]->option = new BaseOption();
-        argMap[HELP_NAME]->m_aliases = {HELP_ALIAS};
+        m_argMap[HELP_NAME] = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(HELP_NAME));
+        m_argMap[HELP_NAME]->m_type_str = ARG_TYPE_HELP;
+        m_argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
+        m_argMap[HELP_NAME]->m_options = {HELP_OPT_BRACED};
+        m_argMap[HELP_NAME]->m_arbitrary = true;
+        m_argMap[HELP_NAME]->m_option = new BaseOption();
+        m_argMap[HELP_NAME]->m_aliases = {HELP_ALIAS};
 
-        binary_name = name;
-        description = descr;
+        m_binary_name = name;
+        m_description = descr;
     }
     ~argParser(){
-        argMap.clear();
+        m_argMap.clear();
     }
 
     // new arg builder
@@ -926,8 +926,8 @@ public:
         }
 
         auto callback = [this,m_key=key](std::unique_ptr<ARG_DEFS> &&arg) -> ARG_DEFS& {
-            argMap[m_key] = std::move(arg);
-            return *argMap[m_key];
+            m_argMap[m_key] = std::move(arg);
+            return *m_argMap[m_key];
         };
 
         return OptionBuilder<0,0,T>(
@@ -943,8 +943,8 @@ public:
     auto addPositional(const char *ckey) {
         std::string key = ckey;
         /// check if variadic pos already defined
-        for(const auto &p : posMap){
-            const auto &x = argMap.at(p);
+        for(const auto &p : m_posMap){
+            const auto &x = m_argMap.at(p);
             if(x->is_variadic()){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after variadic positional argument " + p);
             }
@@ -964,9 +964,9 @@ public:
         }
 
         auto callback = [this,m_key=key](std::unique_ptr<ARG_DEFS> &&arg) -> ARG_DEFS& {
-            argMap[m_key] = std::move(arg);
-            posMap.push_back(m_key);
-            return *argMap[m_key];
+            m_argMap[m_key] = std::move(arg);
+            m_posMap.push_back(m_key);
+            return *m_argMap[m_key];
         };
 
         return OptionBuilder<0,0,T>(
@@ -984,7 +984,7 @@ public:
         auto strType = parser_internal::GetTypeName<T>();
         auto &r = getArg(key);
         try{
-            return std::any_cast<T>(r.option->anyval);
+            return std::any_cast<T>(r.m_option->m_anyval);
         }catch(const std::bad_any_cast& e){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot cast to " + strType);
         }
@@ -1007,13 +1007,13 @@ public:
     /// Get last unparsed argument
     [[nodiscard]] const ARG_DEFS &getLastUnparsed() const{
         static ARG_DEFS dummy("");
-        return last_unparsed_arg == nullptr ? dummy : *last_unparsed_arg;
+        return m_last_unparsed_arg == nullptr ? dummy : *m_last_unparsed_arg;
     }
 
     /// Self exec name
     auto getSelfName(){
         parsedCheck(__func__);
-        return this->binary_name;
+        return this->m_binary_name;
     }
 
     argParser &addCommand(const std::string &name, const std::string &descr){
@@ -1021,20 +1021,20 @@ public:
         if(!parser_internal::isOptMandatory(name)){
             throw std::invalid_argument(std::string(__func__) + ": " + name + " child command cannot be arbitrary");
         }
-        commandMap.push_back(std::make_unique<argParser>(name, descr));
-        return *commandMap.front();
+        m_commandMap.push_back(std::make_unique<argParser>(name, descr));
+        return *m_commandMap.front();
     }
 
     /// Parse arguments
     int parseArgs(int argc, char *argv[], bool hide_hidden_hint = false)
     {
-        if(args_parsed){
+        if(m_args_parsed){
             throw parse_error("Repeated attempt to run " + std::string(__func__));
         }
         ///Retrieve binary self-name
-        if(binary_name.empty()){
+        if(m_binary_name.empty()){
             std::string self_name = std::string(argv[0]);
-            binary_name = self_name.substr(self_name.find_last_of('/') + 1);
+            m_binary_name = self_name.substr(self_name.find_last_of('/') + 1);
         }
         return parseArgs({argv + 1, argv + argc}, hide_hidden_hint);
     }
@@ -1056,31 +1056,31 @@ public:
 
 protected:
     friend class OptionBuilderHelper;
-    std::map<std::string, std::unique_ptr<ARG_DEFS>> argMap;
-    std::vector<std::unique_ptr<argParser>> commandMap;
-    std::vector<std::string> posMap;
-    std::vector<std::string> argVec;
+    std::map<std::string, std::unique_ptr<ARG_DEFS>> m_argMap;
+    std::vector<std::unique_ptr<argParser>> m_commandMap;
+    std::vector<std::string> m_posMap;
+    std::vector<std::string> m_argVec;
 
-    std::string binary_name;
-    std::string description;
-    bool args_parsed = false;
-    bool mandatory_option = false;
-    bool command_parsed = false;
-    int positional_args_parsed = 0;
-    int positional_cnt = 0;
-    int positional_places = 0;
-    int mandatory_args = 0;
-    int required_args = 0;
-    int hidden_args = 0;
-    int command_offset = 0;
-    int parsed_mnd_args = 0;
-    int parsed_required_args = 0;
-    ARG_DEFS *last_unparsed_arg = nullptr;
+    std::string m_binary_name;
+    std::string m_description;
+    bool m_args_parsed = false;
+    bool m_mandatory_option = false;
+    bool m_command_parsed = false;
+    int m_positional_args_parsed = 0;
+    int m_positional_cnt = 0;
+    int m_positional_places = 0;
+    int m_mandatory_args = 0;
+    int m_required_args = 0;
+    int m_hidden_args = 0;
+    int m_command_offset = 0;
+    int m_parsed_mnd_args = 0;
+    int m_parsed_required_args = 0;
+    ARG_DEFS *m_last_unparsed_arg = nullptr;
 
     [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
         std::string skey = key;
-        if(argMap.find(skey) == argMap.end()){
-            for(const auto &x : argMap){
+        if(m_argMap.find(skey) == m_argMap.end()){
+            for(const auto &x : m_argMap){
                 for(const auto &alias : x.second->m_aliases){
                     if(alias == skey){
                         skey = x.first;
@@ -1092,8 +1092,8 @@ protected:
                 }
             }
         }
-        if(argMap.find(skey) != argMap.end()){
-            return *argMap.find(skey)->second;
+        if(m_argMap.find(skey) != m_argMap.end()){
+            return *m_argMap.find(skey)->second;
         }
         throw std::invalid_argument(key + " not defined");
     }
@@ -1102,7 +1102,7 @@ protected:
         if(func == nullptr){
             func = __func__;
         }
-        if(!args_parsed){
+        if(!m_args_parsed){
             throw std::runtime_error(std::string(func) +": Invalid call. Arguments not parsed yet");
         }
     }
@@ -1112,10 +1112,10 @@ protected:
             func = __func__;
         }
         //Check previous definition
-        if(argMap.find(key) != argMap.end()){
+        if(m_argMap.find(key) != m_argMap.end()){
             throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
         }
-        for(const auto &x : argMap){
+        for(const auto &x : m_argMap){
             for(const auto &alias : x.second->m_aliases){
                 if(alias == key){
                     throw std::invalid_argument(std::string(func) + ": " + std::string(key) + " already defined");
@@ -1171,7 +1171,7 @@ protected:
         std::string closestMatch;
         auto minMismatch = std::string::npos;
 
-        for(const auto &it : argMap){
+        for(const auto &it : m_argMap){
             // check mismatch for the key
             auto mismatch = calculateMismatch(name, it.first);
             //check aliases as well
@@ -1215,8 +1215,8 @@ protected:
     }
 
     argParser* findChildByName (const std::string &key){
-            for(const auto &child : commandMap){
-                if(child->binary_name == key){
+            for(const auto &child : m_commandMap){
+                if(child->m_binary_name == key){
                     return child.get();
                 }
             }
@@ -1236,13 +1236,13 @@ protected:
     bool parseHandleContiguousAndCombinedArgs(std::string &pName, std::string &pValue, std::string &name) {
         auto len = pName.front() == '-' ? 2 : 1;
         std::string startsWith = pName.substr(0, len);
-        if(argMap.find(startsWith) != argMap.end()){
+        if(m_argMap.find(startsWith) != m_argMap.end()){
             name = startsWith;
         }else{
             name = findKeyByAlias(startsWith);
         }
         if(!name.empty()){
-            const auto &x = argMap.at(name);
+            const auto &x = m_argMap.at(name);
             // implicit contiguous (-vvv/-it or vvv/it style) argument
             if(x->m_implicit){
                 //set '-' to other portion to extract it later
@@ -1262,13 +1262,13 @@ protected:
     }
 
     void parsePreprocessArgVec() {
-        for(auto index = 0; index < argVec.size(); ++index){
+        for(auto index = 0; index < m_argVec.size(); ++index){
             auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
-                argVec[index] = key;
-                argVec.insert(argVec.begin() + index + 1, val);
+                m_argVec[index] = key;
+                m_argVec.insert(m_argVec.begin() + index + 1, val);
             };
-            std::string pName = argVec[index];
-            std::string pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
+            std::string pName = m_argVec[index];
+            std::string pValue = index+1 >= m_argVec.size() ? "" : m_argVec[index + 1];
 
             ///Handle '='
             if (parseHandleEqualsSign(pName, pValue)) {
@@ -1278,25 +1278,25 @@ protected:
                 index--;
                 continue;
             }
-            if(argMap.find(pName) == argMap.end()){
+            if(m_argMap.find(pName) == m_argMap.end()){
                 ///Find alias
                 std::string name = findKeyByAlias(pName);
                 if (findChildByName(pName) != nullptr) {
                     // if found child, break
-                    command_offset = argVec.size() - index;
+                    m_command_offset = m_argVec.size() - index;
                     break;
                 } else if (!name.empty()) {
                     // change alias to key
                     pName = name;
-                    argVec[index] = name;
-                    index += argMap[name]->mandatory_options; //skip mandatory opts
+                    m_argVec[index] = name;
+                    index += m_argMap[name]->m_mandatory_options; //skip mandatory opts
                 } else if (parseHandleContiguousAndCombinedArgs(pName, pValue, name)) {
                     ///check contiguous or combined arguments
                     insertKeyValue(name, pValue);
                 }//if name.empty()
             } else{
                 // if found in argMap, skip mandatory opts
-                index += argMap[pName]->mandatory_options;
+                index += m_argMap[pName]->m_mandatory_options;
             }
             if(pName == HELP_NAME){
                 // if found help m_key, break
@@ -1306,14 +1306,14 @@ protected:
     }
 
     [[nodiscard]] int parseHandlePositional(int index) {
-        const auto &pos_name = posMap[positional_args_parsed++];
+        const auto &pos_name = m_posMap[m_positional_args_parsed++];
         int opts_cnt = 0;
-        auto nargs = argMap[pos_name]->get_nargs();
-        bool variadic = argMap[pos_name]->is_variadic();
+        auto nargs = m_argMap[pos_name]->get_nargs();
+        bool variadic = m_argMap[pos_name]->is_variadic();
         if(nargs > 0 || variadic){
             auto cnt = index-1;
-            while(++cnt < argVec.size()){
-                if(findChildByName(argVec[cnt]) != nullptr){
+            while(++cnt < m_argVec.size()){
+                if(findChildByName(m_argVec[cnt]) != nullptr){
                     break;
                 }
                 if(nargs > 0 && opts_cnt >= nargs && !variadic){
@@ -1321,31 +1321,31 @@ protected:
                 }
                 ++opts_cnt;
             }
-            if(opts_cnt < argMap[pos_name]->mandatory_options){
-                throw parse_error(binary_name + ": not enough " + pos_name + " arguments");
+            if(opts_cnt < m_argMap[pos_name]->m_mandatory_options){
+                throw parse_error(m_binary_name + ": not enough " + pos_name + " arguments");
             }
         }else{
             opts_cnt = 1;
         }
-        positional_cnt += opts_cnt;
+        m_positional_cnt += opts_cnt;
         index += parseSingleArgument(pos_name, index, index+opts_cnt);
         return --index;
     }
 
     [[nodiscard]] int parseHandleChildAndPositional(int index, bool hide_hidden_hint) {
-        for(;index < argVec.size(); ++index){
+        for(; index < m_argVec.size(); ++index){
             /// Parse children
-            auto child = findChildByName(argVec[index]);
+            auto child = findChildByName(m_argVec[index]);
             if(child != nullptr){
-                child->parseArgs({argVec.begin() + index + 1, argVec.end()}, hide_hidden_hint);
-                command_parsed = true;
+                child->parseArgs({m_argVec.begin() + index + 1, m_argVec.end()}, hide_hidden_hint);
+                m_command_parsed = true;
                 break;
             }
             ///Try parsing positional args
-            if(positional_args_parsed < posMap.size()){
+            if(m_positional_args_parsed < m_posMap.size()){
                 index = parseHandlePositional(index);
-            }else if(!posMap.empty()){  //if(!posMap.empty())
-                throw parse_error("Error: trailing argument after positionals: " + argVec[index]);
+            }else if(!m_posMap.empty()){  //if(!posMap.empty())
+                throw parse_error("Error: trailing argument after positionals: " + m_argVec[index]);
             }
         }
         return index;
@@ -1353,37 +1353,37 @@ protected:
 
     int parseHandleKnownArg(int index, const std::string &pName) {
         ///If non-repeatable and occurred again, throw error
-        if(argMap[pName]->m_set
-           && !argMap[pName]->m_repeatable){
+        if(m_argMap[pName]->m_set
+           && !m_argMap[pName]->m_repeatable){
             throw parse_error("Error: redefinition of non-repeatable arg " + std::string(pName));
         }
 
         int opts_cnt = 0;
         auto cnt = index;
-        bool infinite_opts = argMap[pName]->is_variadic();
+        bool infinite_opts = m_argMap[pName]->is_variadic();
 
-        while(++cnt < argVec.size()){
+        while(++cnt < m_argVec.size()){
             // if all options found, break
-            if(!infinite_opts && opts_cnt >= argMap[pName]->m_options.size()){
+            if(!infinite_opts && opts_cnt >= m_argMap[pName]->m_options.size()){
                 break;
             }
             // leave space for positionals
-            auto left = argVec.size() - cnt - command_offset;
-            if((infinite_opts || opts_cnt == argMap[pName]->mandatory_options)
-               && left <= positional_places){
+            auto left = m_argVec.size() - cnt - m_command_offset;
+            if((infinite_opts || opts_cnt == m_argMap[pName]->m_mandatory_options)
+               && left <= m_positional_places){
                 break;
             }
             //check if next value is also a key
-            bool next_is_key = (argMap.find(argVec[cnt]) != argMap.end());
+            bool next_is_key = (m_argMap.find(m_argVec[cnt]) != m_argMap.end());
             if(next_is_key){
                 break;
             }
             ++opts_cnt;
         }
 
-        if(opts_cnt < argMap[pName]->mandatory_options){
+        if(opts_cnt < m_argMap[pName]->m_mandatory_options){
             throw parse_error(std::string(pName) + " requires "
-                              + std::to_string(argMap[pName]->mandatory_options) + " parameters, but " + std::to_string(opts_cnt) + " were provided");
+                              + std::to_string(m_argMap[pName]->m_mandatory_options) + " parameters, but " + std::to_string(opts_cnt) + " were provided");
         }
 
         parseSingleArgument(pName, index + 1, index + 1 + opts_cnt);
@@ -1393,7 +1393,7 @@ protected:
     }
 
     std::string findKeyByAlias(const std::string &key) {
-        for(const auto &x : argMap){
+        for(const auto &x : m_argMap){
             for(const auto &el : x.second->m_aliases){
                 if(el == key){
                     return x.first;
@@ -1404,26 +1404,26 @@ protected:
     }
 
     void setArgument(const std::string &pName) {
-        argMap[pName]->m_set = true;
+        m_argMap[pName]->m_set = true;
         //count mandatory/required options
-        if(!argMap[pName]->m_arbitrary){
-            parsed_mnd_args++;
-        }else if(argMap[pName]->m_required){
-            parsed_required_args++;
+        if(!m_argMap[pName]->m_arbitrary){
+            m_parsed_mnd_args++;
+        }else if(m_argMap[pName]->m_required){
+            m_parsed_required_args++;
         }
     }
 
     void checkParsedNonPos() {
-        if(mandatory_option){
-            if(parsed_mnd_args != mandatory_args){
-                for(const auto &x : argMap){
+        if(m_mandatory_option){
+            if(m_parsed_mnd_args != m_mandatory_args){
+                for(const auto &x : m_argMap){
                     if(!x.second->m_arbitrary && !x.second->m_positional && !x.second->m_set){
                         throw parse_error(x.first + " not specified");
                     }
                 }
             }
-            if(required_args > 0 && parsed_required_args < 1){
-                throw parse_error(binary_name + ": missing required option " + std::string(REQUIRED_OPTION_SIGN));
+            if(m_required_args > 0 && m_parsed_required_args < 1){
+                throw parse_error(m_binary_name + ": missing required option " + std::string(REQUIRED_OPTION_SIGN));
             }
         }
     }
@@ -1431,13 +1431,13 @@ protected:
     std::string checkTypos(const std::string& pName) {
         auto proposed_value = closestKey(pName);
         if(!proposed_value.empty()){
-            const auto &prop = argMap.find(proposed_value)->second;
+            const auto &prop = m_argMap.find(proposed_value)->second;
             //if not set and positionals have not yet been parsed
-            bool before_pos = !prop->is_set() && positional_args_parsed == 0;
+            bool before_pos = !prop->is_set() && m_positional_args_parsed == 0;
             //if arbitrary and no mandatory args have been parsed yet
-            bool is_arb = prop->is_arbitrary() && !prop->is_required() && parsed_mnd_args == 0;
+            bool is_arb = prop->is_arbitrary() && !prop->is_required() && m_parsed_mnd_args == 0;
             //if mandatory and not all of them provided
-            bool unparsed_mnd = !prop->is_arbitrary() && (parsed_mnd_args != mandatory_args);
+            bool unparsed_mnd = !prop->is_arbitrary() && (m_parsed_mnd_args != m_mandatory_args);
             //if required
             bool is_req = prop->is_required();
             if(before_pos && (unparsed_mnd || is_arb || is_req)){
@@ -1449,71 +1449,71 @@ protected:
 
     void setParseCounters(bool hide_hidden_hint) {
         //count mandatory/required arguments
-        for(const auto &x : argMap){
+        for(const auto &x : m_argMap){
             if(!x.second->m_arbitrary
                && !x.second->m_positional){
-                mandatory_args++;
+                m_mandatory_args++;
             }else if(x.second->m_arbitrary
                      && x.second->m_required){
-                required_args++;
+                m_required_args++;
             }
             if(x.second->m_hidden && !hide_hidden_hint){
-                hidden_args++;
+                m_hidden_args++;
             }
         }
-        for(const auto &x : posMap){
-            const auto &arg = argMap.at(x);
-            positional_places += arg->mandatory_options;
+        for(const auto &x : m_posMap){
+            const auto &arg = m_argMap.at(x);
+            m_positional_places += arg->m_mandatory_options;
         }
 
-        mandatory_option = mandatory_args || required_args;
+        m_mandatory_option = m_mandatory_args || m_required_args;
     }
 
     int parseSingleArgument(const std::string &key, int start, int end) {
         try{
             // end not included
             // remove spaces added while preparing
-            for(auto it = argVec.begin() + start; it != argVec.begin() + end; ++it){
+            for(auto it = m_argVec.begin() + start; it != m_argVec.begin() + end; ++it){
                 if((*it).front() == ' '){
                     *it = (*it).substr(1);
                 }
             }
             const std::string *ptr = nullptr;
             // preserve out of range vector error
-            if(start < argVec.size()){
+            if(start < m_argVec.size()){
                 // save raw cli parameters
-                argMap[key]->m_cli_params = {argVec.begin() + start, argVec.begin() + end};
+                m_argMap[key]->m_cli_params = {m_argVec.begin() + start, m_argVec.begin() + end};
                 // set pointer to start
-                ptr = &argVec.at(start);
+                ptr = &m_argVec.at(start);
             }
-            argMap[key]->option->action(ptr, end - start);
+            m_argMap[key]->m_option->action(ptr, end - start);
         }catch(std::exception &e){
             //save last unparsed arg
-            last_unparsed_arg = argMap[key].get();
+            m_last_unparsed_arg = m_argMap[key].get();
             throw unparsed_param(key + " : " + e.what());
         }
         return end-start;
     }
 
     int parseArgs(std::vector<std::string> &&arg_vec, bool hide_hidden_hint = false){
-        argVec = std::move(arg_vec);
+        m_argVec = std::move(arg_vec);
         setParseCounters(hide_hidden_hint);
         /// Preprocess argVec (handle '=', aliases, combined args, etc)
         parsePreprocessArgVec();
         /// Main parser loop
-        for(int index = 0; index < argVec.size(); ++index){
-            const auto &pName = argVec.at(index);
-            const auto &pValue = index+1 >= argVec.size() ? "" : argVec[index + 1];
+        for(int index = 0; index < m_argVec.size(); ++index){
+            const auto &pName = m_argVec.at(index);
+            const auto &pValue = index+1 >= m_argVec.size() ? "" : m_argVec[index + 1];
             ///If found unknown key
-            if(argMap.find(pName) == argMap.end()){
+            if(m_argMap.find(pName) == m_argMap.end()){
                 ///Check if it's an arg with a typo
                 auto proposed_value = checkTypos(pName);
                 /// Handle positional args and child parsers
                 index = parseHandleChildAndPositional(index, hide_hidden_hint);
-                if(command_parsed){
+                if(m_command_parsed){
                     break;
                 }
-                if(!posMap.empty() && positional_args_parsed == posMap.size()){
+                if(!m_posMap.empty() && m_positional_args_parsed == m_posMap.size()){
                     break;
                 }
                 std::string thrError = "Unknown argument: " + std::string(pName);
@@ -1524,7 +1524,7 @@ protected:
                 throw parse_error(thrError);
             }
             ///Show help
-            if(argMap.at(pName)->typeStr == ARG_TYPE_HELP){
+            if(m_argMap.at(pName)->m_type_str == ARG_TYPE_HELP){
                 helpDefault(pValue);
                 exit(0);
             }
@@ -1536,13 +1536,13 @@ protected:
         }
 
         checkParsedNonPos();
-        if(positional_cnt < positional_places){
-            throw parse_error(binary_name + ": not enough positional arguments provided");
+        if(m_positional_cnt < m_positional_places){
+            throw parse_error(m_binary_name + ": not enough positional arguments provided");
         }
-        if(!commandMap.empty() && !command_parsed){
-            throw parse_error(binary_name + ": no command provided");
+        if(!m_commandMap.empty() && !m_command_parsed){
+            throw parse_error(m_binary_name + ": no command provided");
         }
-        args_parsed = true;
+        m_args_parsed = true;
         return 0;
     }
 
@@ -1550,14 +1550,14 @@ protected:
 
         bool advanced = false;
 
-        if(hidden_args > 0){
-            argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
-            argMap[HELP_NAME]->m_help += ", '" + std::string(HELP_HIDDEN_OPT) + "' to list hidden args as well";
+        if(m_hidden_args > 0){
+            m_argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
+            m_argMap[HELP_NAME]->m_help += ", '" + std::string(HELP_HIDDEN_OPT) + "' to list hidden args as well";
         }
 
         auto get_choices = [](const auto &j) -> std::string{
             // List choices if applicable
-            auto choices = j->option->get_str_choices();
+            auto choices = j->m_option->get_str_choices();
             std::string opt;
             if(!choices.empty()){
                 opt = "{";
@@ -1618,16 +1618,16 @@ protected:
 
                 printParam(j);
 
-                std::string def_val = j.second->option->get_str_val();
-                def_val = j.second->show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
+                std::string def_val = j.second->m_option->get_str_val();
+                def_val = j.second->m_show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
                 std::string repeatable = j.second->m_repeatable ? " [repeatable]" : "";
 
-                std::string required = j.second->m_required ? (required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
+                std::string required = j.second->m_required ? (m_required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
                 std::cout << " : " + j.second->m_help + repeatable + def_val + required << std::endl;
                 j.second->m_set = true; //help_set
             };
 
-            for (const auto &j : argMap){
+            for (const auto &j : m_argMap){
                 bool req = check_required < 0 ? j.second->m_required : check_required > 0;
                 if((j.second->m_arbitrary && !j.second->m_required) == flag
                    && j.second->m_hidden == hidden
@@ -1644,14 +1644,14 @@ protected:
         }
         else if(!param.empty()){
             //param advanced help
-            auto j = argMap.find(param);
+            auto j = m_argMap.find(param);
             //seek alias
-            if(j == argMap.end()){
+            if(j == m_argMap.end()){
                 bool found = false;
-                for(const auto &x : argMap){
+                for(const auto &x : m_argMap){
                     for(const auto &alias : x.second->m_aliases){
                         if(alias == param){
-                            j = argMap.find(x.first);
+                            j = m_argMap.find(x.first);
                             found = true;
                             break;
                         }
@@ -1661,7 +1661,7 @@ protected:
                 }
             }
 
-            if(j != argMap.end()){
+            if(j != m_argMap.end()){
                 printParam(*j, true);
                 std::cout << ":" << std::endl;
                 std::cout << j->second->m_help << std::endl;
@@ -1676,30 +1676,30 @@ protected:
         }
 
         std::string positional;
-        for(const auto &x : posMap){
+        for(const auto &x : m_posMap){
             std::string opt = x;
-            if(!argMap[x]->m_nargs_var.empty()){
-                opt = argMap[x]->m_nargs_var;
+            if(!m_argMap[x]->m_nargs_var.empty()){
+                opt = m_argMap[x]->m_nargs_var;
             }
-            auto choices = get_choices(argMap[x]);
+            auto choices = get_choices(m_argMap[x]);
             if(!choices.empty()){
                 opt = choices;
             }
-            for(const auto &o : argMap[x]->m_options){
+            for(const auto &o : m_argMap[x]->m_options){
                 std::string tmp = opt;
                 tmp = !parser_internal::isOptMandatory(o) ? ("[" + tmp + "]") : tmp;
                 positional += " " + tmp;
             }
-            if(argMap[x]->m_options.empty()){
+            if(m_argMap[x]->m_options.empty()){
                 positional += " " + opt;
             }
-            if(argMap[x]->is_variadic()){
+            if(m_argMap[x]->is_variadic()){
                 positional += " [" + opt + "...]";
             }
         }
 
         int flag_cnt = 0, opt_cnt = 0;
-        for(const auto &x : argMap){
+        for(const auto &x : m_argMap){
             if(x.second->m_arbitrary
                && !x.second->m_required){
                 flag_cnt++;
@@ -1708,28 +1708,28 @@ protected:
             }
         }
 
-        if(!description.empty()){
-            std::cout << description << std::endl;
+        if(!m_description.empty()){
+            std::cout << m_description << std::endl;
         }
 
-        std::cout << "Usage: " << binary_name
+        std::cout << "Usage: " << m_binary_name
                      << (flag_cnt ? " [flags...]" : "")
                      << (opt_cnt ? " options..." : "")
                      << positional
-                     << (!commandMap.empty() ? " command [<args>]" : "")
+                     << (!m_commandMap.empty() ? " command [<args>]" : "")
                      << std::endl;
 
-        if(!commandMap.empty()){
+        if(!m_commandMap.empty()){
             std::cout << "Commands:" << std::endl;
-            for(const auto &child : commandMap){
-                std::cout << "\t" << child->binary_name << " : " << child->description << std::endl;
+            for(const auto &child : m_commandMap){
+                std::cout << "\t" << child->m_binary_name << " : " << child->m_description << std::endl;
             }
         }
 
-        if(!posMap.empty()){
+        if(!m_posMap.empty()){
             std::cout << "Positional arguments:" << std::endl;
-            for(const auto &x : posMap){
-                std::cout << "\t" << x << " : " << argMap[x]->m_help << std::endl;
+            for(const auto &x : m_posMap){
+                std::cout << "\t" << x << " : " << m_argMap[x]->m_help << std::endl;
             }
         }
 
@@ -1752,7 +1752,7 @@ protected:
             }
         }
 
-        if(required_args > 1){
+        if(m_required_args > 1){
             std::cout << "For options marked with " + std::string(REQUIRED_OPTION_SIGN) + ": at least one such option should be provided" << std::endl;
         }
     }
