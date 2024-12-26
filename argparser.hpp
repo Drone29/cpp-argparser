@@ -183,18 +183,19 @@ namespace parser_internal{
             return std::isalnum(c) || c == '-' || c == '_' || c == '[' || c == ']';
         };
         auto isDigitOnly = [](int c) -> bool {
-            return std::isdigit(c) || c == '-';
+            return std::isdigit(c) || std::ispunct(c);
         };
+
         auto isValidCharCond = is_param ? isValidParamChar : isValidKeyChar;
         auto invalidChar = std::find_if_not(key.begin(), key.end(), isValidCharCond);
-        auto allDigits = std::all_of(key.begin(), key.end(), isDigitOnly);
+        auto allDigitsAndPunct = std::all_of(key.begin(), key.end(), isDigitOnly);
         auto contains_spaces = key.find(' ') != std::string::npos;
         if(key.empty())
             throw std::invalid_argument(std::string(func) + ": empty key or param");
         if(invalidChar != key.end())
             throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain " + *invalidChar);
-        if(allDigits)
-            throw std::invalid_argument(std::string(func) + ": " + key + " cannot consist only of digits");
+        if(allDigitsAndPunct)
+            throw std::invalid_argument(std::string(func) + ": " + key + " cannot consist only of digits and punctuation chars");
         if(contains_spaces)
             throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain spaces");
         if(key.back() == '-')
@@ -972,9 +973,6 @@ public:
 
         checkDuplicates(key, __func__);
         parser_internal::validateKeyOrParam(key, /*is_param=*/false, __func__);
-        if(!parser_internal::isOptMandatory(key)){
-            throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot be arbitrary");
-        }
         if(key.front() == '-'){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot start with '-'");
         }

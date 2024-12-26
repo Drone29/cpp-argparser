@@ -48,6 +48,24 @@ MYTEST(OnlyNegativeNumbers){
     EXPECT_THROW(parser.addCommand("-123",""), std::invalid_argument);
 }
 
+MYTEST(OnlyFloatingNumbers){
+    EXPECT_THROW(parser.addArgument<int>("123.6"), std::invalid_argument);
+    EXPECT_THROW(parser.addPositional<int>("123.6"), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("123.6",""), std::invalid_argument);
+}
+
+MYTEST(OnlyFloatingNegativeNumbers){
+    EXPECT_THROW(parser.addArgument<int>("-123.6"), std::invalid_argument);
+    EXPECT_THROW(parser.addPositional<int>("-123.6"), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("-123.6",""), std::invalid_argument);
+}
+
+MYTEST(OnlyPunctuations){
+    EXPECT_THROW(parser.addArgument<int>("..."), std::invalid_argument);
+    EXPECT_THROW(parser.addPositional<int>("..."), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("...",""), std::invalid_argument);
+}
+
 MYTEST(InvalidKey){
     EXPECT_THROW(parser.addArgument<int>("=y"), std::invalid_argument);
     EXPECT_THROW(parser.addPositional<int>("=y"), std::invalid_argument);
@@ -73,7 +91,11 @@ MYTEST(InvalidKey4){
 }
 
 MYTEST(InvalidPosKey){
-    EXPECT_THROW(parser.addPositional<int>("-i"), std::invalid_argument) << "Positional argument cannot start with -";
+    EXPECT_THROW(parser.addPositional<int>("-i"), std::invalid_argument);
+}
+
+MYTEST(InvalidPosKey2){
+    EXPECT_THROW(parser.addPositional<int>("[int]"), std::invalid_argument);
 }
 
 MYTEST(Redefinition){
