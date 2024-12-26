@@ -4,32 +4,16 @@
 #define FIXTURE Utest
 #define MYTEST(NAME) TEST_F(FIXTURE, NAME)
 
-/// max size of function string arguments
-constexpr size_t MAX_ARGS = 10;
-constexpr size_t OPTS_SZ_MAGIC = MAX_ARGS + 1;
-static const char * const NO_ARGS[OPTS_SZ_MAGIC] = {};
-
 // Create a test fixture
 class FIXTURE : public testing::Test {
 protected: 
     argParser parser;
     explicit FIXTURE()
         : parser("", ""){}
-    template <size_t SIZE>
-    void CallParser(const char * const(&arr)[SIZE]){
-        constexpr size_t sz = SIZE != OPTS_SZ_MAGIC ? SIZE+1 : 1;
-        const char* a[sz];
-        a[0] = "binary_name"; // add dummy first argument
-        if constexpr(sz > 1){
-//            std::cout << "\tPassed args: ";
-            auto ptr = &a[1];
-            for(auto &j : arr){
-                *ptr++ = j;
-//                std::cout << "\"" << j << "\" ";
-            }
-//            std::cout << std::endl;
-        }
-        parser.parseArgs(sz, const_cast<char **>(a));
+
+    void CallParser(std::vector<const char*> args){
+        args.insert(args.begin(), "binary_name");
+        parser.parseArgs(int(args.size()), const_cast<char **>(&args[0]));
     }
 };
 
@@ -92,10 +76,6 @@ MYTEST(AliasInvalid){
     EXPECT_THROW(parser.addArgument<int>("i", "--int"), std::invalid_argument) << "Should detect the type of alias is different from the key";
 }
 
-//MYTEST(AliasInvalidPos){
-//    EXPECT_THROW(parser.addPositional<int>("i, int"), std::invalid_argument) << "Should detect invalid alias for positional";
-//}
-
 MYTEST(RedefinitionByAlias){
     parser.addArgument<int>("-i", "--int").Finalize();
     EXPECT_THROW(parser.addArgument<int>("-i").Finalize(), std::invalid_argument) << "Should throw error in case of redefinition";
@@ -152,7 +132,7 @@ MYTEST(InvalidPtr){
 
 MYTEST(NotEnoughPos){
     parser.addPositional<int>("pos").Finalize();
-    EXPECT_THROW(CallParser(NO_ARGS), argParser::parse_error) << "Should throw as not enough positionals";
+    EXPECT_THROW(CallParser({}), argParser::parse_error) << "Should throw as not enough positionals";
 }
 
 MYTEST(RepeatingThrow){
@@ -162,8 +142,10 @@ MYTEST(RepeatingThrow){
 
 MYTEST(GlobalPtr){
     int i;
-    parser.addArgument<int>("-i").SetParameters("int").Finalize()
-        .global_ptr(&i);
+    parser.addArgument<int>("-i")
+            .SetParameters("int")
+            .Finalize()
+            .global_ptr(&i);
     CallParser({"-i", "345"});
     auto res = parser.getValue<int>("-i");
     ASSERT_EQ(res, 345);
@@ -171,13 +153,17 @@ MYTEST(GlobalPtr){
 }
 
 MYTEST(EqSign){
-    parser.addArgument<int>("-i").SetParameters("int").Finalize();
+    parser.addArgument<int>("-i")
+            .SetParameters("int")
+            .Finalize();
     CallParser({"-i=123"});
     ASSERT_EQ(parser.getValue<int>("-i"), 123);
 }
 
 MYTEST(Composite){
-    parser.addArgument<int>("-i").SetParameters("int").Finalize();
+    parser.addArgument<int>("-i")
+            .SetParameters("int")
+            .Finalize();
     CallParser({"-i123"});
     ASSERT_EQ(parser.getValue<int>("-i"), 123);
 }
@@ -185,26 +171,31 @@ MYTEST(Composite){
 MYTEST(Composite2){
     // add repeatable arg with global ptr, starting at 3
     int i_val;
-    parser.addArgument<int>("-i", "--int").Finalize()
-                .default_value(3)
-                .global_ptr(&i_val)
-                .repeatable();
+    parser.addArgument<int>("-i", "--int")
+            .Finalize()
+            .default_value(3)
+            .global_ptr(&i_val)
+            .repeatable();
     CallParser({"-i", "-i", "-iii"});
     ASSERT_EQ(i_val, 8) << "i repeats 5 times starting at 3, so result should be 8";            
 }
 
 MYTEST(SimilarKeyAsValueEq){
     std::string res;
-    parser.addArgument<std::string>("--str").SetParameters("str_val").Finalize()
-                .global_ptr(&res);
+    parser.addArgument<std::string>("--str")
+            .SetParameters("str_val")
+            .Finalize()
+            .global_ptr(&res);
     CallParser({"--str=--str"});
     ASSERT_EQ(res, "--str") << "Should parse '--str' after '=' as value";            
 }
 
 MYTEST(SimilarKeyAsValueComp){
     std::string res;
-    parser.addArgument<std::string>("-s").SetParameters("str_val").Finalize()
-                .global_ptr(&res);
+    parser.addArgument<std::string>("-s")
+            .SetParameters("str_val")
+            .Finalize()
+            .global_ptr(&res);
     CallParser({"-s-sss"});
     ASSERT_EQ(res, "-sss") << "Should parse '-sss' after '-s' as value";
 }
@@ -219,7 +210,63 @@ MYTEST(VariadicOpt){
     ASSERT_TRUE(check) << "Should parse 3 digits to variadic argument";      
 }
 
-MYTEST(VariadicPos){
+MYTEST(ArgImplicitWithFunction){
+    int val = 0;
+    parser.addArgument<int>("-i")
+            .SetCallable([&val](){
+                return ++val;
+            })
+            .Finalize();
+    CallParser({"-i"});
+    ASSERT_EQ(val, 1);
+    ASSERT_EQ(parser.getValue<int>("-i"), 1);
+}
+
+MYTEST(ArgSingleMandatoryParamWithFunction) {
+    parser.addArgument<int>("-i")
+            .SetParameters("int")
+            .SetCallable([](auto i){
+                return int(std::strtol(i, nullptr, 0));
+            })
+            .Finalize();
+    CallParser({"-i", "123"});
+    ASSERT_EQ(parser.getValue<int>("-i"), 123);
+}
+
+MYTEST(ArgSingleArbitraryParamWithFunction) {
+    parser.addArgument<int>("-i")
+            .SetParameters("[int]")
+            .SetCallable([](auto i){
+                if (i == nullptr){
+                    return 13;
+                }
+                return int(std::strtol(i, nullptr, 0));
+            })
+            .Finalize();
+    CallParser({"-i"});
+    ASSERT_EQ(parser.getValue<int>("-i"), 13);
+}
+
+MYTEST(PosWithFunction) {
+    parser.addPositional<int>("i")
+            .SetCallable([](auto i){
+                return int(std::strtol(i, nullptr, 0));
+            })
+            .Finalize();
+    CallParser({"456"});
+    ASSERT_EQ(parser.getValue<int>("i"), 456);
+}
+
+MYTEST(PureVariadicPosWithFunction) {
+    parser.addPositional<int>("i")
+            .NArgs<0,-1>()
+            .Finalize();
+    CallParser({"1", "2", "3"});
+    bool check = parser.getValue<std::vector<int>>("i") == std::vector<int>{1,2,3};
+    ASSERT_TRUE(check);
+}
+
+MYTEST(ArgWithParamsAndVariadicPos){
     //define lambda to parse int from 2 args
     auto lmb = [&](const char* mnd_, const char* arb_) -> int{
         auto res = argParser::scanValue<int>(mnd_);
@@ -236,7 +283,8 @@ MYTEST(VariadicPos){
 
     parser.addArgument<int>("-i")
             .SetParameters("mnd", "[arb]")
-            .SetCallable(lmb).Finalize();
+            .SetCallable(lmb)
+            .Finalize();
     parser.addPositional<int>("pos")
             .SetCallable(pos_lmb)
             .NArgs<1,-1>()
@@ -256,7 +304,7 @@ MYTEST(VarPosThrow){
     EXPECT_THROW(parser.addPositional<int>("pos"), std::invalid_argument) << "Show throw invalid arg error if variadic positional arg is followed by another one";            
 }
 
-MYTEST(Complex){
+MYTEST(ArbitraryArgWithVariadicArg){
     auto test = [](const char* a){
         if(a == nullptr){
             a = "null";
@@ -271,12 +319,12 @@ MYTEST(Complex){
             .Finalize();
     CallParser({"-p", "-var", "1", "2", "3"});        
     auto p = parser.getValue<std::string>("-p");
-    auto var = parser.getValue<std::vector<int>>("-var");    
+    bool check = parser.getValue<std::vector<int>>("-var") == std::vector<int>{1,2,3};
     ASSERT_EQ(p, "null");
-    ASSERT_EQ(var.size(), 3);
+    ASSERT_TRUE(check);
 }
 
-MYTEST(Complex2){
+MYTEST(MeshedArgNameAndValue){
     auto test = [](const char* a){
         if(a == nullptr){
             a = "null";
@@ -291,9 +339,9 @@ MYTEST(Complex2){
             .Finalize();
     CallParser({"-p=-var", "-var", "1", "2", "3"});
     auto p = parser.getValue<std::string>("-p");
-    auto var = parser.getValue<std::vector<int>>("-var");
+    bool check = parser.getValue<std::vector<int>>("-var") == std::vector<int>{1,2,3};
     ASSERT_EQ(p, "-var");
-    ASSERT_EQ(var.size(), 3);
+    ASSERT_TRUE(check);
 }
 
 MYTEST(SingleChar){
@@ -347,7 +395,9 @@ MYTEST(SideArgsPos){
         auto a_ = argParser::scanValue<int>(a);
         return g + a_;
     };
-    parser.addPositional<int>("pos").SetCallable(parse_pos, 34).Finalize();
+    parser.addPositional<int>("pos")
+            .SetCallable(parse_pos, 34)
+            .Finalize();
     CallParser({"6"});
     ASSERT_EQ(parser.getValue<int>("pos"), 40);
 }
@@ -521,7 +571,7 @@ MYTEST(NargsSinglePosArbitraryNotProvided){
     parser.addPositional<int>("pos")
             .NArgs<0,1>()
             .Finalize();
-    EXPECT_NO_THROW(CallParser(NO_ARGS));
+    EXPECT_NO_THROW(CallParser({}));
 }
 
 MYTEST(NargsSinglePosArbitraryWithRegularPos){
@@ -619,7 +669,7 @@ MYTEST(NargsPosArbZero){
     parser.addPositional<int>("pos")
             .NArgs<0,3>()
             .Finalize();
-    EXPECT_NO_THROW(CallParser(NO_ARGS)) << "Should parse empty list";            
+    EXPECT_NO_THROW(CallParser({})) << "Should parse empty list";
 }
 
 MYTEST(NargsPosNotEnough){
@@ -672,7 +722,7 @@ MYTEST(NargsPureVariadicPosWithZero){
     parser.addPositional<int>("pos")
             .NArgs<0,-1>()
             .Finalize();
-    EXPECT_NO_THROW(CallParser(NO_ARGS));            
+    EXPECT_NO_THROW(CallParser({}));
 }
 
 MYTEST(NargsPureVariadicChoices){
@@ -710,7 +760,7 @@ MYTEST(NargsPureVariadicWithFollowingPureVariadicPos){
 
 MYTEST(NargsPosWithFunction){
     auto func = [](const char* arg){
-        return std::strtod(arg, nullptr) + 12;
+        return int(std::strtol(arg, nullptr, 0)) + 12;
     };
     parser.addPositional<int>("n")
             .SetCallable(func)
@@ -722,7 +772,7 @@ MYTEST(NargsPosWithFunction){
 
 MYTEST(NargsWithFunction){
     auto func = [](const char* arg){
-        return int(std::strtod(arg, nullptr)) + 12;
+        return int(std::strtol(arg, nullptr, 0)) + 12;
     };
     parser.addArgument<int>("-n")
             .SetCallable(func)
@@ -734,7 +784,7 @@ MYTEST(NargsWithFunction){
 
 MYTEST(NargsVarWithFunction){
     auto func = [](const char* arg){
-        return std::strtod(arg, nullptr) + 12;
+        return int(std::strtol(arg, nullptr, 0)) + 12;
     };
     parser.addArgument<int>("-n")
             .SetCallable(func)
@@ -748,7 +798,7 @@ MYTEST(NargsVarWithFunction){
 MYTEST(NargsWithFuncSideParams){
     int side_par = 1;
     auto func = [](int &s_par, const char* arg){
-        return std::strtod(arg, nullptr) + s_par++;
+        return int(std::strtol(arg, nullptr, 0)) + s_par++;
     };
     parser.addArgument<int>("-n")
             .SetCallable(func, std::ref(side_par))

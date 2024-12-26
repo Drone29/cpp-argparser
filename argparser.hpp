@@ -887,6 +887,11 @@ public:
         m_argMap.clear();
     }
 
+    argParser(const argParser&) = delete;
+    argParser &operator=(const argParser&) = delete;
+    argParser(argParser &&) = delete;
+    argParser &operator=(argParser &&) = delete;
+
     // new arg builder
     template<typename T, typename... Keys>
     auto addArgument(Keys ...keys) {
