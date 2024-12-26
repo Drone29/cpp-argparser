@@ -36,6 +36,12 @@ MYTEST(OnlyMinuses){
     EXPECT_THROW(parser.addCommand("--", ""), std::invalid_argument);
 }
 
+MYTEST(OnlyUnderscores){
+    EXPECT_THROW(parser.addArgument<int>("__"), std::invalid_argument);
+    EXPECT_THROW(parser.addPositional<int>("__"), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("__", ""), std::invalid_argument);
+}
+
 MYTEST(OnlyNumbers){
     EXPECT_THROW(parser.addArgument<int>("0"), std::invalid_argument);
     EXPECT_THROW(parser.addPositional<int>("0"), std::invalid_argument);
