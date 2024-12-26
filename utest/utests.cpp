@@ -21,36 +21,49 @@ protected:
 MYTEST(EmptyKey){
     EXPECT_THROW(parser.addArgument<int>(""), std::invalid_argument);
     EXPECT_THROW(parser.addPositional<int>(""), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("", ""), std::invalid_argument);
 }
 
 MYTEST(OnlySpaces){
     EXPECT_THROW(parser.addArgument<int>("   "), std::invalid_argument);
     EXPECT_THROW(parser.addPositional<int>("   "), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("   ", ""), std::invalid_argument);
 }
 
 MYTEST(OnlyMinuses){
     EXPECT_THROW(parser.addArgument<int>("--"), std::invalid_argument);
     EXPECT_THROW(parser.addPositional<int>("--"), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("--", ""), std::invalid_argument);
+}
+
+MYTEST(OnlyNumbers){
+    EXPECT_THROW(parser.addArgument<int>("0"), std::invalid_argument);
+    EXPECT_THROW(parser.addPositional<int>("0"), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("0", ""), std::invalid_argument);
 }
 
 MYTEST(InvalidKey){
     EXPECT_THROW(parser.addArgument<int>("=y"), std::invalid_argument);
     EXPECT_THROW(parser.addPositional<int>("=y"), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("=y",""), std::invalid_argument);
 }
 
 MYTEST(InvalidKey2){
     EXPECT_THROW(parser.addArgument<int>("y,"), std::invalid_argument);
     EXPECT_THROW(parser.addPositional<int>("y,"), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("y,",""), std::invalid_argument);
 }
 
 MYTEST(InvalidKey3){
     EXPECT_THROW(parser.addArgument<int>(" y"), std::invalid_argument);
     EXPECT_THROW(parser.addPositional<int>(" y"), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand(" y",""), std::invalid_argument);
 }
 
 MYTEST(InvalidKey4){
     EXPECT_THROW(parser.addArgument<int>("[int]"), std::invalid_argument);
     EXPECT_THROW(parser.addPositional<int>("[int]"), std::invalid_argument);
+    EXPECT_THROW(parser.addCommand("[int]",""), std::invalid_argument);
 }
 
 MYTEST(InvalidPosKey){
@@ -106,6 +119,12 @@ MYTEST(EmptyParam){
     EXPECT_THROW(parser.addArgument<int>("-i")
             .SetParameters(""),
             std::invalid_argument) << "Should detect empty params";
+}
+
+MYTEST(NumberParam){
+    EXPECT_THROW(parser.addArgument<int>("-i")
+                         .SetParameters("0"),
+                 std::invalid_argument);
 }
 
 MYTEST(UnknownArg){

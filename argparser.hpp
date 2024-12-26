@@ -174,6 +174,32 @@ namespace parser_internal{
         }
         return res;
     }
+
+    inline void validateKeyOrParam(const std::string &key, bool is_param, const char* func){
+        auto isValidKeyChar = [](int c) -> bool {
+            return std::isalnum(c) || c == '-' || c == '_';
+        };
+        auto isValidParamChar = [](int c) -> bool {
+            return std::isalnum(c) || c == '-' || c == '_' || c == '[' || c == ']';
+        };
+        auto isDigitOnly = [](int c) -> bool {
+            return std::isdigit(c);
+        };
+        auto isValidCharCond = is_param ? isValidParamChar : isValidKeyChar;
+        auto invalidChar = std::find_if_not(key.begin(), key.end(), isValidCharCond);
+        auto allDigits = std::all_of(key.begin(), key.end(), isDigitOnly);
+        auto contains_spaces = key.find(' ') != std::string::npos;
+        if(key.empty())
+            throw std::invalid_argument(std::string(func) + ": empty key or param");
+        if(invalidChar != key.end())
+            throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain " + *invalidChar);
+        if(allDigits)
+            throw std::invalid_argument(std::string(func) + ": " + key + " cannot consist only of digits");
+        if(contains_spaces)
+            throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain spaces");
+        if(key.back() == '-')
+            throw std::invalid_argument(std::string(func) + ": " + key + " shouldn't end with '-'");
+    }
 }
 
 class BaseOption{
@@ -719,12 +745,7 @@ public:
                 throw std::invalid_argument("Arg cannot be null!");
             }
             auto sopt = std::string(k);
-            if (sopt.empty()){
-                throw std::invalid_argument(std::string(func) + ": " + m_key + " parameter name cannot be empty");
-            }
-            if(sopt.front() == ' ' || sopt.back() == ' '){
-                throw std::invalid_argument(std::string(func) + ": " + m_key + " parameter " + sopt + " cannot begin or end with space");
-            }
+            parser_internal::validateKeyOrParam(sopt, /*is_param=*/true, func);
             if(parser_internal::isOptMandatory(sopt)){
                 m_mandatory_args++;
                 m_last_mandatory_arg = sopt;
@@ -901,11 +922,8 @@ public:
                 throw std::invalid_argument("Key cannot be null!");
             }
             auto skey = std::string(k);
-            if (skey.empty()) {
-                throw std::invalid_argument(std::string(func) + ": alias cannot be empty");
-            }
+            parser_internal::validateKeyOrParam(skey, /*is_param=*/false, func);
             checkDuplicates(skey, func);
-            checkForbiddenSymbols(skey, func);
             return skey;
         };
         //populate aliases
@@ -951,8 +969,9 @@ public:
                 }
             }
         }
+
         checkDuplicates(key, __func__);
-        checkForbiddenSymbols(key, __func__);
+        parser_internal::validateKeyOrParam(key, /*is_param=*/false, __func__);
         if(!parser_internal::isOptMandatory(key)){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot be arbitrary");
         }
@@ -1014,7 +1033,8 @@ public:
     }
 
     argParser &addCommand(const std::string &name, const std::string &descr){
-        checkForbiddenSymbols(name, __func__);
+        parser_internal::validateKeyOrParam(name, /*is_param=*/false, __func__);
+
         if(!parser_internal::isOptMandatory(name)){
             throw std::invalid_argument(std::string(__func__) + ": " + name + " child command cannot be arbitrary");
         }
@@ -1192,26 +1212,6 @@ protected:
         }
         return minMismatch < 2 ? closestMatch : "";
     };
-
-    static void checkForbiddenSymbols(const std::string &key, const char* func = nullptr){
-        if(func == nullptr){
-            func = __func__;
-        }
-        auto charValid = [](int c) -> bool{
-            return std::isalnum(c) || c == '-' || c == '_';
-        };
-        auto c = std::find_if_not(key.begin(), key.end(), charValid);
-        auto s = key.find(' ');
-        if(c != key.end()){
-            throw std::invalid_argument(std::string(func) + ": " + key + " cannot begin or end with " + *c);
-        }
-        if(s != std::string::npos){
-            throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain spaces");
-        }
-        if(key.back() == '-'){
-            throw std::invalid_argument(std::string(func) + ": key " + key + " shouldn't end with '-'");
-        }
-    }
 
     //dummy function
     static void dummyFunc(){
