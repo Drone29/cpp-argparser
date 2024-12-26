@@ -189,8 +189,8 @@ protected:
     virtual ~BaseOption() = default;
     virtual void action (const std::string *args, int size) {}
     virtual void set(std::any x) {}
-    virtual std::string get_str_val() {return "";}
-    virtual std::vector<std::string> get_str_choices() {return {};}
+    virtual std::string get_str_val() const {return "";}
+    virtual std::vector<std::string> get_str_choices() const {return {};}
     virtual void set_global_ptr(std::any ptr) {}
     virtual void set_choices(std::initializer_list<std::any> &&choices_list) {}
     virtual void make_variadic() {}
@@ -227,7 +227,7 @@ private:
 
     static_assert(not_void(), "Return type cannot be void");
 
-    void check_choices(){
+    void check_choices() const {
         // applicable only to arithmetic or strings
         if constexpr(choices_viable()) {
             if(!m_choices.empty()){
@@ -322,7 +322,7 @@ private:
         m_anyval = m_value;
     }
 
-    std::string get_str_val(T val){
+    std::string get_str_val(T val) const {
         std::string res;
         try{
             if constexpr (std::is_arithmetic_v<T>){
@@ -341,11 +341,11 @@ private:
         return res;
     }
 
-    std::string get_str_val() override{
+    [[nodiscard]] std::string get_str_val() const override{
         return get_str_val(m_value);
     }
 
-    std::vector<std::string> get_str_choices() override{
+    [[nodiscard]] std::vector<std::string> get_str_choices() const override{
         std::vector<std::string> res;
         for(const auto &v : m_choices){
             std::string s = get_str_val(v);
@@ -530,7 +530,6 @@ struct ARG_DEFS{
     [[nodiscard]] bool is_variadic() const{
         return m_option->is_variadic();
     };
-
     [[nodiscard]] auto options_size() const{
         return m_options.size();
     }
@@ -706,7 +705,7 @@ public:
     // 'move' ctor
     explicit OptionBuilder(OptionBuilderHelper *prev, std::tuple<Types...> &&comps)
     // use move semantics to construct the helper
-            : OptionBuilderHelper(*prev),
+            : OptionBuilderHelper(std::move(*prev)),
               m_components(std::move(comps)){}
 
     // add arguments
@@ -755,7 +754,6 @@ public:
     // set NArgs
     template<unsigned int FRO, int TO = 0>
     auto NArgs() {
-
         auto prepareNargs = [this](){
             // handle variadic
             m_is_variadic = TO < 0;
@@ -1018,7 +1016,7 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + name + " child command cannot be arbitrary");
         }
         m_commandMap.push_back(std::make_unique<argParser>(name, descr));
-        return *m_commandMap.front();
+        return *m_commandMap.back();
     }
 
     /// Parse arguments
@@ -1080,27 +1078,25 @@ protected:
     ARG_DEFS *m_last_unparsed_arg = nullptr;
 
     [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
-        std::string skey = key;
-        if(m_argMap.find(skey) == m_argMap.end()){
-            for(const auto &x : m_argMap){
-                for(const auto &alias : x.second->m_aliases){
-                    if(alias == skey){
-                        skey = x.first;
-                        break;
+        auto it = m_argMap.find(key);
+        if (it == m_argMap.end()) {
+            it = [&key, this]() {
+                for(auto x = m_argMap.begin(); x != m_argMap.end(); ++x) {
+                    const auto &aliases = x->second->m_aliases;
+                    if (std::find(aliases.begin(), aliases.end(), key) != aliases.end()) {
+                        return x;
                     }
                 }
-                if(skey != key){
-                    break;
-                }
-            }
+                return m_argMap.end();
+            }();
         }
-        if(m_argMap.find(skey) != m_argMap.end()){
-            return *m_argMap.find(skey)->second;
+        if(it != m_argMap.end()){
+            return *it->second;
         }
         throw std::invalid_argument(key + " not defined");
     }
 
-    void parsedCheck(const char* func = nullptr) const{
+    void parsedCheck(const char* func = nullptr) const {
         if(func == nullptr){
             func = __func__;
         }

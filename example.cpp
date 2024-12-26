@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
     // for arguments of integral types or std::string with single parameter,
     // a list of choices can be specified inside an initializer_list:
     parser.addArgument<int>("--choices")
-            .SetParameters("int") //todo: no func with single arbitrary param should be ok?
+            .SetParameters("int")
             .Finalize()
             .choices(0,1,2,3) // create list of possible valid choices for that argument
             .help("list with choices");
