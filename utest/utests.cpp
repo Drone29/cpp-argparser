@@ -28,14 +28,19 @@ MYTEST(OnlySpaces){
     EXPECT_THROW(parser.addPositional<int>("   "), std::invalid_argument);
 }
 
+MYTEST(OnlyMinuses){
+    EXPECT_THROW(parser.addArgument<int>("--"), std::invalid_argument);
+    EXPECT_THROW(parser.addPositional<int>("--"), std::invalid_argument);
+}
+
 MYTEST(InvalidKey){
     EXPECT_THROW(parser.addArgument<int>("=y"), std::invalid_argument);
     EXPECT_THROW(parser.addPositional<int>("=y"), std::invalid_argument);
 }
 
 MYTEST(InvalidKey2){
-    EXPECT_THROW(parser.addArgument<int>("y,"), std::invalid_argument) << "Should treat as mandatory (removes ',')";
-    EXPECT_THROW(parser.addPositional<int>("y,"), std::invalid_argument) << "Key is invalid here";
+    EXPECT_THROW(parser.addArgument<int>("y,"), std::invalid_argument);
+    EXPECT_THROW(parser.addPositional<int>("y,"), std::invalid_argument);
 }
 
 MYTEST(InvalidKey3){
@@ -44,8 +49,8 @@ MYTEST(InvalidKey3){
 }
 
 MYTEST(InvalidKey4){
-    EXPECT_THROW(parser.addArgument<int>("-y, --y"), std::invalid_argument);
-    EXPECT_THROW(parser.addPositional<int>("-y, --y"), std::invalid_argument);
+    EXPECT_THROW(parser.addArgument<int>("[int]"), std::invalid_argument);
+    EXPECT_THROW(parser.addPositional<int>("[int]"), std::invalid_argument);
 }
 
 MYTEST(InvalidPosKey){

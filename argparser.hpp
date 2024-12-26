@@ -1208,6 +1208,9 @@ protected:
         if(s != std::string::npos){
             throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain spaces");
         }
+        if(key.back() == '-'){
+            throw std::invalid_argument(std::string(func) + ": key " + key + " shouldn't end with '-'");
+        }
     }
 
     //dummy function
