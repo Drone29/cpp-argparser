@@ -77,13 +77,18 @@ namespace parser_internal{
         };
     }
 
-    template <typename T>
-    inline std::string GetTypeName(){
-        return internal::GetTypeNameHelper<T>::GetTypeName();
+    inline bool starts_with(const std::string &prefix, const std::string &s) noexcept {
+        return s.substr(0, prefix.size()) == prefix;
     }
 
-    inline bool starts_with(const std::string &prefix, const std::string &s) noexcept{
-        return s.substr(0, prefix.size()) == prefix;
+    inline bool isOptMandatory(const std::string &sopt) noexcept {
+        return !sopt.empty() && (sopt.front() != '[')
+               && (sopt.back() != ']');
+    }
+
+    template <typename T>
+    std::string GetTypeName(){
+        return internal::GetTypeNameHelper<T>::GetTypeName();
     }
 
     template<typename T>
@@ -101,7 +106,6 @@ namespace parser_internal{
             // parse regular
             ss >> res;
         }
-
         auto distance = ss.tellg() - pos;
         bool fail = ss.fail() && !ss.eof();
         if(fail || distance > 0){
@@ -109,6 +113,7 @@ namespace parser_internal{
         }
         return res;
     }
+
     template<class Target, class Source>
     Target narrow_cast(Source v, const std::string &s = ""){
         auto r = static_cast<Target>(v); // convert the value to the target type
@@ -117,11 +122,11 @@ namespace parser_internal{
         }
         return r;
     }
+
     template<typename T>
     T scan(const char* arg){
         std::string temp = (arg == nullptr) ? "" : std::string(arg);
         T res;
-
         if constexpr(std::is_convertible_v<T, const char*>){
             return arg;
         }else if constexpr(std::is_same_v<T, std::string>){
@@ -136,15 +141,13 @@ namespace parser_internal{
                 }
                 throw std::runtime_error(std::string(func) + ": unable to convert " + s + " to bool");
             };
-
             std::string lVal;
             //convert to lower case
             for(auto elem : temp) {
                 lVal += char(std::tolower(elem));
             }
             return isTrue(lVal.c_str());
-        }
-            /// arithmetic
+        }/// arithmetic
         else if constexpr(std::is_arithmetic_v<T>){
             /// char special
             if constexpr(std::is_same_v<T, char>){
@@ -154,8 +157,7 @@ namespace parser_internal{
                 }else{
                     res = narrow_cast<char>(scan_number<int>(temp), temp);
                 }
-            }
-                // for types whose size less than int
+            }/// for types whose size less than int
             else if constexpr(sizeof(T) < sizeof(int)){
                 if constexpr(std::is_signed_v<T>){
                     res = narrow_cast<T>(scan_number<int>(temp), temp);
@@ -166,17 +168,11 @@ namespace parser_internal{
                 /// numbers
                 res = scan_number<T>(temp);
             }
-        }
-            /// not convertible
+        }/// not convertible
         else{
             throw std::logic_error(std::string(__func__) + ": no converter for " + temp + " of type " + GetTypeName<T>());
         }
         return res;
-    }
-
-    inline bool isOptMandatory(const std::string &sopt){
-        return !sopt.empty() && (sopt.front() != '[')
-               && (sopt.back() != ']');
     }
 }
 
@@ -237,7 +233,7 @@ private:
                         return;
                     }
                 }
-                throw std::runtime_error("value does not correspond to any of given m_choices");
+                throw std::runtime_error("value does not correspond to any of given choices");
             }
         }
     }
@@ -383,15 +379,15 @@ private:
 
     void set_choices(std::initializer_list<std::any> &&choices_list) override {
         if constexpr(choices_viable()) {
-            if constexpr(STR_ARGS > 1) {
-                throw std::invalid_argument("m_choices are not applicable to args with more than 1 parameter");
+            if (STR_ARGS > 1) {
+                throw std::invalid_argument("choices are not applicable to args with more than 1 parameter");
             }
             try{
                 for(auto &&c : choices_list) {
                     m_choices.push_back(std::any_cast<T>(c));
                 }
             }catch(std::bad_any_cast &){
-                throw std::invalid_argument("invalid m_choices list");
+                throw std::invalid_argument("invalid choices list");
             }
         }else{
             throw std::invalid_argument("type can be either arithmetic or string");
