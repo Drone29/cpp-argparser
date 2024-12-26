@@ -1187,20 +1187,35 @@ protected:
             return distanceTable[targetLen][candidateLen];
         };
 
+        auto calculateLexMismatch = [](const std::string &s1, const std::string &s2) {
+            auto minLen = std::min(s1.length(), s2.length());
+            int distance = 0;
+            for(int i = 0; i < minLen; ++i) {
+                distance += std::abs(s1[i] - s2[i]);
+            }
+            // remaining chars (if one string is longer)
+            distance += std::abs(int(s1.length() - s2.length()));
+            return distance;
+        };
+
         std::string closestMatch;
         auto minMismatch = std::string::npos;
+        auto minLexMismatch = std::string::npos;
 
         for(const auto &it : m_argMap){
             // check mismatch for the key
             auto mismatch = calculateMismatch(name, it.first);
+            auto lexMismatch = calculateLexMismatch(name, it.first);
             //check aliases as well
             for(const auto &al : it.second->m_aliases){
                 mismatch = std::min(mismatch, calculateMismatch(name, al));
+                lexMismatch = std::min(lexMismatch, calculateLexMismatch(name, al));
             }
             // check lexicographical distance
-            bool lex_less = mismatch == minMismatch && it.first < closestMatch;
+            bool lex_less = mismatch == minMismatch && lexMismatch < minLexMismatch;
             if(mismatch < minMismatch || lex_less){
                 minMismatch = mismatch;
+                minLexMismatch = lexMismatch;
                 closestMatch = it.first;
                 // early exit for optimal match
                 if(mismatch == 0) {
