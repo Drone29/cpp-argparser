@@ -633,9 +633,6 @@ protected:
         if(m_last_mandatory_arg.empty() && !flag){
             throw std::invalid_argument(std::string(__func__) + ": " + m_key + " should have at least 1 mandatory parameter");
         }
-        if (!m_has_callable && !is_implicit && m_last_mandatory_arg.empty()) {
-            throw std::invalid_argument(std::string(__func__) + ": " + m_key + " no function provided for arg with arbitrary parameters");
-        }
 
         // Create arg and add to map
         auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(m_key));
@@ -764,7 +761,6 @@ public:
             }
             m_nargs_size = max_size;
             m_mandatory_args = FRO;
-            m_last_mandatory_arg = "NARG"; //force check to pass
         };
 
         static_assert(FRO != 0 || TO != 0, "NArgs cannot be zero!");
@@ -1505,7 +1501,7 @@ protected:
         parsePreprocessArgVec();
         /// Main parser loop
         for(int index = 0; index < m_argVec.size(); ++index){
-            const auto &pName = m_argVec.at(index);
+            const auto &pName = m_argVec[index];
             const auto &pValue = index+1 >= m_argVec.size() ? "" : m_argVec[index + 1];
             ///If found unknown key
             if(m_argMap.find(pName) == m_argMap.end()){
