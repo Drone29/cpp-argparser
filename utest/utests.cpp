@@ -214,7 +214,7 @@ MYTEST(EqSign){
     parser.addArgument<int>("-i")
             .SetParameters("int")
             .Finalize();
-    CallParser({"-i=123"});
+    EXPECT_NO_THROW(CallParser({"-i=123"}));
     ASSERT_EQ(parser.getValue<int>("-i"), 123);
 }
 
@@ -222,7 +222,7 @@ MYTEST(AdjacentKeyValue){
     parser.addArgument<int>("-i")
             .SetParameters("int")
             .Finalize();
-    CallParser({"-i123"});
+    EXPECT_NO_THROW(CallParser({"-i123"}));
     ASSERT_EQ(parser.getValue<int>("-i"), 123);
 }
 
@@ -267,7 +267,7 @@ MYTEST(RepeatableShortArgIncrement){
             .default_value(3)
             .global_ptr(&i_val)
             .repeatable();
-    CallParser({"-i", "-i", "-iii"});
+    EXPECT_NO_THROW(CallParser({"-i", "-i", "-iii"}));
     ASSERT_EQ(i_val, 8) << "i repeats 5 times starting at 3, so result should be 8";            
 }
 
@@ -277,7 +277,7 @@ MYTEST(SimilarKeyAsValueEq){
             .SetParameters("str_val")
             .Finalize()
             .global_ptr(&res);
-    CallParser({"--str=--str"});
+    EXPECT_NO_THROW(CallParser({"--str=--str"}));
     ASSERT_EQ(res, "--str") << "Should parse '--str' after '=' as value";            
 }
 
@@ -287,7 +287,7 @@ MYTEST(SimilarKeyAsValueAdjacent){
             .SetParameters("str_val")
             .Finalize()
             .global_ptr(&res);
-    CallParser({"-s-sss"});
+    EXPECT_NO_THROW(CallParser({"-s-sss"}));
     ASSERT_EQ(res, "-sss") << "Should parse '-sss' after '-s' as value";
 }
 
@@ -434,7 +434,7 @@ MYTEST(ArgWithParamsAndVariadicPos){
             .SetCallable(pos_lmb)
             .NArgs<1,-1>()
             .Finalize();
-    CallParser({"-i", "67", "7", "3", "4", "5"});
+    EXPECT_NO_THROW(CallParser({"-i", "67", "7", "3", "4", "5"}));
     // 1,2 should go to -i, the rest - to positional arg
     ASSERT_EQ(parser.getValue<int>("-i"), 74) << "Should parse first 2 options";
     bool check = parser.getValue<std::vector<int>>("pos") == std::vector<int>{5,6,7};
@@ -462,7 +462,7 @@ MYTEST(ArbitraryArgWithVariadicArg){
     parser.addArgument<int>("--variadic", "-var")
             .NArgs<1,-1>()
             .Finalize();
-    CallParser({"-p", "-var", "1", "2", "3"});        
+    EXPECT_NO_THROW(CallParser({"-p", "-var", "1", "2", "3"}));
     auto p = parser.getValue<std::string>("-p");
     bool check = parser.getValue<std::vector<int>>("-var") == std::vector<int>{1,2,3};
     ASSERT_EQ(p, "null");
@@ -482,7 +482,7 @@ MYTEST(MeshedArgNameAndValue){
     parser.addArgument<int>("--variadic", "-var")
             .NArgs<1,-1>()
             .Finalize();
-    CallParser({"-p=-var", "-var", "1", "2", "3"});
+    EXPECT_NO_THROW(CallParser({"-p=-var", "-var", "1", "2", "3"}));
     auto p = parser.getValue<std::string>("-p");
     bool check = parser.getValue<std::vector<int>>("-var") == std::vector<int>{1,2,3};
     ASSERT_EQ(p, "-var");
