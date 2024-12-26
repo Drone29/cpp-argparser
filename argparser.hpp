@@ -1546,7 +1546,8 @@ protected:
         return 0;
     }
 
-    std::string format_choices(const std::vector<std::string> &choices) {
+    static std::string format_choices(const std::unique_ptr<ARG_DEFS> &arg) {
+        const auto &choices = arg->m_option->get_str_choices();
         if (choices.empty()){
             return "";
         }
@@ -1559,6 +1560,42 @@ protected:
         }
         opt += "}";
         return opt;
+    }
+
+    static std::string format_aliases(const std::unique_ptr<ARG_DEFS> &arg) {
+        std::string aliases;
+        for(const auto &alias : arg->m_aliases){
+            aliases += alias + ", ";
+        }
+        return aliases;
+    }
+
+    static std::string format_options(const std::unique_ptr<ARG_DEFS> &arg) {
+        std::string result;
+        std::string choices_str = format_choices(arg);
+        for(const auto &option : arg->m_options) {
+            result += " " + [&choices_str, &option](){
+                bool is_mandatory = parser_internal::isOptMandatory(option);
+                if (!choices_str.empty()) {
+                    return is_mandatory ? choices_str : ("[" + choices_str + "]");
+                }
+                return is_mandatory ? ("<" + option + ">") : option;
+            }();
+        }
+        if (arg->is_variadic()) {
+            result += " [" + (!choices_str.empty() ? choices_str : arg->m_nargs_var) + "...]";
+        }
+        return result;
+    }
+
+    static void print_param_details(decltype(m_argMap.begin()) it, bool notab = false) {
+        std::string alias_str = format_aliases(it->second);
+        std::string formatted_options = format_options(it->second);
+
+        std::cout << (notab ? "" : "\t");
+        std::cout << alias_str;
+        std::cout << it->first;
+        std::cout << formatted_options;
     }
 
     auto find_argument(const std::string &param) {
@@ -1575,42 +1612,6 @@ protected:
             }
         }
         return m_argMap.end();
-    }
-
-    std::string get_aliases_str(decltype(m_argMap.begin()) it) {
-        std::string aliases;
-        for(const auto &alias : it->second->m_aliases){
-            aliases += alias + KEY_ALIAS_DELIMITER + " ";
-        }
-        return aliases;
-    }
-
-    std::string format_options(const std::unique_ptr<ARG_DEFS> &arg) {
-        std::string result;
-        std::string choices_str = format_choices(arg->m_option->get_str_choices());
-        for(const auto &option : arg->m_options){
-            std::string formatted_opt = choices_str.empty() ? option : choices_str;
-            if (!choices_str.empty() && !parser_internal::isOptMandatory(option)) {
-                formatted_opt = "[" + formatted_opt + "]"; //enclose choices in []
-            } else if (choices_str.empty() && parser_internal::isOptMandatory(option)) {
-                formatted_opt = "<" + formatted_opt + ">"; // enclose mandatory option in <>
-            }
-            result += " " + formatted_opt;
-        }
-        if (arg->is_variadic()) {
-            result += " [" + (choices_str.empty() ? arg->m_nargs_var : choices_str) + "...]";
-        }
-        return result;
-    }
-
-    void print_param_details(decltype(m_argMap.begin()) it, bool notab = false) {
-        std::string alias_str = get_aliases_str(it);
-        std::string formatted_options = format_options(it->second);
-
-        std::cout << (notab ? "" : "\t");
-        std::cout << alias_str;
-        std::cout << it->first;
-        std::cout << formatted_options;
     }
 
     void helpDefault(const std::string &param = ""){
@@ -1683,7 +1684,7 @@ protected:
             if(!m_argMap[x]->m_nargs_var.empty()){
                 opt = m_argMap[x]->m_nargs_var;
             }
-            auto choices = format_choices(m_argMap[x]->m_option->get_str_choices());
+            auto choices = format_choices(m_argMap.at(x));
             if(!choices.empty()){
                 opt = choices;
             }
