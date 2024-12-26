@@ -1220,7 +1220,7 @@ protected:
         std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
     }
 
-    argParser* findChildByName (const std::string &key){
+    [[nodiscard]] argParser* findChildByName (const std::string &key) const {
             for(const auto &child : m_commandMap){
                 if(child->m_binary_name == key){
                     return child.get();
@@ -1501,7 +1501,7 @@ protected:
         return end-start;
     }
 
-    int parseArgs(std::vector<std::string> &&arg_vec, bool hide_hidden_hint = false){
+    int parseArgs(std::vector<std::string> &&arg_vec, bool hide_hidden_hint = false) {
         m_argVec = std::move(arg_vec);
         setParseCounters(hide_hidden_hint);
         /// Preprocess argVec (handle '=', aliases, combined args, etc)
@@ -1594,7 +1594,7 @@ protected:
         return result;
     }
 
-    std::string getPositionalArgsUsage() {
+    [[nodiscard]] std::string getPositionalArgsUsage() const {
         std::string usage;
         for(const auto &posArg : m_posMap){
             const auto &details = m_argMap.at(posArg);
@@ -1615,7 +1615,40 @@ protected:
         return usage;
     }
 
-    static void printParamDetails(decltype(m_argMap)::iterator it, bool notab = false) {
+    [[nodiscard]] auto filterArgs(bool flag, bool hidden, IS_REQUIRED check_required) const {
+        std::vector<decltype(m_argMap)::const_iterator> result;
+        for (auto it = m_argMap.cbegin(); it != m_argMap.cend(); ++it){
+            const auto &arg = it->second;
+            bool req = check_required == IS_REQUIRED::DONT_CHECK
+                       ? arg->m_required
+                       : check_required == IS_REQUIRED::TRUE;
+            bool condition = (arg->m_arbitrary && !arg->m_required) == flag
+                             && arg->m_hidden == hidden
+                             && arg->m_required == req;
+            if(condition) {
+                result.push_back(it);
+            }
+        }
+        return result;
+    }
+
+    [[nodiscard]] auto findArgument(const std::string &param) const {
+        auto it = m_argMap.find(param);
+        if (it != m_argMap.end()) {
+            return it;
+        }
+        for (it = m_argMap.begin(); it != m_argMap.end(); ++it) {
+            const auto &entry = *it;
+            auto start = entry.second->m_aliases.begin();
+            auto end = entry.second->m_aliases.end();
+            if (std::find(start, end, param) != end) {
+                return it;
+            }
+        }
+        return m_argMap.end();
+    }
+
+    static void printParamDetails(decltype(m_argMap)::const_iterator it, bool notab = false) {
         std::string alias_str = formatAliases(it->second);
         std::string formatted_options = formatOptions(it->second);
 
@@ -1625,7 +1658,7 @@ protected:
         std::cout << formatted_options;
     }
 
-    void printUsageHeader() {
+    void printUsageHeader() const {
         if(!m_description.empty()){
             std::cout << m_description << std::endl;
         }
@@ -1637,7 +1670,7 @@ protected:
                   << std::endl;
     }
 
-    void printCommandsUsage() {
+    void printCommandsUsage() const {
         if(hasCommands()){
             std::cout << "Commands:" << std::endl;
             for(const auto &child : m_commandMap){
@@ -1646,44 +1679,42 @@ protected:
         }
     }
 
-    void printPositionalUsage() {
+    void printPositionalUsage() const {
         if(!m_posMap.empty()){
             std::cout << "Positional arguments:" << std::endl;
             for(const auto &x : m_posMap){
-                std::cout << "\t" << x << " : " << m_argMap[x]->m_help << std::endl;
+                std::cout << "\t" << x << " : " << m_argMap.at(x)->m_help << std::endl;
             }
         }
     }
 
-    void printFlagsUsage(bool advanced) {
+    void printFlagsUsage(bool advanced) const {
         if(hasFlags()){
             std::cout << "Flags (arbitrary):" << std::endl;
-            printSortedUsage(true, false, advanced);
+            printFilteredUsage(filterArgs(true, false, IS_REQUIRED::DONT_CHECK), advanced);
             if(advanced){
                 //show hidden
-                printSortedUsage(true, true, advanced);
+                printFilteredUsage(filterArgs(true, true, IS_REQUIRED::DONT_CHECK), advanced);
             }
         }
     }
 
-    void printOptionsUsage(bool advanced) {
+    void printOptionsUsage(bool advanced) const {
         if(hasOptions()){
             std::cout << "Options (mandatory):" << std::endl;
-            printSortedUsage(false, false, advanced, IS_REQUIRED::FALSE); //show options without *
-            printSortedUsage(false, false, advanced, IS_REQUIRED::TRUE); //show options with *
+            printFilteredUsage(filterArgs(false, false, IS_REQUIRED::FALSE), advanced); //show options without *
+            printFilteredUsage(filterArgs(false, false, IS_REQUIRED::TRUE), advanced); //show options with *
             if(advanced){
                 //show hidden
-                printSortedUsage(false, true, advanced, IS_REQUIRED::FALSE);
-                printSortedUsage(false, true, advanced, IS_REQUIRED::TRUE);
+                printFilteredUsage(filterArgs(false, true, IS_REQUIRED::FALSE), advanced);
+                printFilteredUsage(filterArgs(false, true, IS_REQUIRED::TRUE), advanced);
             }
         }
     }
 
-    void printSortedUsage (bool flag, bool hidden, bool advanced, IS_REQUIRED check_required = IS_REQUIRED::DONT_CHECK) {
-        auto print_usage = [&advanced, this](decltype(m_argMap)::iterator it){
+    void printFilteredUsage(const std::vector<decltype(m_argMap)::const_iterator> &filtered_args, bool advanced) const {
+        for (auto it: filtered_args) {
             const auto &arg = it->second;
-            //skip already printed
-            if(arg->m_set) return;
             //skip hidden
             if(arg->m_hidden && !advanced) return;
             //skip positional
@@ -1691,34 +1722,21 @@ protected:
 
             printParamDetails(it);
 
-            std::string def_val = arg->m_option->get_str_val();
-            def_val = arg->m_show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
-            std::string repeatable = arg->m_repeatable ? " [repeatable]" : "";
-            std::string required = arg->m_required ? (m_required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
-            arg->m_set = true; //help_set //todo: do not modify m_set?
+            std::string default_str = arg->m_show_default ? arg->m_option->get_str_val() : "";
+            default_str = !default_str.empty() ? " (default " + default_str + ")" : "";
+            std::string repeatable_str = arg->m_repeatable ? " [repeatable]" : "";
+            std::string required_str = arg->m_required ? (m_required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
 
             std::cout << " : ";
             std::cout << arg->m_help;
-            std::cout << repeatable;
-            std::cout << def_val;
-            std::cout << required;
+            std::cout << repeatable_str;
+            std::cout << default_str;
+            std::cout << required_str;
             std::cout << std::endl;
-        };
-        for (auto it = m_argMap.begin(); it != m_argMap.end(); ++it){
-            const auto &arg = it->second;
-            bool req = check_required == IS_REQUIRED::DONT_CHECK
-                       ? arg->m_required
-                       : check_required == IS_REQUIRED::TRUE;
-            bool condition = (arg->m_arbitrary && !arg->m_required) == flag
-                             && arg->m_hidden == hidden
-                             && arg->m_required == req;
-            if(condition) {
-                print_usage(it);
-            }
         }
     }
 
-    void printHelpCommon(bool advanced) {
+    void printHelpCommon(bool advanced) const {
         printUsageHeader();
         printCommandsUsage();
         printPositionalUsage();
@@ -1726,7 +1744,7 @@ protected:
         printOptionsUsage(advanced);
     }
 
-    void printHelpForParameter(const std::string &param) {
+    void printHelpForParameter(const std::string &param) const {
         //param advanced help
         auto j = findArgument(param);
         if(j != m_argMap.end()){
@@ -1756,23 +1774,7 @@ protected:
         return !m_commandMap.empty();
     }
 
-    decltype(m_argMap)::iterator findArgument(const std::string &param) {
-        auto j = m_argMap.find(param);
-        if (j != m_argMap.end()) {
-            return j;
-        }
-        for (auto it = m_argMap.begin(); it != m_argMap.end(); ++it) {
-            const auto &entry = *it;
-            auto start = entry.second->m_aliases.begin();
-            auto end = entry.second->m_aliases.end();
-            if (std::find(start, end, param) != end) {
-                return it;
-            }
-        }
-        return m_argMap.end();
-    }
-
-    void printHelp(const std::string &param = ""){
+    void printHelp(const std::string &param = "") {
 
         if(m_hidden_args > 0){
             m_argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
