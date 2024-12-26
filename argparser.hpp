@@ -1546,7 +1546,7 @@ protected:
         return 0;
     }
 
-    static std::string format_choices(const std::unique_ptr<ARG_DEFS> &arg) {
+    static std::string formatChoices(const std::unique_ptr<ARG_DEFS> &arg) {
         const auto &choices = arg->m_option->get_str_choices();
         if (choices.empty()){
             return "";
@@ -1562,7 +1562,7 @@ protected:
         return opt;
     }
 
-    static std::string format_aliases(const std::unique_ptr<ARG_DEFS> &arg) {
+    static std::string formatAliases(const std::unique_ptr<ARG_DEFS> &arg) {
         std::string aliases;
         for(const auto &alias : arg->m_aliases){
             aliases += alias + ", ";
@@ -1570,9 +1570,9 @@ protected:
         return aliases;
     }
 
-    static std::string format_options(const std::unique_ptr<ARG_DEFS> &arg) {
+    static std::string formatOptions(const std::unique_ptr<ARG_DEFS> &arg) {
         std::string result;
-        std::string choices_str = format_choices(arg);
+        std::string choices_str = formatChoices(arg);
         for(const auto &option : arg->m_options) {
             result += " " + [&choices_str, &option](){
                 bool is_mandatory = parser_internal::isOptMandatory(option);
@@ -1588,9 +1588,30 @@ protected:
         return result;
     }
 
-    static void print_param_details(decltype(m_argMap.begin()) it, bool notab = false) {
-        std::string alias_str = format_aliases(it->second);
-        std::string formatted_options = format_options(it->second);
+    std::string getPositionalArgsUsage() {
+        std::string usage;
+        for(const auto &posArg : m_posMap){
+            const auto &details = m_argMap.at(posArg);
+            std::string opt = details->m_nargs_var.empty() ? posArg : details->m_nargs_var;
+            auto choices = formatChoices(details);
+            if(!choices.empty()){
+                opt = choices;
+            }
+            for(const auto &option : details->m_options){
+                std::string tmp = opt;
+                tmp = !parser_internal::isOptMandatory(option) ? ("[" + tmp + "]") : tmp;
+                usage += " " + tmp;
+            }
+            if(details->is_variadic()){
+                usage += " [" + opt + "...]";
+            }
+        }
+        return usage;
+    }
+
+    static void printParamDetails(decltype(m_argMap)::iterator it, bool notab = false) {
+        std::string alias_str = formatAliases(it->second);
+        std::string formatted_options = formatOptions(it->second);
 
         std::cout << (notab ? "" : "\t");
         std::cout << alias_str;
@@ -1598,7 +1619,33 @@ protected:
         std::cout << formatted_options;
     }
 
-    auto find_argument(const std::string &param) {
+    void printUsageHeader() {
+        if(!m_description.empty()){
+            std::cout << m_description << std::endl;
+        }
+        std::cout << "Usage: " << m_binary_name
+                  << (hasFlags() ? " [flags...]" : "")
+                  << (hasOptions() ? " options..." : "")
+                  << getPositionalArgsUsage()
+                  << (hasCommands() ? " command [<args>]" : "")
+                  << std::endl;
+    }
+
+    [[nodiscard]] bool hasFlags() const {
+        return std::any_of(m_argMap.begin(), m_argMap.end(), [](const auto &p) {
+            return p.second->m_arbitrary && !p.second->m_required;
+        });
+    }
+    [[nodiscard]] bool hasOptions() const {
+        return std::any_of(m_argMap.begin(), m_argMap.end(), [](const auto &p) {
+            return !p.second->m_positional;
+        });
+    }
+    [[nodiscard]] bool hasCommands() const {
+        return !m_commandMap.empty();
+    }
+
+    auto findArgument(const std::string &param) {
         auto j = m_argMap.find(param);
         if (j != m_argMap.end()) {
             return j;
@@ -1614,6 +1661,51 @@ protected:
         return m_argMap.end();
     }
 
+    enum class IS_REQUIRED {
+        DONT_CHECK,
+        FALSE,
+        TRUE
+    };
+
+    void sorted_usage (bool flag, bool hidden, bool advanced, IS_REQUIRED check_required = IS_REQUIRED::DONT_CHECK) {
+        auto print_usage = [&advanced, this](decltype(m_argMap)::iterator it){
+            const auto &arg = it->second;
+            //skip already printed
+            if(arg->m_set) return;
+            //skip hidden
+            if(arg->m_hidden && !advanced) return;
+            //skip positional
+            if(arg->m_positional) return;
+
+            printParamDetails(it);
+
+            std::string def_val = arg->m_option->get_str_val();
+            def_val = arg->m_show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
+            std::string repeatable = arg->m_repeatable ? " [repeatable]" : "";
+            std::string required = arg->m_required ? (m_required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
+            arg->m_set = true; //help_set //todo: do not modify m_set?
+
+            std::cout << " : ";
+            std::cout << arg->m_help;
+            std::cout << repeatable;
+            std::cout << def_val;
+            std::cout << required;
+            std::cout << std::endl;
+        };
+        for (auto it = m_argMap.begin(); it != m_argMap.end(); ++it){
+            const auto &arg = it->second;
+            bool req = check_required == IS_REQUIRED::DONT_CHECK
+                    ? arg->m_required
+                    : check_required == IS_REQUIRED::TRUE;
+            bool condition = (arg->m_arbitrary && !arg->m_required) == flag
+                             && arg->m_hidden == hidden
+                             && arg->m_required == req;
+            if(condition) {
+                print_usage(it);
+            }
+        }
+    }
+
     void helpDefault(const std::string &param = ""){
 
         bool advanced = false;
@@ -1623,49 +1715,14 @@ protected:
             m_argMap[HELP_NAME]->m_help += ", '" + std::string(HELP_HIDDEN_OPT) + "' to list hidden args as well";
         }
 
-        //check required: -1-don't check, 0-false, other-true
-        auto sorted_usage = [this, &advanced](bool flag, bool hidden, int check_required = -1){
-
-            auto print_usage = [&advanced, this](auto j){
-                //skip already printed
-                if(j->second->m_set) return;
-                //skip hidden
-                if(j->second->m_hidden && !advanced) return;
-                //skip positional
-                if(j->second->m_positional) return;
-
-                print_param_details(j);
-
-                std::string def_val = j->second->m_option->get_str_val();
-                def_val = j->second->m_show_default ? (def_val.empty() ? "" : " (default " + def_val + ")") : "";
-                std::string repeatable = j->second->m_repeatable ? " [repeatable]" : "";
-
-                std::string required = j->second->m_required ? (m_required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
-                std::cout << " : " + j->second->m_help + repeatable + def_val + required << std::endl;
-                j->second->m_set = true; //help_set
-            };
-
-            for (auto it = m_argMap.begin(); it != m_argMap.end(); ++it){
-                const auto &j = *it;
-                bool req = check_required < 0 ? j.second->m_required : check_required > 0;
-                if((j.second->m_arbitrary && !j.second->m_required) == flag
-                   && j.second->m_hidden == hidden
-                   && j.second->m_required == req){
-
-                    print_usage(it);
-                }
-            }
-        };
-
-
         if(param == HELP_HIDDEN_OPT){
             advanced = true; //todo: separate function advancedHelp()
         }
-        else if(!param.empty()){
+        else if(!param.empty()) { //todo: separate function
             //param advanced help
-            auto j = find_argument(param);
+            auto j = findArgument(param);
             if(j != m_argMap.end()){
-                print_param_details(j, true);
+                printParamDetails(j, true);
                 std::cout << ":" << std::endl;
                 std::cout << j->second->m_help << std::endl;
                 std::cout << j->second->m_advanced_help << std::endl;
@@ -1678,51 +1735,9 @@ protected:
             return;
         }
 
-        std::string positional;
-        for(const auto &x : m_posMap){
-            std::string opt = x;
-            if(!m_argMap[x]->m_nargs_var.empty()){
-                opt = m_argMap[x]->m_nargs_var;
-            }
-            auto choices = format_choices(m_argMap.at(x));
-            if(!choices.empty()){
-                opt = choices;
-            }
-            for(const auto &o : m_argMap[x]->m_options){
-                std::string tmp = opt;
-                tmp = !parser_internal::isOptMandatory(o) ? ("[" + tmp + "]") : tmp;
-                positional += " " + tmp;
-            }
-            if(m_argMap[x]->m_options.empty()){
-                positional += " " + opt;
-            }
-            if(m_argMap[x]->is_variadic()){
-                positional += " [" + opt + "...]";
-            }
-        }
+        printUsageHeader();
 
-        int flag_cnt = 0, opt_cnt = 0;
-        for(const auto &x : m_argMap){
-            if(x.second->m_arbitrary
-               && !x.second->m_required){
-                flag_cnt++;
-            }else if(!x.second->m_positional){
-                opt_cnt++;
-            }
-        }
-
-        if(!m_description.empty()){
-            std::cout << m_description << std::endl;
-        }
-
-        std::cout << "Usage: " << m_binary_name
-                     << (flag_cnt ? " [flags...]" : "")
-                     << (opt_cnt ? " options..." : "")
-                     << positional
-                     << (!m_commandMap.empty() ? " command [<args>]" : "")
-                     << std::endl;
-
-        if(!m_commandMap.empty()){
+        if(hasCommands()){
             std::cout << "Commands:" << std::endl;
             for(const auto &child : m_commandMap){
                 std::cout << "\t" << child->m_binary_name << " : " << child->m_description << std::endl;
@@ -1736,22 +1751,22 @@ protected:
             }
         }
 
-        if(flag_cnt){
+        if(hasFlags()){
             std::cout << "Flags (arbitrary):" << std::endl;
-            sorted_usage(true, false);
+            sorted_usage(true, false, advanced);
             if(advanced){
                 //show hidden
-                sorted_usage(true, true);
+                sorted_usage(true, true, advanced);
             }
         }
-        if(opt_cnt){
+        if(hasOptions()){
             std::cout << "Options (mandatory):" << std::endl;
-            sorted_usage(false, false, 0); //show options without *
-            sorted_usage(false, false, 1); //show options with *
+            sorted_usage(false, false, advanced, IS_REQUIRED::FALSE); //show options without *
+            sorted_usage(false, false, advanced, IS_REQUIRED::TRUE); //show options with *
             if(advanced){
                 //show hidden
-                sorted_usage(false, true, 0);
-                sorted_usage(false, true, 1);
+                sorted_usage(false, true, advanced, IS_REQUIRED::FALSE);
+                sorted_usage(false, true, advanced, IS_REQUIRED::TRUE);
             }
         }
 
