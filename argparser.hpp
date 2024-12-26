@@ -242,22 +242,25 @@ private:
     void action(const std::string *args, int size) override {
         if(!m_variadic && m_nargs == 0) {
             // if implicit
-            if(STR_ARGS == 0 && !m_single_narg){
+            bool implicit = STR_ARGS == 0 && !m_single_narg;
+            if(implicit || size <= 0){
                 parse_implicit();
                 return;
             }
             if constexpr(has_action()){
-                // non-m_variadic action
+                // non-variadic action
                 parse_common(args, size);
             }else{
                 // simple scan of single value
-                if (size > 0) {
-                    set(parser_internal::scan<T>(args[0].c_str()));
-                }
+                set(parser_internal::scan<T>(args[0].c_str()));
             }
             check_choices();
-            return;
+        } else {
+            parse_variadic(args, size);
         }
+    }
+    // parse variadic
+    void parse_variadic(const std::string *args, int size) {
         // parse variadic
         std::vector<T> res;
         // variadic action

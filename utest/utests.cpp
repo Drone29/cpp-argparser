@@ -299,24 +299,58 @@ MYTEST(PureVariadicPosWithFunction) {
     ASSERT_TRUE(check);
 }
 
-MYTEST(ArgWithSingleArbitraryParamNoFunction) {
+MYTEST(ArgWithSingleArbitraryParamNoFunctionNotProvided) {
     ASSERT_NO_THROW(parser.addArgument<int>("-i")
             .SetParameters("[int]")
             .Finalize()
             .default_value(5));
     CallParser({"-i"});
     ASSERT_TRUE(parser["-i"].is_set());
-    ASSERT_EQ(parser.getValue<int>("-i"), 5); //do nothing
+    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if arbitrary param not provided";
 }
 
-MYTEST(ArgWithSingleArbitraryNArgNoFunction) {
+MYTEST(ArgWithSingleArbitraryNArgNoFunctionNotProvided) {
     parser.addArgument<int>("-i")
             .NArgs<0,1>()
             .Finalize()
             .default_value(5);
     CallParser({"-i"});
     ASSERT_TRUE(parser["-i"].is_set());
-    ASSERT_EQ(parser.getValue<int>("-i"), 5); //do nothing
+    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if arbitrary param not provided";
+}
+
+MYTEST(ArgWithSingleArbitraryParamWithFunctionNotProvided) {
+    int val = 5;
+    ASSERT_NO_THROW(parser.addArgument<int>("-i")
+                            .SetParameters("[int]")
+                            .SetCallable([&val](auto c){
+                                if (c == nullptr){
+                                    return ++val;
+                                }
+                                val = int(std::strtol(c, nullptr, 0));
+                                return val;
+                            })
+                            .Finalize());
+    CallParser({"-i"});
+    ASSERT_TRUE(parser["-i"].is_set());
+    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if arbitrary param not provided";
+}
+
+MYTEST(ArgWithSingleArbitraryNArgWithFunctionNotProvided) {
+    int val = 5;
+    parser.addArgument<int>("-i")
+            .NArgs<0,1>()
+            .SetCallable([&val](auto c){
+                if (c == nullptr){
+                    return ++val;
+                }
+                val = int(std::strtol(c, nullptr, 0));
+                return val;
+            })
+            .Finalize();
+    CallParser({"-i"});
+    ASSERT_TRUE(parser["-i"].is_set());
+    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if arbitrary param not provided";
 }
 
 MYTEST(ArgWithParamsAndVariadicPos){
