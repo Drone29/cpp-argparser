@@ -138,7 +138,8 @@ int main(int argc, char *argv[]) {
     // arguments without '-' are mandatory
     // mandatory arguments should have at least 1 mandatory parameter
     parser.addArgument<bool>("m")
-            .SetParameters("m_param").Finalize()
+            .SetParameters("m_param")
+            .Finalize()
             .help("mandatory bool argument with mandatory parameter");
 
     // str_value - mandatory parameter, cannot be omitted

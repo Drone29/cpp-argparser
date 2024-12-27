@@ -632,11 +632,9 @@ protected:
     std::vector<std::string> m_aliases;
     bool m_is_positional;
     std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> m_callback;
-    std::string m_last_mandatory_arg;
     std::vector<std::string> m_opts;
     std::string m_strType;
     int m_mandatory_args = 0;
-    bool m_has_callable = false;
     bool m_is_variadic = false;
     std::string m_narg_name;
     int m_nargs_size = 0;
@@ -656,7 +654,7 @@ protected:
         bool starts_with_minus = flag;
         bool is_implicit = m_opts.empty();
 
-        if(m_last_mandatory_arg.empty() && !flag){
+        if(!m_mandatory_args && !m_is_positional && !flag){
             throw std::invalid_argument(std::string(__func__) + ": " + m_key + " should have at least 1 mandatory parameter");
         }
 
@@ -749,7 +747,6 @@ public:
             parser_internal::validateKeyOrParam(sopt, /*is_param=*/true, func);
             if(parser_internal::isOptMandatory(sopt)){
                 m_mandatory_args++;
-                m_last_mandatory_arg = sopt;
                 if(!m_last_arbitrary_arg.empty()){
                     throw std::invalid_argument(std::string(func) + ": " + m_key
                                                 + ": arbitrary argument "
@@ -826,7 +823,6 @@ public:
     auto SetCallable(Callable && callable, SideArgs ...sideArgs) {
         static_assert(CALLABLE_IDX == 0, "Callable already set");
         const size_t current_size = std::tuple_size_v<decltype(m_components)>;
-        m_has_callable = true;
         return addComponent<STR_PARAM_IDX, current_size>(std::make_tuple(
                 std::forward<Callable>(callable),
                 std::make_tuple(std::forward<SideArgs>(sideArgs)...))
@@ -1778,7 +1774,7 @@ protected:
     }
     [[nodiscard]] bool hasOptions() const {
         return std::any_of(m_argMap.begin(), m_argMap.end(), [](const auto &p) {
-            return !p.second->m_positional;
+            return !p.second->m_positional && (!p.second->m_arbitrary || p.second->m_required);
         });
     }
     [[nodiscard]] bool hasCommands() const {

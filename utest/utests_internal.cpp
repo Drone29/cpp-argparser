@@ -10,14 +10,41 @@ public:
     std::string closestKeyTest(const std::string &name) {
         return argParser::closestKey(name);
     }
+    void printHelpCommonTest(bool advanced) {
+        argParser::printHelpCommon(advanced);
+    }
+    void printHelpForParamTest(const std::string &param) {
+        argParser::printHelpForParameter(param);
+    }
 };
 
 // Create a test fixture
 class FIXTURE : public testing::Test {
 protected:
     parserFake parser;
+    std::ostringstream capturedOutput;
+    std::streambuf* originalBuffer;
     explicit FIXTURE()
             : parser(){}
+
+    std::vector<std::string> GetOutLines() {
+        std::istringstream capturedStream(capturedOutput.str());
+        std::string line;
+        std::vector<std::string> lines;
+        while (std::getline(capturedStream, line)) {
+            lines.push_back(line);
+        }
+        return lines;
+    }
+
+    void SetUp() override {
+        originalBuffer = std::cout.rdbuf();
+        std::cout.rdbuf(capturedOutput.rdbuf());
+    }
+    void TearDown() override {
+        // Restore the original buffer
+        std::cout.rdbuf(originalBuffer);
+    }
 };
 
 MYTEST(closestKeyEnd) {
@@ -98,4 +125,115 @@ MYTEST(closestKeyLexicographicalOrder) {
     EXPECT_EQ(parser.closestKeyTest("-ad"), "-ae");
 }
 
+/// Help tests
+MYTEST(helpEmpty) {
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 3);
+    EXPECT_EQ(lines[0], "Usage:  [flags...]");
+    EXPECT_EQ(lines[1], "Flags (arbitrary):");
+    EXPECT_EQ(lines[2], "\t-h, --help [arg] : Show this message and exit. 'arg' to get help about certain arg");
+}
+
+MYTEST(helpCommonImplicitFlagWithHelp) {
+    parser.addArgument<int>("-i")
+            .Finalize()
+            .help("help message for -i");
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i : help message for -i");
+}
+
+MYTEST(helpCommonImplicitFlagWithAliasHelp) {
+    parser.addArgument<int>("-i", "--int")
+            .Finalize()
+            .help("help message for -i");
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i, --int : help message for -i");
+}
+
+MYTEST(helpCommonSingleParamFlagWithHelp) {
+    parser.addArgument<int>("-i")
+            .SetParameters("int")
+            .Finalize()
+            .help("help message for -i");
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i <int> : help message for -i");
+}
+
+MYTEST(helpCommonSingleParamArbitraryFlagWithHelp) {
+    parser.addArgument<int>("-i")
+            .SetParameters("[int]")
+            .Finalize()
+            .help("help message for -i");
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i [int] : help message for -i");
+}
+
+MYTEST(helpCommonTwoParamFlagWithHelp) {
+    parser.addArgument<int>("-i")
+            .SetParameters("int", "[int]")
+            .SetCallable([](auto a, auto b){
+                return 0;
+            })
+            .Finalize()
+            .help("help message for -i");
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i <int> [int] : help message for -i");
+}
+
+MYTEST(helpCommonNArgMetavarMandatoryFlagWithHelp) {
+    parser.addArgument<int>("-i")
+            .NArgs<1>()
+            .Finalize()
+            .help("help message for -i");
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i <I> : help message for -i");
+}
+
+MYTEST(helpCommonNArgMetavarArbitraryFlagWithHelp) {
+    parser.addArgument<int>("-i")
+            .NArgs<0,1>()
+            .Finalize()
+            .help("help message for -i");
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i [I] : help message for -i");
+}
+
+MYTEST(helpCommonNArgParamMndFlagWithHelp) {
+    parser.addArgument<int>("-i")
+            .SetParameters("meta")
+            .NArgs<1>()
+            .Finalize()
+            .help("help message for -i");
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i <meta> : help message for -i");
+}
+
+MYTEST(helpCommonNArgParamArbFlagWithHelp) {
+    parser.addArgument<int>("-i")
+            .SetParameters("meta")
+            .NArgs<0,1>()
+            .Finalize()
+            .help("help message for -i");
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i [meta] : help message for -i");
+}
 
