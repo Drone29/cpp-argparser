@@ -1756,7 +1756,7 @@ protected:
         auto j = findArgument(param);
         if(j != m_argMap.end()){
             printParamDetails(j, true);
-            std::cout << ":" << std::endl;
+            std::cout << " :" << std::endl;
             std::cout << j->second->m_help << std::endl;
             std::cout << j->second->m_advanced_help << std::endl;
         }else{
@@ -1782,12 +1782,10 @@ protected:
     }
 
     void printHelp(const std::string &param = "") {
-
         if(m_hidden_args > 0){
             m_argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
             m_argMap[HELP_NAME]->m_help += ", '" + std::string(HELP_HIDDEN_OPT) + "' to list hidden args as well";
         }
-
         if(param == HELP_HIDDEN_OPT){
             printHelpCommon(/*advanced=*/true);
         } else if(!param.empty()) {
@@ -1795,7 +1793,6 @@ protected:
         } else {
             printHelpCommon(/*advanced=*/false);
         }
-
         if(m_required_args > 1){
             std::cout << "For options marked with " + std::string(REQUIRED_OPTION_SIGN) + ": at least one such option should be provided" << std::endl;
         }

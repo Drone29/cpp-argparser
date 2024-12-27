@@ -145,95 +145,183 @@ MYTEST(helpCommonImplicitFlagWithHelp) {
     EXPECT_EQ(lines[3], "\t-i : help message for -i");
 }
 
-MYTEST(helpCommonImplicitFlagWithAliasHelp) {
+MYTEST(helpCommonImplicitFlagWithAlias) {
     parser.addArgument<int>("-i", "--int")
-            .Finalize()
-            .help("help message for -i");
+            .Finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
-    EXPECT_EQ(lines[3], "\t-i, --int : help message for -i");
+    EXPECT_EQ(lines[3], "\t-i, --int : ");
 }
 
-MYTEST(helpCommonSingleParamFlagWithHelp) {
+MYTEST(helpCommonSingleParamFlag) {
     parser.addArgument<int>("-i")
             .SetParameters("int")
-            .Finalize()
-            .help("help message for -i");
+            .Finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
-    EXPECT_EQ(lines[3], "\t-i <int> : help message for -i");
+    EXPECT_EQ(lines[3], "\t-i <int> : ");
 }
 
-MYTEST(helpCommonSingleParamArbitraryFlagWithHelp) {
+MYTEST(helpCommonSingleParamArbitraryFlag) {
     parser.addArgument<int>("-i")
             .SetParameters("[int]")
-            .Finalize()
-            .help("help message for -i");
+            .Finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
-    EXPECT_EQ(lines[3], "\t-i [int] : help message for -i");
+    EXPECT_EQ(lines[3], "\t-i [int] : ");
 }
 
-MYTEST(helpCommonTwoParamFlagWithHelp) {
+MYTEST(helpCommonTwoParamFlag) {
     parser.addArgument<int>("-i")
             .SetParameters("int", "[int]")
             .SetCallable([](auto a, auto b){
                 return 0;
             })
-            .Finalize()
-            .help("help message for -i");
+            .Finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
-    EXPECT_EQ(lines[3], "\t-i <int> [int] : help message for -i");
+    EXPECT_EQ(lines[3], "\t-i <int> [int] : ");
 }
 
-MYTEST(helpCommonNArgMetavarMandatoryFlagWithHelp) {
+MYTEST(helpCommonNArgMetavarMandatoryFlag) {
     parser.addArgument<int>("-i")
             .NArgs<1>()
-            .Finalize()
-            .help("help message for -i");
+            .Finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
-    EXPECT_EQ(lines[3], "\t-i <I> : help message for -i");
+    EXPECT_EQ(lines[3], "\t-i <I> : ");
 }
 
-MYTEST(helpCommonNArgMetavarArbitraryFlagWithHelp) {
+MYTEST(helpCommonNArgMetavarArbitraryFlag) {
     parser.addArgument<int>("-i")
             .NArgs<0,1>()
-            .Finalize()
-            .help("help message for -i");
+            .Finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
-    EXPECT_EQ(lines[3], "\t-i [I] : help message for -i");
+    EXPECT_EQ(lines[3], "\t-i [I] : ");
 }
 
-MYTEST(helpCommonNArgParamMndFlagWithHelp) {
+MYTEST(helpCommonNArgParamMndFlag) {
     parser.addArgument<int>("-i")
             .SetParameters("meta")
             .NArgs<1>()
-            .Finalize()
-            .help("help message for -i");
+            .Finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
-    EXPECT_EQ(lines[3], "\t-i <meta> : help message for -i");
+    EXPECT_EQ(lines[3], "\t-i <meta> : ");
 }
 
-MYTEST(helpCommonNArgParamArbFlagWithHelp) {
+MYTEST(helpCommonNArgParamArbFlag) {
     parser.addArgument<int>("-i")
             .SetParameters("meta")
             .NArgs<0,1>()
-            .Finalize()
-            .help("help message for -i");
+            .Finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
-    EXPECT_EQ(lines[3], "\t-i [meta] : help message for -i");
+    EXPECT_EQ(lines[3], "\t-i [meta] : ");
+}
+
+MYTEST(helpCommonNArgPureVariadicFlag) {
+    parser.addArgument<int>("-i")
+            .NArgs<0,-1>()
+            .Finalize();
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i [I...] : ");
+}
+
+MYTEST(helpCommonOption){
+    parser.addArgument<int>("i")
+            .SetParameters("int")
+            .Finalize();
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 5);
+    EXPECT_EQ(lines[0], "Usage:  [flags...] options...");
+    EXPECT_EQ(lines[3], "Options (mandatory):");
+    EXPECT_EQ(lines[4], "\ti <int> : ");
+}
+
+MYTEST(helpCommonNargVariadicOption){
+    parser.addArgument<int>("i")
+            .NArgs<1,-1>()
+            .Finalize();
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 5);
+    EXPECT_EQ(lines[4], "\ti <I> [I...] : ");
+}
+
+MYTEST(helpCommonPositional){
+    parser.addPositional<int>("pos")
+            .Finalize();
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 5);
+    EXPECT_EQ(lines[0], "Usage:  [flags...] pos");
+    EXPECT_EQ(lines[1], "Positional arguments:");
+    EXPECT_EQ(lines[2], "\tpos : ");
+}
+
+MYTEST(helpCommonNargPositional){
+    parser.addPositional<int>("pos")
+            .NArgs<3>()
+            .Finalize();
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 5);
+    EXPECT_EQ(lines[0], "Usage:  [flags...] pos pos pos");
+}
+
+MYTEST(helpCommonNargPureVariadicPositional){
+    parser.addPositional<int>("pos")
+            .NArgs<0,-1>()
+            .Finalize();
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 5);
+    EXPECT_EQ(lines[0], "Usage:  [flags...] [pos...]");
+}
+
+MYTEST(helpRepeatable) {
+    parser.addArgument<int>("-i")
+            .Finalize()
+            .repeatable();
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i :  [repeatable]");
+}
+
+MYTEST(helpDefault) {
+    parser.addArgument<int>("-i")
+            .Finalize()
+            .default_value(5);
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[3], "\t-i :  (default 5)");
+}
+
+MYTEST(helpForParam) {
+    parser.addArgument<int>("-i")
+            .Finalize()
+            .help("help message")
+            .advanced_help("advanced help message");
+    parser.printHelpForParamTest("-i");
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 3);
+    EXPECT_EQ(lines[0], "-i :");
+    EXPECT_EQ(lines[1], "help message");
+    EXPECT_EQ(lines[2], "advanced help message");
 }
 

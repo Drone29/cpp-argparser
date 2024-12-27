@@ -971,6 +971,23 @@ MYTEST(NargsWithFuncSideParams){
     ASSERT_TRUE(check);
 }
 
+MYTEST(NargsForMandatoryArg){
+    parser.addArgument<int>("i")
+            .NArgs<1>()
+            .Finalize();
+    CallParser({"i", "543"});
+    ASSERT_EQ(parser.getValue<int>("i"), 543);
+}
+
+MYTEST(NargsForMandatoryArgWithParam){
+    parser.addArgument<int>("i")
+            .SetParameters("int")
+            .NArgs<1>()
+            .Finalize();
+    CallParser({"i", "543"});
+    ASSERT_EQ(parser.getValue<int>("i"), 543);
+}
+
 MYTEST(ChildParser){
     auto &child = parser.addCommand("child", "child parser");
     child.addArgument<int>("--int").Finalize()
