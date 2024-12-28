@@ -1598,6 +1598,10 @@ protected:
         return aliases;
     }
 
+    static std::string formatVariadic(const std::string &opt) {
+        return "[" + opt + "...]";
+    }
+
     static std::string formatOptions(const std::unique_ptr<Argument> &arg) {
         std::string result;
         std::string choices_str = formatChoices(arg);
@@ -1611,7 +1615,7 @@ protected:
             }();
         }
         if (arg->is_variadic()) {
-            result += " [" + (!choices_str.empty() ? choices_str : arg->m_nargs_var) + "...]";
+            result += " " + formatVariadic(!choices_str.empty() ? choices_str : arg->m_nargs_var);
         }
         return result;
     }
@@ -1631,7 +1635,7 @@ protected:
                 usage += " " + tmp;
             }
             if(details->is_variadic()){
-                usage += " [" + opt + "...]";
+                usage += " " + formatVariadic(opt);
             }
         }
         return usage;
