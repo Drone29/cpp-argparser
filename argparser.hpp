@@ -1052,7 +1052,7 @@ public:
     }
 
     /// Parse arguments
-    int parseArgs(int argc, char *argv[], bool hide_hidden_hint = false)
+    int parseArgs(int argc, char *argv[])
     {
         if(m_args_parsed){
             throw parse_error("Repeated attempt to run " + std::string(__func__));
@@ -1062,7 +1062,7 @@ public:
             std::string self_name = std::string(argv[0]);
             m_binary_name = self_name.substr(self_name.find_last_of('/') + 1);
         }
-        return parseArgs({argv + 1, argv + argc}, hide_hidden_hint);
+        return parseArgs({argv + 1, argv + argc});
     }
 
     const Argument &operator [] (const std::string &key) const { return getArg(key); }
@@ -1360,12 +1360,12 @@ protected:
         return --index;
     }
 
-    [[nodiscard]] int parseHandleChildAndPositional(int index, bool hide_hidden_hint) {
+    [[nodiscard]] int parseHandleChildAndPositional(int index) {
         for(; index < m_argVec.size(); ++index){
             /// Parse children
             auto child = findChildByName(m_argVec[index]);
             if(child != nullptr){
-                child->parseArgs({m_argVec.begin() + index + 1, m_argVec.end()}, hide_hidden_hint);
+                child->parseArgs({m_argVec.begin() + index + 1, m_argVec.end()});
                 m_command_parsed = true;
                 break;
             }
@@ -1475,7 +1475,7 @@ protected:
         return proposed_value;
     }
 
-    void setParseCounters(bool hide_hidden_hint) {
+    void setParseCounters() {
         //count mandatory/required arguments
         for(const auto &x : m_argMap){
             if(!x.second->m_optional
@@ -1485,7 +1485,7 @@ protected:
                      && x.second->m_required){
                 m_required_args++;
             }
-            if(x.second->m_hidden && !hide_hidden_hint){
+            if(x.second->m_hidden){
                 m_hidden_args++;
             }
         }
@@ -1523,9 +1523,9 @@ protected:
         return end-start;
     }
 
-    int parseArgs(std::vector<std::string> &&arg_vec, bool hide_hidden_hint = false) {
+    int parseArgs(std::vector<std::string> &&arg_vec) {
         m_argVec = std::move(arg_vec);
-        setParseCounters(hide_hidden_hint);
+        setParseCounters();
         /// Preprocess argVec (handle '=', aliases, combined args, etc)
         parsePreprocessArgVec();
         /// Main parser loop
@@ -1537,7 +1537,7 @@ protected:
                 ///Check if it's an arg with a typo
                 auto proposed_value = checkTypos(pName);
                 /// Handle positional args and child parsers
-                index = parseHandleChildAndPositional(index, hide_hidden_hint);
+                index = parseHandleChildAndPositional(index);
                 if(m_command_parsed){
                     break;
                 }
