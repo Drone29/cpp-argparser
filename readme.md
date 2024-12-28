@@ -1,15 +1,19 @@
-## Overview
+# cpp-argparser
 
-ArgParser is a lightweight and flexible C++ library designed for parsing command-line arguments.  
-It simplifies the management of arguments by supporting a wide variety of use cases,  
-including implicit values, positional arguments, mandatory and optional parameters, 
-repeatable arguments, and more.  
-With advanced customization options, it is suitable for both simple and complex CLI applications.
+A C++17 header-only library for parsing command-line arguments.  
+It supports positional arguments, flags, and options, allowing for flexible and robust command-line interfaces.
 
-## About
+## Features
 
-* Single header
-* Requires C++17
+- **Single Header**
+- **Requires C++17**
+- **Positional Arguments**: Support for positional arguments
+- **Parameterized Flags**: Optional named arguments with parameters
+- **Implicit Flags**: Optional switches
+- **Parameters**: Named arguments that can be mandatory or optional, with support for default values
+- **Variadic**: Support for variadic positionals, flags and parameters
+- **Automatic Help Message Generation**: Provides usage information based on defined arguments
+- **Customizable Parsing Logic**: Allows for tailored argument validation and processing
 
 ## Basic usage
 
@@ -20,16 +24,42 @@ With advanced customization options, it is suitable for both simple and complex 
 2. Create an ```argParser``` instance inside main() function
    ```c++
    int main(int argc, char *argv[]){
-   
+        // Without parameters
         argParser parser;
-   
+        // Optional, specify program name and description
+        argParser parser("program name", "this program does some useful stuff");
    }
    ```
 3. Add arguments to parse
     ```c++
-   parser.addArgument<int>("-x")
+   // add positional int argument
+   parser.addPositional<int>("positional")
+               .Finalize() 
+               .help("positional argument (flag)");
+   // add mandatory argument with parameter
+   parser.addArgument<int>("mandatory")
+               .SetParameters("mandatory_param")
                .Finalize()
-               .help("int optional argument with implicit value");
+               .help("mandatory argument with mandatory param"); 
+   // add implicit int flag
+   parser.addArgument<int>("-optional")
+               .Finalize() 
+               .help("int optional argument (flag) with implicit value");
+   // add int flag with mandatory parameter
+   parser.addArgument<int>("-optional-with-param")
+               .SetParameters("mandatory_param") 
+               .Finalize() 
+               .help("flag with single mandatory param");
+   // add int flag with optional parameter
+   parser.addArgument<int>("-optional-with-param2")
+               .SetParameters("[optional_param]") 
+               .Finalize() 
+               .help("flag with single optional param");
+   // add int flag with multiple parameters
+   parser.addArgument<int>("-optional--with-multiple-params")
+               .SetParameters("mandatory_param", "[optional_param]") 
+               .Finalize() 
+               .help("flag with multiple params");
     ```  
 4. Parse arguments from command line
     ```c++
@@ -43,7 +73,7 @@ Arguments can be:
 * `optional` (not required to be set by user)
 * `mandatory` (all such arguments should be set by user)
 * `required` (at least one such argument should be set by user)
-* `positional`
+* `positional` (determined by their position in the cli)
 
 `optional`, `mandatory` or `required` arguments can have `parameters`
 
@@ -64,31 +94,6 @@ To specify a positional argument, use `addPositional` method:
 parser.addPositional<int>("pos")
               .Finalize()
               .help("Positional int argument");
-```
-
-#### Aliases
-
-Non-positional arguments can have aliases
-
-Here is a `--bool` argument with `-b` alias:
-
-```c++
-parser.addArgument<bool>("-b", "--bool")
-          .Finalize()
-          .help("specifying name and alias in a single string");
-```
-
-The last string in the list is considered argument's name,
-and other elements are aliases
-
-**NOTE:** Argument name and alias should be of the same type: 
-if the name starts with `-`, aliases should also start with `-`:
-
-```c++
-parser.addArgument<int>("i, integer") //VALID
-     parser.addArgument<int>("-i, --integer") //VALID
-     parser.addArgument<int>("i, -integer") //NOT VALID
-     parser.addArgument<int>("-i, integer") //NOT VALID
 ```
 
 #### Arbitrary arguments
@@ -162,6 +167,31 @@ parser.addArgument<bool>("m")
           .Finalize()
           .required()
           .help("mandatory bool argument made required");
+```
+
+#### Aliases
+
+Non-positional arguments can have aliases
+
+Here is a `--bool` argument with `-b` alias:
+
+```c++
+parser.addArgument<bool>("-b", "--bool")
+          .Finalize()
+          .help("specifying name and alias in a single string");
+```
+
+The last string in the list is considered argument's name,
+and other elements are aliases
+
+**NOTE:** Argument name and alias should be of the same type:
+if the name starts with `-`, aliases should also start with `-`:
+
+```c++
+parser.addArgument<int>("i, integer") //VALID
+     parser.addArgument<int>("-i, --integer") //VALID
+     parser.addArgument<int>("i, -integer") //NOT VALID
+     parser.addArgument<int>("-i, integer") //NOT VALID
 ```
      
 ### Parameters
@@ -263,7 +293,6 @@ parser.addArgument<int>("-i")
 > ./app -i 1 2 3 4     - ERROR: only 3 values allowed, provided 4
 ```
 
-
 `SetParameters()` can be called before `NArgs()`, but you can only specify ONE parameter there.  
 This way it will act as a metavar for parameter's name.  
 Passing more than 1 parameter to `SetParameters()` followed by `NArgs()`, will result in a compilation error
@@ -363,7 +392,6 @@ parser.addArgument<CL>("struct")
         .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()");
 ```
 
-
 Lambdas can be used as parsing functions too:
 
 ```c++
@@ -430,7 +458,6 @@ parser.addArgument<int>("-j")
 parser.parseArgs(argc, argv);
 // after that, the parsed result will be stored in j variable
 ```
-
 
 **NOTE:** `variadic` arguments' values can be obtained only with `getValue()` method,
 with the type `std::vector<arg_type>`:
@@ -555,7 +582,6 @@ Caught error: scan: unable to convert 345 to bool
 Last unparsed arg: -b
 Passed parameters: 345
 ```
-        
 
 For more details, see [example.cpp](./example.cpp) and [tests](./utest/utests.cpp)         
 
