@@ -1686,7 +1686,7 @@ protected:
         }
         std::cout << "Usage: " << m_binary_name
                   << (hasFlags() ? " [flags...]" : "")
-                  << (hasOptions() ? " options..." : "")
+                  << (hasMandatoryParameters() ? " parameters..." : "")
                   << getPositionalArgsUsage()
                   << (hasCommands() ? " command [<args>]" : "")
                   << std::endl;
@@ -1721,9 +1721,9 @@ protected:
         }
     }
 
-    void printOptionsUsage(bool advanced) const {
-        if(hasOptions()){
-            std::cout << "Options (mandatory):" << std::endl;
+    void printMandatoryParametersUsage(bool advanced) const {
+        if(hasMandatoryParameters()){
+            std::cout << "Parameters (mandatory):" << std::endl;
             printFilteredUsage(filterArgs(false, false, IS_REQUIRED::FALSE), advanced); //show options without *
             printFilteredUsage(filterArgs(false, false, IS_REQUIRED::TRUE), advanced); //show options with *
             if(advanced){
@@ -1763,7 +1763,7 @@ protected:
         printCommandsUsage();
         printPositionalUsage();
         printFlagsUsage(advanced);
-        printOptionsUsage(advanced);
+        printMandatoryParametersUsage(advanced);
     }
 
     void printHelpForParameter(const std::string &param) const {
@@ -1787,7 +1787,7 @@ protected:
             return p.second->m_optional && !p.second->m_required;
         });
     }
-    [[nodiscard]] bool hasOptions() const {
+    [[nodiscard]] bool hasMandatoryParameters() const {
         return std::any_of(m_argMap.begin(), m_argMap.end(), [](const auto &p) {
             return !p.second->m_positional && (!p.second->m_optional || p.second->m_required);
         });

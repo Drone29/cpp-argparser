@@ -246,8 +246,8 @@ MYTEST(helpCommonOption){
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
-    EXPECT_EQ(lines[0], "Usage:  [flags...] options...");
-    EXPECT_EQ(lines[3], "Options (mandatory):");
+    EXPECT_EQ(lines[0], "Usage:  [flags...] parameters...");
+    EXPECT_EQ(lines[3], "Parameters (mandatory):");
     EXPECT_EQ(lines[4], "\ti <int> : ");
 }
 

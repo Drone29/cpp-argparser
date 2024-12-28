@@ -465,7 +465,7 @@ Applicable to `arithmetic` or `string` values.
 Returns a reference to the instance of unparsed argument
 * `setAlias("name", "aliases")` - set aliases to argument name if wasn't set in addArgument
 * `getSelfName()` - get executable self name, applicable only after arguments are parsed
-* `parseArgs(argc, argv, allow_zero_options)` - parse arguments from command line
+* `parseArgs(argc, argv)` - parse arguments from command line
 * `operator [] ("name or alias")` - provides access to const methods of argument, such as `is_set()`. Can also be used along with static cast to obtain values
     
 ### Modifiers
