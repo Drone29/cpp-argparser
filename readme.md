@@ -254,14 +254,24 @@ parser.addArgument<int>("-j")
 > ./app -jjj    - Repeatable argument, increments 3 times  
 ```
                               
-If an argument can have an optional number of parameters, it can be made `variadic`
+If an argument can have an arbitrary number of parameters, it can be made `variadic`
 
 Here's an example of variadic argument:
 
 ```c++
-parser.addArgument<int>("--variadic, -var")
-                .setParameters("N")
-                .nargs<0,-1>() // make argument variadic
+parser.addArgument<int>("--variadic", "-var")
+                .nargs<3>() // make argument variadic
+                .finalize() 
+                .help("parses 3 integers. Result is std::vector<int>");
+                
+> ./app -var 123 321 12     - stores 3 numbers as a vector
+```
+
+And here's an example of a `pure variadic` argument (it can take any number of parameters):
+
+```c++
+parser.addArgument<int>("--variadic", "-var")
+                .nargs<0,-1>() // make argument pure variadic
                 .finalize() 
                 .help("parses any number of integers. Result is std::vector<int>");
                 
@@ -271,7 +281,7 @@ parser.addArgument<int>("--variadic, -var")
 
 The return type of variadic argument changes to `std::vector<argument_type>`
 
-**NOTE:** `Nargs<1>` or `nargs<0,1>` will not change the return type to `vector`
+**NOTE:** `nargs<1>` or `nargs<0,1>` will not change the return type to `vector`
 
 Positional arguments can be variadic too:
 
@@ -324,6 +334,8 @@ parser.addArgument<int>("-i")
 This way it will act as a metavar for parameter's name.  
 Passing more than 1 parameter to `setParameters()` followed by `nargs()`, will result in a compilation error
 
+**NOTE:** Calling `setParameters("[optional]")` along with `nargs()` will throw an exception
+
 If setParameters() were not called before nargs(), a default name is provided for parameter (capitalized argument's key)
 
 The second parameter in `nargs` can be -1 (or any value less than 0), thus making the argument variadic
@@ -363,7 +375,6 @@ The parsing function `must` be specified for an argument in the following cases:
 
 * The argument is `not of arithmetic or string` type
 * The argument has `more than 1 parameter`
-* The argument `has optional parameters`
                 
 Here are some constraints for parsing functions:                
                 
@@ -531,7 +542,7 @@ Here's the full list of `addArgument()` and `addPositional()` modifiers:
 * `advanced_help("advanced help text")` - specify advanced help text, 
 will be shown if user calls `--help your_argument_here`
 * `hidden()` - make argument `hidden` from generic help message 
-(can still be displayed with advanced help call `--help -a`). Only for `optional` arguments
+(can still be displayed with advanced help call `--help -h`). Only for `optional` arguments
 * `repeatable()` - make argument `repeatable`. Only for non-positional arguments
 * `default_value(default_value, hide_in_help=false)` - specify default 
 (the one that will be assigned if not set by user) 
@@ -544,7 +555,6 @@ Not applicable to variadic arguments
 Cannot be applied to `hidden` arguments
 * `required()` - make `optional` or `mandatory` argument `required`.
 Cannot be applied to `hidden` arguments
-In that case, an optional number (not less than 1) of parameters can be passed by the caller
 * `choices(choices,...)` - adds a list of possible valid choices for the argument. Applicable only to arithmetic types and strings
 
 There are also some useful const methods for arguments:
