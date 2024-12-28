@@ -104,6 +104,14 @@ MYTEST(InvalidPosKey2){
     EXPECT_THROW(parser.addPositional<int>("[int]"), std::invalid_argument);
 }
 
+MYTEST(AllowSpacesAndSpecialCharsForParams) {
+    EXPECT_NO_THROW(parser.addArgument<int>("-i").SetParameters("[int | float]"));
+}
+
+MYTEST(AllowSpacesAndSpecialCharsForParams2) {
+    EXPECT_NO_THROW(parser.addArgument<int>("-i").SetParameters("0xNUM"));
+}
+
 MYTEST(Redefinition){
     parser.addArgument<int>("--int").Finalize();
     EXPECT_THROW(parser.addArgument<int>("--int"), std::invalid_argument) << "Should throw error in case of redefinition";

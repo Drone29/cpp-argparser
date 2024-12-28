@@ -180,24 +180,21 @@ namespace parser_internal{
             return std::isalnum(c) || c == '-' || c == '_';
         };
         auto isValidParamChar = [](int c) -> bool {
-            return std::isalnum(c) || c == '-' || c == '_' || c == '[' || c == ']';
+            return std::isalnum(c) || c == '-' || c == '_' || c == '[' || c == ']' || c == '|' || c == ' ';
         };
-        auto isDigitOnly = [](int c) -> bool {
+        auto isDigitOrPunct = [](int c) -> bool {
             return std::isdigit(c) || std::ispunct(c);
         };
 
         auto isValidCharCond = is_param ? isValidParamChar : isValidKeyChar;
         auto invalidChar = std::find_if_not(key.begin(), key.end(), isValidCharCond);
-        auto allDigitsAndPunct = std::all_of(key.begin(), key.end(), isDigitOnly);
-        auto contains_spaces = key.find(' ') != std::string::npos;
+        auto allDigitsAndPunct = std::all_of(key.begin(), key.end(), isDigitOrPunct);
         if(key.empty())
             throw std::invalid_argument(std::string(func) + ": empty key or param");
         if(invalidChar != key.end())
             throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain " + *invalidChar);
         if(allDigitsAndPunct)
             throw std::invalid_argument(std::string(func) + ": " + key + " cannot consist only of digits and punctuation chars");
-        if(contains_spaces)
-            throw std::invalid_argument(std::string(func) + ": " + key + " cannot contain spaces");
         if(key.back() == '-')
             throw std::invalid_argument(std::string(func) + ": " + key + " shouldn't end with '-'");
     }
