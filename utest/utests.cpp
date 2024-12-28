@@ -104,6 +104,10 @@ MYTEST(InvalidPosKey2){
     EXPECT_THROW(parser.addPositional<int>("[int]"), std::invalid_argument);
 }
 
+MYTEST(ValidPosKey0X){
+    EXPECT_NO_THROW(parser.addPositional<int>("0xINT"));
+}
+
 MYTEST(AllowSpacesAndSpecialCharsForParams) {
     EXPECT_NO_THROW(parser.addArgument<int>("-i").SetParameters("[int | float]"));
 }
@@ -332,7 +336,7 @@ MYTEST(ArgSingleMandatoryParamWithFunction) {
     ASSERT_EQ(parser.getValue<int>("-i"), 123);
 }
 
-MYTEST(ArgSingleArbitraryParamWithFunction) {
+MYTEST(ArgSingleOptionalParamWithFunction) {
     parser.addArgument<int>("-i")
             .SetParameters("[int]")
             .SetCallable([](auto i){
@@ -344,6 +348,20 @@ MYTEST(ArgSingleArbitraryParamWithFunction) {
             .Finalize();
     CallParser({"-i"});
     ASSERT_EQ(parser.getValue<int>("-i"), 13);
+}
+
+MYTEST(ArgSingleOptionalParamSpecialWithFunction) {
+    parser.addArgument<int>("-i")
+            .SetParameters("[int | float]")
+            .SetCallable([](auto i){
+                if (i == nullptr){
+                    return 13;
+                }
+                return int(std::strtod(i, nullptr));
+            })
+            .Finalize();
+    CallParser({"-i", "45.6"});
+    ASSERT_EQ(parser.getValue<int>("-i"), 45);
 }
 
 MYTEST(PosWithFunction) {
@@ -377,27 +395,27 @@ MYTEST(PureVariadicPos) {
     ASSERT_TRUE(check);
 }
 
-MYTEST(ArgWithSingleArbitraryParamNoFunctionNotProvided) {
+MYTEST(ArgWithSingleOptionalParamNoFunctionNotProvided) {
     ASSERT_NO_THROW(parser.addArgument<int>("-i")
             .SetParameters("[int]")
             .Finalize()
             .default_value(5));
     CallParser({"-i"});
     ASSERT_TRUE(parser["-i"].is_set());
-    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if arbitrary param not provided";
+    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
 }
 
-MYTEST(ArgWithSingleArbitraryNArgNoFunctionNotProvided) {
+MYTEST(ArgWithSingleOptionalNArgNoFunctionNotProvided) {
     parser.addArgument<int>("-i")
             .NArgs<0,1>()
             .Finalize()
             .default_value(5);
     CallParser({"-i"});
     ASSERT_TRUE(parser["-i"].is_set());
-    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if arbitrary param not provided";
+    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
 }
 
-MYTEST(ArgWithSingleArbitraryParamWithFunctionNotProvided) {
+MYTEST(ArgWithSingleOptionalParamWithFunctionNotProvided) {
     int val = 5;
     ASSERT_NO_THROW(parser.addArgument<int>("-i")
                             .SetParameters("[int]")
@@ -411,10 +429,10 @@ MYTEST(ArgWithSingleArbitraryParamWithFunctionNotProvided) {
                             .Finalize());
     CallParser({"-i"});
     ASSERT_TRUE(parser["-i"].is_set());
-    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if arbitrary param not provided";
+    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
 }
 
-MYTEST(ArgWithSingleArbitraryNArgWithFunctionNotProvided) {
+MYTEST(ArgWithSingleOptionalNArgWithFunctionNotProvided) {
     int val = 5;
     parser.addArgument<int>("-i")
             .NArgs<0,1>()
@@ -428,7 +446,7 @@ MYTEST(ArgWithSingleArbitraryNArgWithFunctionNotProvided) {
             .Finalize();
     CallParser({"-i"});
     ASSERT_TRUE(parser["-i"].is_set());
-    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if arbitrary param not provided";
+    ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
 }
 
 MYTEST(ArgWithParamsAndVariadicPos){
@@ -469,7 +487,7 @@ MYTEST(VarPosThrow){
     EXPECT_THROW(parser.addPositional<int>("pos"), std::invalid_argument) << "Show throw invalid arg error if variadic positional arg is followed by another one";            
 }
 
-MYTEST(ArbitraryArgWithVariadicArg){
+MYTEST(OptionalArgWithVariadicArg){
     auto test = [](const char* a){
         if(a == nullptr){
             a = "null";
@@ -665,7 +683,7 @@ MYTEST(NargsSingle){
     ASSERT_EQ(parser.getValue<int>("-z"), 123);
 }
 
-MYTEST(NargsSingleArbitrary){
+MYTEST(NargsSingleOptional){
     parser.addArgument<int>("-z")
             .NArgs<0,1>()
             .Finalize();
@@ -673,7 +691,7 @@ MYTEST(NargsSingleArbitrary){
     ASSERT_EQ(parser.getValue<int>("-z"), 123);
 }
 
-MYTEST(NargsSingleArbitraryNotProvided){
+MYTEST(NargsSingleOptionalNotProvided){
     parser.addArgument<int>("-z")
             .NArgs<0,1>()
             .Finalize();
@@ -689,7 +707,7 @@ MYTEST(NargsSingleMandatoryWithParameter){
     ASSERT_EQ(parser.getValue<int>("-z"), 123);
 }
 
-MYTEST(NargsSingleArbitraryWithParameter){
+MYTEST(NargsSingleOptionalWithParameter){
     parser.addArgument<int>("-z")
             .SetParameters("int")
             .NArgs<0, 1>()
@@ -698,7 +716,7 @@ MYTEST(NargsSingleArbitraryWithParameter){
     ASSERT_EQ(parser.getValue<int>("-z"), 123);
 }
 
-MYTEST(NargsTwoArbitrary){
+MYTEST(NargsTwoOptional){
     parser.addArgument<int>("-z")
             .NArgs<0,2>()
             .Finalize();
@@ -707,7 +725,7 @@ MYTEST(NargsTwoArbitrary){
     ASSERT_TRUE(check);
 }
 
-MYTEST(NargsTwoArbitraryNotProvided){
+MYTEST(NargsTwoOptionalNotProvided){
     parser.addArgument<int>("-z")
             .NArgs<0,2>()
             .Finalize();
@@ -741,7 +759,7 @@ MYTEST(NargsTotalLessThanFromButGreaterThanZero){
         << "Should ignore second narg param if less than first but > 0";
 }
 
-MYTEST(NargsSinglePosArbitrary){
+MYTEST(NargsSinglePosOptional){
     parser.addPositional<int>("pos")
             .NArgs<0,1>()
             .Finalize();
@@ -749,19 +767,19 @@ MYTEST(NargsSinglePosArbitrary){
     ASSERT_EQ(parser.getValue<int>("pos"), 123);
 }
 
-MYTEST(NargsSinglePosArbitraryNotProvided){
+MYTEST(NargsSinglePosOptionalNotProvided){
     parser.addPositional<int>("pos")
             .NArgs<0,1>()
             .Finalize();
     EXPECT_NO_THROW(CallParser({}));
 }
 
-MYTEST(NargsSinglePosArbitraryWithRegularPos){
+MYTEST(NargsSinglePosOptionalWithRegularPos){
     parser.addPositional<int>("pos")
             .NArgs<0,1>()
             .Finalize();
     EXPECT_THROW(parser.addPositional<int>("pos2"), std::invalid_argument)
-        << "Should not allow adding regular positional after positional with arbitrary narg";
+        << "Should not allow adding regular positional after positional with optional narg";
     CallParser({"123"});
     ASSERT_EQ(parser.getValue<int>("pos"), 123);
 }
@@ -783,7 +801,7 @@ MYTEST(NargsFixedMandatory){
     ASSERT_TRUE(check);            
 }
 
-MYTEST(NargsMandatoryAndArbitrary){
+MYTEST(NargsMandatoryAndOptional){
     parser.addArgument<int>("--arg")
             .NArgs<1,3>()
             .Finalize();
@@ -792,7 +810,7 @@ MYTEST(NargsMandatoryAndArbitrary){
     ASSERT_TRUE(check);         
 }
 
-MYTEST(NargsArbitraryOnly){
+MYTEST(NargsOptionalOnly){
     parser.addArgument<int>("--arg")
             .NArgs<0,3>()
             .Finalize();
@@ -812,7 +830,7 @@ MYTEST(NargsChoices){
     EXPECT_THROW(CallParser({"--arg", "1", "2", "3"}), argParser::unparsed_param) << "Should check choices for nargs as well";             
 }
 
-MYTEST(NargsPosMandatoryAndArbitrary){
+MYTEST(NargsPosMandatoryAndOptional){
     parser.addPositional<int>("pos")
             .NArgs<1,3>()
             .Finalize();
@@ -821,7 +839,7 @@ MYTEST(NargsPosMandatoryAndArbitrary){
     ASSERT_TRUE(check);            
 }
 
-MYTEST(NargsPosMandatoryAndArbitraryPartial){
+MYTEST(NargsPosMandatoryAndOptionalPartial){
     parser.addPositional<int>("pos")
             .NArgs<1,3>()
             .Finalize();
@@ -847,7 +865,7 @@ MYTEST(NargsSinglePos){
     ASSERT_EQ(parser.getValue<int>("pos"), 123);
 }
 
-MYTEST(NargsPosArbZero){
+MYTEST(NargsPosOptionalZero){
     parser.addPositional<int>("pos")
             .NArgs<0,3>()
             .Finalize();
@@ -882,7 +900,7 @@ MYTEST(NargsPureVariadicEmpty){
     ASSERT_TRUE(parser.getValue<std::vector<int>>("--var").empty())  << "Should be empty vector";
 }
 
-MYTEST(NargsPureVariadicArbitraryNum){
+MYTEST(NargsPureVariadicOptionalNum){
     parser.addArgument<int>("--var")
             .NArgs<0,-1>() //pure variadic arg
             .Finalize();
