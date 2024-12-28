@@ -203,13 +203,13 @@ namespace parser_internal{
     }
 }
 
-class BaseOption{
+class ArgHandleBase{
 protected:
     friend class argParser;
-    friend struct ARG_DEFS;
-    friend class OptionBuilderHelper;
-    BaseOption() = default;
-    virtual ~BaseOption() = default;
+    friend struct Argument;
+    friend class ArgBuilderBase;
+    ArgHandleBase() = default;
+    virtual ~ArgHandleBase() = default;
     virtual void action (const std::string *args, int size) {}
     virtual void set(std::any x) {}
     virtual std::string get_str_val() const {return "";}
@@ -224,10 +224,10 @@ protected:
 };
 
 template <typename T, size_t STR_ARGS, typename...Targs>
-class DerivedOption : public BaseOption{
+class ArgHandle : public ArgHandleBase{
 private:
     friend class argParser;
-    friend class OptionBuilderHelper;
+    friend class ArgBuilderBase;
     using NContainer = std::vector<T>;
 
     T m_value;
@@ -457,42 +457,42 @@ private:
 
     unsigned int get_nargs() override {return m_nargs;}
 
-    explicit DerivedOption(std::tuple<Targs...> &&tpl) :
+    explicit ArgHandle(std::tuple<Targs...> &&tpl) :
             m_value(),
             m_action_and_args(std::move(tpl)) {
         m_anyval = m_value;
     }
 
-    ~DerivedOption() override = default;
+    ~ArgHandle() override = default;
 };
 
-struct ARG_DEFS{
+struct Argument{
 
-    ARG_DEFS &help(std::string hlp){
+    Argument &help(std::string hlp){
         m_help = std::move(hlp);
         return *this;
     }
-    ARG_DEFS &advanced_help(std::string hlp){
+    Argument &advanced_help(std::string hlp){
         m_advanced_help = std::move(hlp);
         return *this;
     }
     /// positional, mandatory options cannot be hidden
     /// NOTE: if hidden AND required, use carefully
     /// DO NOT make ALL required args hidden!!!
-    ARG_DEFS &hidden(){
+    Argument &hidden(){
         if(!m_positional && m_optional)
             m_hidden = true;
         return *this;
     }
-    ARG_DEFS &repeatable(){
+    Argument &repeatable(){
         if(!m_positional && !is_variadic())
             m_repeatable = true;
         return *this;
     }
-    ARG_DEFS &default_value(std::any val, bool hide_in_help = false){
+    Argument &default_value(std::any val, bool hide_in_help = false){
         try{
             if(m_optional && !m_positional && !is_variadic()){
-                m_option->set(std::move(val));
+                m_arg_handle->set(std::move(val));
                 m_show_default = !hide_in_help;
             }
         }catch(std::invalid_argument &e){
@@ -500,9 +500,9 @@ struct ARG_DEFS{
         }
         return *this;
     }
-    ARG_DEFS &global_ptr(std::any ptr){
+    Argument &global_ptr(std::any ptr){
         try {
-            m_option->set_global_ptr(std::move(ptr));
+            m_arg_handle->set_global_ptr(std::move(ptr));
         }catch(std::invalid_argument &e){
             throw std::logic_error(std::string(__func__) + "(" + m_type_str + "): error: " + e.what());
         }
@@ -510,7 +510,7 @@ struct ARG_DEFS{
     }
     ///display as mandatory in help
     ///user should specify all of mandatory options
-    ARG_DEFS &mandatory(){
+    Argument &mandatory(){
         /// hidden cannot be mandatory
         if(m_optional && !m_positional && !m_hidden)
             m_optional = false;
@@ -518,7 +518,7 @@ struct ARG_DEFS{
     }
     ///only for optional arguments
     ///user should specify at least one required option
-    ARG_DEFS &required(){
+    Argument &required(){
         /// positional cannot be required
         if(!m_positional){
             m_required = true;
@@ -529,7 +529,7 @@ struct ARG_DEFS{
     }
     /// choices
     template<typename... Choices>
-    ARG_DEFS &choices(Choices ...choices){
+    Argument &choices(Choices ...choices){
         static_assert(((std::is_arithmetic_v<Choices> || std::is_convertible_v<Choices, std::string>) && ...),
                 "Choices should be either arithmetic or strings");
         static_assert(parser_internal::areSameType<Choices...>::value,
@@ -543,7 +543,7 @@ struct ARG_DEFS{
             }
         };
         try{
-            m_option->set_choices({validate_and_convert(choices)...});
+            m_arg_handle->set_choices({validate_and_convert(choices)...});
         }catch(std::invalid_argument &e){
             throw std::logic_error(std::string(__func__) + "(" + m_type_str + "): error: " + e.what());
         }
@@ -569,7 +569,7 @@ struct ARG_DEFS{
         return m_repeatable;
     }
     [[nodiscard]] bool is_variadic() const{
-        return m_option->is_variadic();
+        return m_arg_handle->is_variadic();
     };
     [[nodiscard]] auto options_size() const{
         return m_options.size();
@@ -583,25 +583,25 @@ struct ARG_DEFS{
     }
     // get nargs
     [[nodiscard]] unsigned int get_nargs() const{
-        return m_option->get_nargs();
+        return m_arg_handle->get_nargs();
     };
 
     // conversion operator template
     template<typename T>
     operator T() const {
-        return std::any_cast<T>(m_option->m_anyval);
+        return std::any_cast<T>(m_arg_handle->m_anyval);
     }
 
-    ~ARG_DEFS() {
-        delete m_option;
+    ~Argument() {
+        delete m_arg_handle;
     }
 private:
 
-    explicit ARG_DEFS(std::string name)
+    explicit Argument(std::string name)
             : m_name(std::move(name)){}
 
     friend class argParser;
-    friend class OptionBuilderHelper;
+    friend class ArgBuilderBase;
     std::string m_name;
     std::string m_help;
     std::string m_advanced_help;
@@ -615,7 +615,7 @@ private:
     //stringified type
     std::string m_type_str;
     //Option/flag
-    BaseOption* m_option = nullptr;
+    ArgHandleBase* m_arg_handle = nullptr;
     //in use
     bool m_set = false;
     //alias
@@ -638,15 +638,15 @@ private:
     bool m_show_default = false;
 };
 
-// forward-declare for option builder
+// forward-declare for arg builder
 class argParser;
 
-class OptionBuilderHelper {
+class ArgBuilderBase {
 protected:
     std::string m_key;
     std::vector<std::string> m_aliases;
     bool m_is_positional;
-    std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> m_callback;
+    std::function<Argument&(std::unique_ptr<Argument> &&)> m_callback;
     std::vector<std::string> m_opts;
     std::string m_strType;
     int m_mandatory_args = 0;
@@ -654,16 +654,16 @@ protected:
     std::string m_narg_name;
     int m_nargs_size = 0;
 
-    OptionBuilderHelper(std::string &&key,
-                        std::vector<std::string> &&aliases,
-                        bool is_positional,
-                        std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> &&callback)
+    ArgBuilderBase(std::string &&key,
+                   std::vector<std::string> &&aliases,
+                   bool is_positional,
+                   std::function<Argument&(std::unique_ptr<Argument> &&)> &&callback)
                         : m_key(std::move(key)),
                           m_aliases(std::move(aliases)),
                           m_is_positional(is_positional),
                           m_callback(std::move(callback)){}
 
-    ARG_DEFS &CreateArg(BaseOption *option) {
+    Argument &CreateArg(ArgHandleBase *handle) {
 
         bool flag = m_key[0] == '-';
         bool starts_with_minus = flag;
@@ -674,13 +674,13 @@ protected:
         }
 
         // Create arg and add to map
-        auto arg = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(m_key));
+        auto arg = std::unique_ptr<Argument>(new Argument(m_key));
         if (m_is_variadic) {
-            option->make_variadic();
+            handle->make_variadic();
         }
-        option->set_nargs(m_nargs_size);
+        handle->set_nargs(m_nargs_size);
         arg->m_type_str = std::move(m_strType);
-        arg->m_option = option;
+        arg->m_arg_handle = handle;
         arg->m_options = std::move(m_opts);
         arg->m_optional = flag;
         arg->m_implicit = is_implicit;
@@ -695,8 +695,8 @@ protected:
 
     // Helper function to forward all types in the tuple
     template<typename VType, size_t STR_PARAMS, size_t... I, typename TupleType>
-    BaseOption *createOption(std::index_sequence<I...>, TupleType &&t) {
-        return new DerivedOption<
+    ArgHandleBase *createOption(std::index_sequence<I...>, TupleType &&t) {
+        return new ArgHandle<
                 VType,
                 STR_PARAMS,
                 std::tuple_element_t<I, TupleType>...
@@ -704,9 +704,9 @@ protected:
     }
 };
 
-// option builder
+// arg builder
 template<size_t STR_PARAM_IDX, size_t CALLABLE_IDX, typename... Types>
-class OptionBuilder : public OptionBuilderHelper {
+class ArgBuilder : public ArgBuilderBase {
 protected:
     friend class argParser;
     std::tuple<Types...> m_components;
@@ -714,7 +714,7 @@ protected:
     // add new component
     template<size_t FIRST_IDX, size_t SECOND_IDX, typename NewType>
     auto addComponent(NewType &&newComponent) {
-        return OptionBuilder<FIRST_IDX, SECOND_IDX, Types..., NewType>(
+        return ArgBuilder<FIRST_IDX, SECOND_IDX, Types..., NewType>(
                 this, // pass current obj pointer further to create a new object with already existing data
                 std::tuple_cat(std::move(m_components), std::make_tuple(std::forward<NewType>(newComponent))
                 ));
@@ -722,7 +722,7 @@ protected:
     // just forward existing state further
     template<size_t FIRST_IDX, size_t SECOND_IDX>
     auto forwardComponents() {
-        return OptionBuilder<FIRST_IDX, SECOND_IDX, Types...>(
+        return ArgBuilder<FIRST_IDX, SECOND_IDX, Types...>(
                 this,
                 std::move(m_components)
                 );
@@ -731,17 +731,17 @@ protected:
 
 public:
     // ctor
-    explicit OptionBuilder(std::string &&key,
-                           std::vector<std::string> &&aliases,
-                           bool is_positional,
-                           std::function<ARG_DEFS&(std::unique_ptr<ARG_DEFS> &&)> &&callback,
-                           std::tuple<Types...> &&comps)
-            : OptionBuilderHelper(std::move(key), std::move(aliases), is_positional, std::move(callback)),
+    explicit ArgBuilder(std::string &&key,
+                        std::vector<std::string> &&aliases,
+                        bool is_positional,
+                        std::function<Argument&(std::unique_ptr<Argument> &&)> &&callback,
+                        std::tuple<Types...> &&comps)
+            : ArgBuilderBase(std::move(key), std::move(aliases), is_positional, std::move(callback)),
               m_components(std::move(comps)){}
     // 'move' ctor
-    explicit OptionBuilder(OptionBuilderHelper *prev, std::tuple<Types...> &&comps)
+    explicit ArgBuilder(ArgBuilderBase *prev, std::tuple<Types...> &&comps)
     // use move semantics to construct the helper
-            : OptionBuilderHelper(std::move(*prev)),
+            : ArgBuilderBase(std::move(*prev)),
               m_components(std::move(comps)){}
 
     // add arguments
@@ -845,7 +845,7 @@ public:
     }
 
     // finalize and get to runtime params
-    ARG_DEFS &Finalize() {
+    Argument &Finalize() {
         auto val = std::get<0>(m_components);
         using VType = decltype(val);
         const size_t comp_size = std::tuple_size_v<decltype(m_components)>;
@@ -854,7 +854,7 @@ public:
         const bool has_callable = CALLABLE_IDX > 0;
         /// get template type string
         m_strType = parser_internal::GetTypeName<VType>();
-        BaseOption *option = nullptr;
+        ArgHandleBase *option = nullptr;
         auto checkScan = [&, func=__func__]() {
             ///check if default parser for this type is present
             try{
@@ -903,12 +903,12 @@ class argParser
 {
 public:
     explicit argParser(const std::string &name = "", const std::string &descr = ""){
-        m_argMap[HELP_NAME] = std::unique_ptr<ARG_DEFS>(new ARG_DEFS(HELP_NAME));
+        m_argMap[HELP_NAME] = std::unique_ptr<Argument>(new Argument(HELP_NAME));
         m_argMap[HELP_NAME]->m_type_str = ARG_TYPE_HELP;
         m_argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
         m_argMap[HELP_NAME]->m_options = {HELP_OPT_BRACED};
         m_argMap[HELP_NAME]->m_optional = true;
-        m_argMap[HELP_NAME]->m_option = new BaseOption();
+        m_argMap[HELP_NAME]->m_arg_handle = new ArgHandleBase();
         m_argMap[HELP_NAME]->m_aliases = {HELP_ALIAS};
 
         m_binary_name = name;
@@ -952,12 +952,12 @@ public:
             }
         }
 
-        auto callback = [this,m_key=key](std::unique_ptr<ARG_DEFS> &&arg) -> ARG_DEFS& {
+        auto callback = [this,m_key=key](std::unique_ptr<Argument> &&arg) -> Argument& {
             m_argMap[m_key] = std::move(arg);
             return *m_argMap[m_key];
         };
 
-        return OptionBuilder<0,0,T>(
+        return ArgBuilder<0,0,T>(
                 std::move(key),
                 std::move(aliases),
                 false,
@@ -988,13 +988,13 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot start with '-'");
         }
 
-        auto callback = [this,m_key=key](std::unique_ptr<ARG_DEFS> &&arg) -> ARG_DEFS& {
+        auto callback = [this,m_key=key](std::unique_ptr<Argument> &&arg) -> Argument& {
             m_argMap[m_key] = std::move(arg);
             m_posMap.push_back(m_key);
             return *m_argMap[m_key];
         };
 
-        return OptionBuilder<0,0,T>(
+        return ArgBuilder<0,0,T>(
                 std::move(key),
                 std::vector<std::string>(),
                 true,
@@ -1009,7 +1009,7 @@ public:
         auto strType = parser_internal::GetTypeName<T>();
         auto &r = getArg(key);
         try{
-            return std::any_cast<T>(r.m_option->m_anyval);
+            return std::any_cast<T>(r.m_arg_handle->m_anyval);
         }catch(const std::bad_any_cast& e){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot cast to " + strType);
         }
@@ -1030,8 +1030,8 @@ public:
     }
 
     /// Get last unparsed argument
-    [[nodiscard]] const ARG_DEFS &getLastUnparsed() const{
-        static ARG_DEFS dummy("");
+    [[nodiscard]] const Argument &getLastUnparsed() const{
+        static Argument dummy("");
         return m_last_unparsed_arg == nullptr ? dummy : *m_last_unparsed_arg;
     }
 
@@ -1065,7 +1065,7 @@ public:
         return parseArgs({argv + 1, argv + argc}, hide_hidden_hint);
     }
 
-    const ARG_DEFS &operator [] (const std::string &key) const { return getArg(key); }
+    const Argument &operator [] (const std::string &key) const { return getArg(key); }
 
     /// Custom exception class (unparsed parameters)
     class unparsed_param : public std::runtime_error{
@@ -1081,14 +1081,14 @@ public:
     };
 
 protected:
-    friend class OptionBuilderHelper;
+    friend class ArgBuilderBase;
     enum class IS_REQUIRED {
         DONT_CHECK,
         FALSE,
         TRUE
     };
 
-    std::map<std::string, std::unique_ptr<ARG_DEFS>> m_argMap;
+    std::map<std::string, std::unique_ptr<Argument>> m_argMap;
     std::vector<std::unique_ptr<argParser>> m_commandMap;
     std::vector<std::string> m_posMap;
     std::vector<std::string> m_argVec;
@@ -1107,9 +1107,9 @@ protected:
     int m_command_offset = 0;
     int m_parsed_mnd_args = 0;
     int m_parsed_required_args = 0;
-    ARG_DEFS *m_last_unparsed_arg = nullptr;
+    Argument *m_last_unparsed_arg = nullptr;
 
-    [[nodiscard]] ARG_DEFS &getArg(const std::string &key) const {
+    [[nodiscard]] Argument &getArg(const std::string &key) const {
         auto it = m_argMap.find(key);
         if (it == m_argMap.end()) {
             it = [&key, this]() {
@@ -1514,7 +1514,7 @@ protected:
                 // set pointer to start
                 ptr = &m_argVec.at(start);
             }
-            m_argMap[key]->m_option->action(ptr, end - start);
+            m_argMap[key]->m_arg_handle->action(ptr, end - start);
         }catch(std::exception &e){
             //save last unparsed arg
             m_last_unparsed_arg = m_argMap[key].get();
@@ -1574,8 +1574,8 @@ protected:
         return 0;
     }
 
-    static std::string formatChoices(const std::unique_ptr<ARG_DEFS> &arg) {
-        const auto &choices = arg->m_option->get_str_choices();
+    static std::string formatChoices(const std::unique_ptr<Argument> &arg) {
+        const auto &choices = arg->m_arg_handle->get_str_choices();
         if (choices.empty()){
             return "";
         }
@@ -1590,7 +1590,7 @@ protected:
         return opt;
     }
 
-    static std::string formatAliases(const std::unique_ptr<ARG_DEFS> &arg) {
+    static std::string formatAliases(const std::unique_ptr<Argument> &arg) {
         std::string aliases;
         for(const auto &alias : arg->m_aliases){
             aliases += alias + ", ";
@@ -1598,7 +1598,7 @@ protected:
         return aliases;
     }
 
-    static std::string formatOptions(const std::unique_ptr<ARG_DEFS> &arg) {
+    static std::string formatOptions(const std::unique_ptr<Argument> &arg) {
         std::string result;
         std::string choices_str = formatChoices(arg);
         for(const auto &option : arg->m_options) {
@@ -1744,7 +1744,7 @@ protected:
 
             printParamDetails(it);
 
-            std::string default_str = arg->m_show_default ? arg->m_option->get_str_val() : "";
+            std::string default_str = arg->m_show_default ? arg->m_arg_handle->get_str_val() : "";
             default_str = !default_str.empty() ? " (default " + default_str + ")" : "";
             std::string repeatable_str = arg->m_repeatable ? " [repeatable]" : "";
             std::string required_str = arg->m_required ? (m_required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
