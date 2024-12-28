@@ -34,38 +34,38 @@ It supports positional arguments, flags, and options, allowing for flexible and 
     ```c++
    // add positional int argument
    parser.addPositional<int>("positional")
-               .Finalize() 
+               .finalize() 
                .help("positional argument");
    // add mandatory argument with parameter
    parser.addArgument<int>("mandatory")
-               .SetParameters("mandatory_param")
-               .Finalize()
+               .setParameters("mandatory_param")
+               .finalize()
                .help("mandatory argument with mandatory param"); 
    // add implicit int flag
    parser.addArgument<int>("-optional")
-               .Finalize() 
+               .finalize() 
                .help("int optional argument (flag) with implicit value");
    // add int flag with mandatory parameter
    parser.addArgument<int>("-optional-with-param")
-               .SetParameters("mandatory_param") 
-               .Finalize() 
+               .setParameters("mandatory_param") 
+               .finalize() 
                .help("flag with single mandatory param");
    // add int flag with optional parameter
    parser.addArgument<int>("-optional-with-param2")
-               .SetParameters("[optional_param]") 
-               .Finalize() 
+               .setParameters("[optional_param]") 
+               .finalize() 
                .help("flag with single optional param");
    // add int flag with multiple parameters and parsing function
     parser.addArgument<int>("-optional--with-multiple-params")
-            .SetParameters("mandatory_param", "[optional_param]")
-            .SetCallable([](auto mandatory_param, auto optional_param) {
+            .setParameters("mandatory_param", "[optional_param]")
+            .setCallable([](auto mandatory_param, auto optional_param) {
                 int result = argParser::scanValue<int>(mandatory_param);
                 if (optional_param){
                     result += argParser::scanValue<int>(optional_param);
                 }
                 return result;
             })
-            .Finalize()
+            .finalize()
             .help("flag with multiple params and parsing function");
     ```  
 4. Parse arguments from command line
@@ -119,7 +119,7 @@ Positional arguments `cannot have aliases and parameters`
 To specify a positional argument, use `addPositional` method:
 ```c++
 parser.addPositional<int>("pos")
-              .Finalize()
+              .finalize()
               .help("Positional int argument");
 ```
 
@@ -133,7 +133,7 @@ To specify an optional argument, start it `with -`
 
 ```c++
 parser.addArgument<int>("-x")
-          .Finalize()
+          .finalize()
           .help("int optional argument with implicit value");
 ```
  
@@ -147,8 +147,8 @@ To specify a mandatory argument, its name/aliases should start `without -`
     
 ```c++
 parser.addArgument<bool>("m")
-          .SetParameters("m_param")
-          .Finalize()
+          .setParameters("m_param")
+          .finalize()
           .help("mandatory bool argument with mandatory parameter");
 ```
      
@@ -156,8 +156,8 @@ Also, any `optional` argument can be made `mandatory` using method `mandatory()`
     
 ```c++
 parser.addArgument<bool>("-m")
-          .SetParameters("m_param")
-          .Finalize()
+          .setParameters("m_param")
+          .finalize()
           .mandatory()
           .help("optional argument made mandatory"); 
 ```
@@ -174,12 +174,12 @@ Here we declare 2 optional arguments `--req1` and `--req2` and then make them re
 
 ```c++
 parser.addArgument<int>("--req1")
-          .Finalize()
+          .finalize()
           .required()
           .help("required argument 1 with implicit value");
     
 parser.addArgument<int>("--req2")
-          .Finalize()
+          .finalize()
           .required()
           .help("required argument 2 with implicit value"); 
 ```
@@ -190,8 +190,8 @@ Mandatory arguments can be made required too:
     
 ```c++
 parser.addArgument<bool>("m")
-          .SetParameters("m_param")
-          .Finalize()
+          .setParameters("m_param")
+          .finalize()
           .required()
           .help("mandatory bool argument made required");
 ```
@@ -204,7 +204,7 @@ Here is a `--bool` argument with `-b` alias:
 
 ```c++
 parser.addArgument<bool>("-b", "--bool")
-          .Finalize()
+          .finalize()
           .help("specifying name and alias in a single string");
 ```
 
@@ -231,12 +231,12 @@ Parameters can also be `mandatory` or `optional`
 
 ```c++
 parser.addArgument<const char*>("-s, --str")
-          .SetParameters("str_value")
-          .Finalize()
+          .setParameters("str_value")
+          .finalize()
           .help("string optional argument with mandatory parameter"); 
 parser.addArgument<const char*>("-p")
-          .SetParameters("[str_value]")
-          .Finalize()
+          .setParameters("[str_value]")
+          .finalize()
           .help("string optional argument with optional parameter");  
 ```
 
@@ -247,7 +247,7 @@ Arguments can also be made `repeatable`, which allows them to be set more than o
 
 ```c++
 parser.addArgument<int>("-j")
-          .Finalize()
+          .finalize()
           .repeatable()
           .help("int optional repeatable argument (implicit)");    
                 
@@ -260,9 +260,9 @@ Here's an example of variadic argument:
 
 ```c++
 parser.addArgument<int>("--variadic, -var")
-                .SetParameters("N")
-                .NArgs<0,-1>() // make argument variadic
-                .Finalize() 
+                .setParameters("N")
+                .nargs<0,-1>() // make argument variadic
+                .finalize() 
                 .help("parses any number of integers. Result is std::vector<int>");
                 
 > ./app -var 123 321 12     - stores 3 numbers as a vector
@@ -271,33 +271,33 @@ parser.addArgument<int>("--variadic, -var")
 
 The return type of variadic argument changes to `std::vector<argument_type>`
 
-**NOTE:** `Nargs<1>` or `NArgs<0,1>` will not change the return type to `vector`
+**NOTE:** `Nargs<1>` or `nargs<0,1>` will not change the return type to `vector`
 
 Positional arguments can be variadic too:
 
 ```c++
 parser.addPositional<int>("var_pos") 
-                .NArgs<0,-1>() // make argument variadic
-                .Finalize() 
+                .nargs<0,-1>() // make argument variadic
+                .finalize() 
                 .help("Variadic pos argument of type int");
                 
 > ./app 1 2 3 4 5       - stores 5 numbers as a vector  
 ```
                         
-### NArgs
+### nargs
 
-Apart from `SetParameters` method, an `Nargs` method can be used
+Apart from `setParameters` method, an `Nargs` method can be used
 
-NArgs() takes 2 template parameters:
+nargs() takes 2 template parameters:
 - Number of mandatory parameters
 - Total number of parameters (ignored if less than the first one)
 
-So, for example the call `NArgs<1,3>` will add 1 mandatory and 2 optional parameters to an argument
+So, for example the call `nargs<1,3>` will add 1 mandatory and 2 optional parameters to an argument
 
 ```c++
 parser.addArgument<int>("-i")
-                .NArgs<1, 3>() // add 1 mandatory and 2 optional parameters
-                .Finalize()
+                .nargs<1, 3>() // add 1 mandatory and 2 optional parameters
+                .finalize()
                 .help("Variadic pos argument of type int");
 
 > ./app -i 1 2 3       - stores 3 numbers as a vector    
@@ -306,12 +306,12 @@ parser.addArgument<int>("-i")
 > ./app -i 1 2 3 4     - ERROR: only 3 values allowed, provided 4    
 ```
 
-`NArgs<3,1>` will simply add 3 mandatory parameters, ignoring the value 1 as it's less than 3
+`nargs<3,1>` will simply add 3 mandatory parameters, ignoring the value 1 as it's less than 3
 
 ```c++
 parser.addArgument<int>("-i")
-                .NArgs<3, 1>() // add 3 mandatory parameters
-                .Finalize()
+                .nargs<3, 1>() // add 3 mandatory parameters
+                .finalize()
                 .help("Variadic pos argument of type int");
 
 > ./app -i 1 2 3       - stores 3 numbers as a vector    
@@ -320,15 +320,15 @@ parser.addArgument<int>("-i")
 > ./app -i 1 2 3 4     - ERROR: only 3 values allowed, provided 4
 ```
 
-`SetParameters()` can be called before `NArgs()`, but you can only specify ONE parameter there.  
+`setParameters()` can be called before `nargs()`, but you can only specify ONE parameter there.  
 This way it will act as a metavar for parameter's name.  
-Passing more than 1 parameter to `SetParameters()` followed by `NArgs()`, will result in a compilation error
+Passing more than 1 parameter to `setParameters()` followed by `nargs()`, will result in a compilation error
 
-If SetParameters() were not called before NArgs(), a default name is provided for parameter (capitalized argument's key)
+If setParameters() were not called before nargs(), a default name is provided for parameter (capitalized argument's key)
 
-The second parameter in `NArgs` can be -1 (or any value less than 0), thus making the argument variadic
+The second parameter in `nargs` can be -1 (or any value less than 0), thus making the argument variadic
 
-**NOTE:** `NArgs` cannot have both parameters set to 0, this will result in a compilation error
+**NOTE:** `nargs` cannot have both parameters set to 0, this will result in a compilation error
       
 ### Parsing function
                                                             
@@ -351,9 +351,9 @@ std::string test(const char* a){
 ...
 // add parsing function test() to argument with optional parameter
 parser.addArgument<std::string>("-p")
-        .SetParameters("[str_value]")
-        .SetCallable(test)
-        .Finalize();  
+        .setParameters("[str_value]")
+        .setCallable(test)
+        .finalize();  
 ```
                 
 A parsing function is called every time an argument is found in the command line,
@@ -371,7 +371,7 @@ Here are some constraints for parsing functions:
 take as many `string parameters` (const char*) as there are `parameters` specified for argument
 * Parsing function can also have `side parameters`. 
 They need to be placed before string parameters in a function declaration,
-and corresponding values should be specified in SetCallable method:
+and corresponding values should be specified in setCallable method:
     
 ```c++
 // Function not valid, side parameters must be placed before string
@@ -387,9 +387,9 @@ int tst(int a, const char* a1){
 // variable will be used as side parameter
 int x = 5;
 parser.addArgument<int>("v", "v_int")
-        .SetParameters("vv")
-        .SetCallable(tst, x)
-        .Finalize()
+        .setParameters("vv")
+        .setCallable(tst, x)
+        .finalize()
         .help("mandatory arg with mandatory value and side argument x for function tst()");
 ```
 
@@ -413,9 +413,9 @@ CL createStruct(const char *bl, const char *itgr = nullptr){
 ...
 // specify parsing function for custom type
 parser.addArgument<CL>("struct")
-        .SetParameters("bool", "[integer]")
-        .SetCallable(createStruct)
-        .Finalize()
+        .setParameters("bool", "[integer]")
+        .setCallable(createStruct)
+        .finalize()
         .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()");
 ```
 
@@ -423,11 +423,11 @@ Lambdas can be used as parsing functions too:
 
 ```c++
 parser.addArgument<std::vector<const char*>>("-a", "--array")
-            .SetParameters("a1", "[a2]")
-            .SetCallable([](auto a1, auto a2){
+            .setParameters("a1", "[a2]")
+            .setCallable([](auto a1, auto a2){
                 return std::vector<const char*>{a1, a2==nullptr?"null":a2};
             })
-            .Finalize()
+            .finalize()
             .help("optional argument with 2 string values (one optional) and lambda converter");
 ```
 
@@ -461,7 +461,7 @@ Obtaining value with `getValue()` method:
     
 ```c++
 // add int argument
-parser.addArgument<int>("-x").Finalize()
+parser.addArgument<int>("-x").finalize()
       .help("int optional argument with implicit value");
 // parse arguments
 parser.parseArgs(argc, argv);            
@@ -508,10 +508,10 @@ A list of public parser methods:
 with optional parser function and side arguments
 * `addArgument<T>("aliases",...)` - adds argument of type T
 with aliases
-* `SetParameters("params",...)` - adds string parameters to an argument (not applicable to positionals)
-* `SetCallable(callable, size_args,...)` - adds callable (function, lambda, etc) along with its side arguments
-* `NArgs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
-* `Finalize()` - finalizes argument definition
+* `setParameters("params",...)` - adds string parameters to an argument (not applicable to positionals)
+* `setCallable(callable, size_args,...)` - adds callable (function, lambda, etc) along with its side arguments
+* `nargs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
+* `finalize()` - finalizes argument definition
 * `getValue<T>("name or alias")` - returns value of type T of specified argument
 * `scanValue<T>(value)` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values.

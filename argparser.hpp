@@ -744,11 +744,11 @@ public:
 
     // add arguments
     template<typename... Params>
-    auto SetParameters(Params ...strArgs) {
+    auto setParameters(Params ...strArgs) {
         if constexpr (sizeof...(strArgs) > 0) {
             static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
         }
-        static_assert(STR_PARAM_IDX == 0, "Params or NArgs already set");
+        static_assert(STR_PARAM_IDX == 0, "Params or nargs already set");
         const size_t current_size = std::tuple_size_v<decltype(m_components)>;
         std::string m_last_optional_arg;
         // func to check options
@@ -781,7 +781,7 @@ public:
 
     // set NArgs
     template<unsigned int FRO, int TO = 0>
-    auto NArgs() {
+    auto nargs() {
         auto prepareNargs = [this](){
             // handle variadic
             m_is_variadic = TO < 0;
@@ -794,7 +794,7 @@ public:
             m_mandatory_args = FRO;
         };
 
-        static_assert(FRO != 0 || TO != 0, "NArgs cannot be zero!");
+        static_assert(FRO != 0 || TO != 0, "nargs cannot be zero!");
 
         //if single parameter provided, it's ok
         if constexpr (STR_PARAM_IDX > 0) {
@@ -803,7 +803,7 @@ public:
             // provided param is metavar
             auto &[param_name] = str_params;
             if (!parser_internal::isOptMandatory(param_name)) {
-                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " ambiguity detected: optional param used along with NArgs");
+                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " ambiguity detected: optional param used along with nargs");
             }
             m_narg_name = param_name;
             static_assert(str_params_size < 2, "Nargs only applicable to args with 0 or 1 parameters");
@@ -833,7 +833,7 @@ public:
 
     // add callable and side args (if any)
     template<typename Callable, typename... SideArgs>
-    auto SetCallable(Callable && callable, SideArgs ...sideArgs) {
+    auto setCallable(Callable && callable, SideArgs ...sideArgs) {
         static_assert(CALLABLE_IDX == 0, "Callable already set");
         const size_t current_size = std::tuple_size_v<decltype(m_components)>;
         return addComponent<STR_PARAM_IDX, current_size>(std::make_tuple(
@@ -843,7 +843,7 @@ public:
     }
 
     // finalize and get to runtime params
-    Argument &Finalize() {
+    Argument &finalize() {
         auto val = std::get<0>(m_components);
         using VType = decltype(val);
         const size_t comp_size = std::tuple_size_v<decltype(m_components)>;
@@ -998,7 +998,7 @@ public:
                 true,
                 std::forward<decltype(callback)>(callback),
                 std::make_tuple(T{})
-        ).SetParameters(ckey); // set single parameter for positional (for size)
+        ).setParameters(ckey); // set single parameter for positional (for size)
     }
 
     template <typename T>
