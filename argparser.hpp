@@ -475,7 +475,7 @@ struct ARG_DEFS{
     /// NOTE: if hidden AND required, use carefully
     /// DO NOT make ALL required args hidden!!!
     ARG_DEFS &hidden(){
-        if(!m_positional && m_arbitrary)
+        if(!m_positional && m_optional)
             m_hidden = true;
         return *this;
     }
@@ -486,7 +486,7 @@ struct ARG_DEFS{
     }
     ARG_DEFS &default_value(std::any val, bool hide_in_help = false){
         try{
-            if(m_arbitrary && !m_positional && !is_variadic()){
+            if(m_optional && !m_positional && !is_variadic()){
                 m_option->set(std::move(val));
                 m_show_default = !hide_in_help;
             }
@@ -507,18 +507,18 @@ struct ARG_DEFS{
     ///user should specify all of mandatory options
     ARG_DEFS &mandatory(){
         /// hidden cannot be mandatory
-        if(m_arbitrary && !m_positional && !m_hidden)
-            m_arbitrary = false;
+        if(m_optional && !m_positional && !m_hidden)
+            m_optional = false;
         return *this;
     }
-    ///only for arbitrary options
+    ///only for optional arguments
     ///user should specify at least one required option
     ARG_DEFS &required(){
         /// positional cannot be required
         if(!m_positional){
             m_required = true;
-            /// if mandatory option forced to be required, set flag to arbitrary
-            m_arbitrary = true;
+            /// if mandatory option forced to be required, set flag to optional
+            m_optional = true;
         }
         return *this;
     }
@@ -548,8 +548,8 @@ struct ARG_DEFS{
     [[nodiscard]] bool is_set() const{
         return m_set;
     }
-    [[nodiscard]] bool is_arbitrary() const{
-        return m_arbitrary;
+    [[nodiscard]] bool is_optional() const{
+        return m_optional;
     }
     [[nodiscard]] bool is_required() const{
         return m_required;
@@ -618,8 +618,8 @@ private:
     //Positional
     bool m_positional = false;
     //Flag
-    bool m_arbitrary = false;
-    //Required != !arbitrary. if !arbitrary, user should specify all of them. If required, at least one is enough
+    bool m_optional = false;
+    //Required != !optional. if !optional, user should specify all of them. If required, at least one is enough
     bool m_required = false;
     //Implicit
     bool m_implicit = false;
@@ -677,7 +677,7 @@ protected:
         arg->m_type_str = std::move(m_strType);
         arg->m_option = option;
         arg->m_options = std::move(m_opts);
-        arg->m_arbitrary = flag;
+        arg->m_optional = flag;
         arg->m_implicit = is_implicit;
         arg->m_starts_with_minus = starts_with_minus;
         arg->m_mandatory_options = m_mandatory_args;
@@ -747,9 +747,9 @@ public:
         }
         static_assert(STR_PARAM_IDX == 0, "Params or NArgs already set");
         const size_t current_size = std::tuple_size_v<decltype(m_components)>;
-        std::string m_last_arbitrary_arg;
+        std::string m_last_optional_arg;
         // func to check options
-        auto checkOpts = [this, func=__func__, &m_last_arbitrary_arg](const char *k) {
+        auto checkOpts = [this, func=__func__, &m_last_optional_arg](const char *k) {
             if (!k){
                 throw std::invalid_argument("Arg cannot be null!");
             }
@@ -757,16 +757,16 @@ public:
             parser_internal::validateKeyOrParam(sopt, /*is_param=*/true, func);
             if(parser_internal::isOptMandatory(sopt)){
                 m_mandatory_args++;
-                if(!m_last_arbitrary_arg.empty()){
+                if(!m_last_optional_arg.empty()){
                     throw std::invalid_argument(std::string(func) + ": " + m_key
-                                                + ": arbitrary argument "
-                                                + m_last_arbitrary_arg
+                                                + ": optional argument "
+                                                + m_last_optional_arg
                                                 + " cannot be followed by mandatory argument "
                                                 + sopt);
                 }
             }
             else{
-                m_last_arbitrary_arg = sopt;
+                m_last_optional_arg = sopt;
             }
             return sopt;
         };
@@ -800,7 +800,7 @@ public:
             // provided param is metavar
             auto &[param_name] = str_params;
             if (!parser_internal::isOptMandatory(param_name)) {
-                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " ambiguity detected: arbitrary param used along with NArgs");
+                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " ambiguity detected: optional param used along with NArgs");
             }
             m_narg_name = param_name;
             static_assert(str_params_size < 2, "Nargs only applicable to args with 0 or 1 parameters");
@@ -902,7 +902,7 @@ public:
         m_argMap[HELP_NAME]->m_type_str = ARG_TYPE_HELP;
         m_argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
         m_argMap[HELP_NAME]->m_options = {HELP_OPT_BRACED};
-        m_argMap[HELP_NAME]->m_arbitrary = true;
+        m_argMap[HELP_NAME]->m_optional = true;
         m_argMap[HELP_NAME]->m_option = new BaseOption();
         m_argMap[HELP_NAME]->m_aliases = {HELP_ALIAS};
 
@@ -972,7 +972,7 @@ public:
             }
             for(const auto &o : x->m_options){
                 if(!parser_internal::isOptMandatory(o)){
-                    throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after positional argument with arbitrary nargs " + p);
+                    throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after positional argument with optional nargs " + p);
                 }
             }
         }
@@ -1040,7 +1040,7 @@ public:
         parser_internal::validateKeyOrParam(name, /*is_param=*/false, __func__);
 
         if(!parser_internal::isOptMandatory(name)){
-            throw std::invalid_argument(std::string(__func__) + ": " + name + " child command cannot be arbitrary");
+            throw std::invalid_argument(std::string(__func__) + ": " + name + " child command cannot be optional");
         }
         m_commandMap.push_back(std::make_unique<argParser>(name, descr));
         return *m_commandMap.back();
@@ -1429,7 +1429,7 @@ protected:
     void setArgument(const std::string &pName) {
         m_argMap[pName]->m_set = true;
         //count mandatory/required options
-        if(!m_argMap[pName]->m_arbitrary){
+        if(!m_argMap[pName]->m_optional){
             m_parsed_mnd_args++;
         }else if(m_argMap[pName]->m_required){
             m_parsed_required_args++;
@@ -1440,7 +1440,7 @@ protected:
         if(m_mandatory_option){
             if(m_parsed_mnd_args != m_mandatory_args){
                 for(const auto &x : m_argMap){
-                    if(!x.second->m_arbitrary && !x.second->m_positional && !x.second->m_set){
+                    if(!x.second->m_optional && !x.second->m_positional && !x.second->m_set){
                         throw parse_error(x.first + " not specified");
                     }
                 }
@@ -1457,10 +1457,10 @@ protected:
             const auto &prop = m_argMap.find(proposed_value)->second;
             //if not set and positionals have not yet been parsed
             bool before_pos = !prop->is_set() && m_positional_args_parsed == 0;
-            //if arbitrary and no mandatory args have been parsed yet
-            bool is_arb = prop->is_arbitrary() && !prop->is_required() && m_parsed_mnd_args == 0;
+            //if optional and no mandatory args have been parsed yet
+            bool is_arb = prop->is_optional() && !prop->is_required() && m_parsed_mnd_args == 0;
             //if mandatory and not all of them provided
-            bool unparsed_mnd = !prop->is_arbitrary() && (m_parsed_mnd_args != m_mandatory_args);
+            bool unparsed_mnd = !prop->is_optional() && (m_parsed_mnd_args != m_mandatory_args);
             //if required
             bool is_req = prop->is_required();
             if(before_pos && (unparsed_mnd || is_arb || is_req)){
@@ -1473,10 +1473,10 @@ protected:
     void setParseCounters(bool hide_hidden_hint) {
         //count mandatory/required arguments
         for(const auto &x : m_argMap){
-            if(!x.second->m_arbitrary
+            if(!x.second->m_optional
                && !x.second->m_positional){
                 m_mandatory_args++;
-            }else if(x.second->m_arbitrary
+            }else if(x.second->m_optional
                      && x.second->m_required){
                 m_required_args++;
             }
@@ -1639,7 +1639,7 @@ protected:
             bool req = check_required == IS_REQUIRED::DONT_CHECK
                        ? arg->m_required
                        : check_required == IS_REQUIRED::TRUE;
-            bool condition = (arg->m_arbitrary && !arg->m_required) == flag
+            bool condition = (arg->m_optional && !arg->m_required) == flag
                              && arg->m_hidden == hidden
                              && arg->m_required == req;
             if(condition) {
@@ -1707,7 +1707,7 @@ protected:
 
     void printFlagsUsage(bool advanced) const {
         if(hasFlags()){
-            std::cout << "Flags (arbitrary):" << std::endl;
+            std::cout << "Flags (optional):" << std::endl;
             printFilteredUsage(filterArgs(true, false, IS_REQUIRED::DONT_CHECK), advanced);
             if(advanced){
                 //show hidden
@@ -1779,12 +1779,12 @@ protected:
 
     [[nodiscard]] bool hasFlags() const {
         return std::any_of(m_argMap.begin(), m_argMap.end(), [](const auto &p) {
-            return p.second->m_arbitrary && !p.second->m_required;
+            return p.second->m_optional && !p.second->m_required;
         });
     }
     [[nodiscard]] bool hasOptions() const {
         return std::any_of(m_argMap.begin(), m_argMap.end(), [](const auto &p) {
-            return !p.second->m_positional && (!p.second->m_arbitrary || p.second->m_required);
+            return !p.second->m_positional && (!p.second->m_optional || p.second->m_required);
         });
     }
     [[nodiscard]] bool hasCommands() const {

@@ -29,7 +29,7 @@ With advanced customization options, it is suitable for both simple and complex 
     ```c++
    parser.addArgument<int>("-x")
                .Finalize()
-               .help("int arbitrary argument with implicit value");
+               .help("int optional argument with implicit value");
     ```  
 4. Parse arguments from command line
     ```c++
@@ -40,16 +40,16 @@ With advanced customization options, it is suitable for both simple and complex 
 
 Arguments can be:
 
-* `arbitrary` (not required to be set by user)
+* `optional` (not required to be set by user)
 * `mandatory` (all such arguments should be set by user)
 * `required` (at least one such argument should be set by user)
 * `positional`
 
-`arbitrary`, `mandatory` or `required` arguments can have `parameters`
+`optional`, `mandatory` or `required` arguments can have `parameters`
 
 Arguments with no parameters are called `implicit`
 
-`addArgument` method is used to add an `arbitrary`, `mandatory` or `required` argument
+`addArgument` method is used to add an `optional`, `mandatory` or `required` argument
 
 `addPositional` method is used to add a `positional` argument
 
@@ -93,16 +93,16 @@ parser.addArgument<int>("i, integer") //VALID
 
 #### Arbitrary arguments
 
-`arbitrary` arguments are not required to be set by user
+`optional` arguments are not required to be set by user
 
 Arbitrary arguments can be `implicit`
 
-To specify an arbitrary argument, start it `with -`
+To specify an optional argument, start it `with -`
 
 ```c++
 parser.addArgument<int>("-x")
           .Finalize()
-          .help("int arbitrary argument with implicit value");
+          .help("int optional argument with implicit value");
 ```
  
 #### Mandatory arguments
@@ -120,14 +120,14 @@ parser.addArgument<bool>("m")
           .help("mandatory bool argument with mandatory parameter");
 ```
      
-Also, any `arbitrary` argument can be made `mandatory` using method `mandatory()`:
+Also, any `optional` argument can be made `mandatory` using method `mandatory()`:
     
 ```c++
 parser.addArgument<bool>("-m")
           .SetParameters("m_param")
           .Finalize()
           .mandatory()
-          .help("arbitrary argument made mandatory"); 
+          .help("optional argument made mandatory"); 
 ```
      
 **NOTE:** positional or hidden arguments cannot be made mandatory
@@ -138,7 +138,7 @@ The logic behind `required` arguments is such that `at least one` required argum
 
 To specify a required argument, use method `required()`
 
-Here we declare 2 arbitrary arguments `--req1` and `--req2` and then make them required:
+Here we declare 2 optional arguments `--req1` and `--req2` and then make them required:
 
 ```c++
 parser.addArgument<int>("--req1")
@@ -168,19 +168,19 @@ parser.addArgument<bool>("m")
 
 Non-positional arguments can have `parameters`
 
-Parameters can also be `mandatory` or `arbitrary`
+Parameters can also be `mandatory` or `optional`
 
-`arbitrary` parameters should be enclosed in `[]` and placed at the end
+`optional` parameters should be enclosed in `[]` and placed at the end
 
 ```c++
 parser.addArgument<const char*>("-s, --str")
           .SetParameters("str_value")
           .Finalize()
-          .help("string arbitrary argument with mandatory parameter"); 
+          .help("string optional argument with mandatory parameter"); 
 parser.addArgument<const char*>("-p")
           .SetParameters("[str_value]")
           .Finalize()
-          .help("string arbitrary argument with arbitrary parameter");  
+          .help("string optional argument with optional parameter");  
 ```
 
 If an argument has no parameters (`implicit`), and it's of arithmetic type (bool, int, float,...),
@@ -192,12 +192,12 @@ Arguments can also be made `repeatable`, which allows them to be set more than o
 parser.addArgument<int>("-j")
           .Finalize()
           .repeatable()
-          .help("int arbitrary repeatable argument (implicit)");    
+          .help("int optional repeatable argument (implicit)");    
                 
 > ./app -jjj    - Repeatable argument, increments 3 times  
 ```
                               
-If an argument can have an arbitrary number of parameters, it can be made `variadic`
+If an argument can have an optional number of parameters, it can be made `variadic`
 
 Here's an example of variadic argument:
 
@@ -235,11 +235,11 @@ NArgs() takes 2 template parameters:
 - Number of mandatory parameters
 - Total number of parameters (ignored if less than the first one)
 
-So, for example the call `NArgs<1,3>` will add 1 mandatory and 2 arbitrary parameters to an argument
+So, for example the call `NArgs<1,3>` will add 1 mandatory and 2 optional parameters to an argument
 
 ```c++
 parser.addArgument<int>("-i")
-                .NArgs<1, 3>() // add 1 mandatory and 2 arbitrary parameters
+                .NArgs<1, 3>() // add 1 mandatory and 2 optional parameters
                 .Finalize()
                 .help("Variadic pos argument of type int");
 
@@ -293,7 +293,7 @@ std::string test(const char* a){
 }
 
 ...
-// add parsing function test() to argument with arbitrary parameter
+// add parsing function test() to argument with optional parameter
 parser.addArgument<std::string>("-p")
         .SetParameters("[str_value]")
         .SetCallable(test)
@@ -307,7 +307,7 @@ The parsing function `must` be specified for an argument in the following cases:
 
 * The argument is `not of arithmetic or string` type
 * The argument has `more than 1 parameter`
-* The argument `has arbitrary parameters`
+* The argument `has optional parameters`
                 
 Here are some constraints for parsing functions:                
                 
@@ -360,7 +360,7 @@ parser.addArgument<CL>("struct")
         .SetParameters("bool", "[integer]")
         .SetCallable(createStruct)
         .Finalize()
-        .help("mandatory arg with 2 parameters: mandatory and arbitrary, returns result of function createStruct()");
+        .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()");
 ```
 
 
@@ -373,7 +373,7 @@ parser.addArgument<std::vector<const char*>>("-a", "--array")
                 return std::vector<const char*>{a1, a2==nullptr?"null":a2};
             })
             .Finalize()
-            .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
+            .help("optional argument with 2 string values (one optional) and lambda converter");
 ```
 
 ### Parsing logic
@@ -407,7 +407,7 @@ Obtaining value with `getValue()` method:
 ```c++
 // add int argument
 parser.addArgument<int>("-x").Finalize()
-      .help("int arbitrary argument with implicit value");
+      .help("int optional argument with implicit value");
 // parse arguments
 parser.parseArgs(argc, argv);            
 // retrieve int value. The type of getValue() must correspond to the type of addArgument(), 
@@ -425,7 +425,7 @@ int j;
 // add int argument and pass the address of declared variable
 parser.addArgument<int>("-j")
       .global_ptr(&i)
-      .help("int arbitrary argument with (implicit)");
+      .help("int optional argument with (implicit)");
 // parse arguments
 parser.parseArgs(argc, argv);
 // after that, the parsed result will be stored in j variable
@@ -476,26 +476,26 @@ Here's the full list of `addArgument()` and `addPositional()` modifiers:
 * `advanced_help("advanced help text")` - specify advanced help text, 
 will be shown if user calls `--help your_argument_here`
 * `hidden()` - make argument `hidden` from generic help message 
-(can still be displayed with advanced help call `--help -a`). Only for `arbitrary` arguments
+(can still be displayed with advanced help call `--help -a`). Only for `optional` arguments
 * `repeatable()` - make argument `repeatable`. Only for non-positional arguments
 * `default_value(default_value, hide_in_help=false)` - specify default 
 (the one that will be assigned if not set by user) 
-value for argument. Only for `arbitrary` or `required` arguments. 
+value for argument. Only for `optional` or `required` arguments. 
 `hide_in_help` - optional parameter, hides default value from help message if set to true
 * `global_ptr(pointer)` - specify pointer to 'global' variable. 
 Must point to the variable of corresponding type.
 Not applicable to variadic arguments
-* `mandatory()` - make `arbitrary` or `required` argument `mandatory`. 
+* `mandatory()` - make `optional` or `required` argument `mandatory`. 
 Cannot be applied to `hidden` arguments
-* `required()` - make `arbitrary` or `mandatory` argument `required`.
+* `required()` - make `optional` or `mandatory` argument `required`.
 Cannot be applied to `hidden` arguments
-In that case, an arbitrary number (not less than 1) of parameters can be passed by the caller
+In that case, an optional number (not less than 1) of parameters can be passed by the caller
 * `choices({choices_list})` - adds a list of possible valid choices for the argument. Applicable only to arithmetic types and strings
 
 There are also some useful const methods for arguments:
 
 * `is_set()` - returns `true` if argument was set by user
-* `is_arbitrary()` - returns `true` if argument is arbitrary
+* `is_optional()` - returns `true` if argument is optional
 * `is_required()` - returns `true` if argument is required
 * `is_positional()` - returns `true` if argument is positional
 * `is_implicit()` - returns `true` if argument is implicit

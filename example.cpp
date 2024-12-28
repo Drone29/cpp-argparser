@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
     // i.e. a call '-x -x' or '-xx' is NOT VALID and will cast an error in the following case
     parser.addArgument<int>("-x")
             .Finalize()
-            .help("int arbitrary argument with implicit value (if set, returns 1)");
+            .help("int optional argument with implicit value (if set, returns 1)");
 
     // bool is also considered arithmetic,
     // so parser will increment it, thus setting it to true.
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
     // also, it has an alias -b
     parser.addArgument<bool>("-b", "--bool")
             .Finalize()
-            .help("bool arbitrary argument '--bool' with alias '-b' and implicit value (if set, returns true)");
+            .help("bool optional argument '--bool' with alias '-b' and implicit value (if set, returns true)");
 
     // REPEATABLE argument can be specified more than once,
     // in this case, due to implicit value, it will increment each time it's called
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
             .Finalize()
             .default_value(5)   // specify default value for argument
             .repeatable()   // make argument repeatable
-            .help("int arbitrary repeatable argument with implicit value and default value 5")
+            .help("int optional repeatable argument with implicit value and default value 5")
             // advanced help message can be viewed if '--help' is called with argument's name
             .advanced_help("and with advanced help string (can be viewed with --help -j)");
 
@@ -80,12 +80,12 @@ int main(int argc, char *argv[]) {
     parser.addArgument<int>("-i", "--int").Finalize()
             .global_ptr(&i_val) // specify global variable for argument
             .repeatable()   // make argument repeatable
-            .help("int arbitrary repeatable argument with alias, implicit value and pointer to global variable (if set, returns 1)");
+            .help("int optional repeatable argument with alias, implicit value and pointer to global variable (if set, returns 1)");
 
     /**
-     *  Arguments can be mandatory, arbitrary, required and positional
+     *  Arguments can be mandatory, optional, required and positional
      *
-     *  Arguments specified with '-' are by default arbitrary,
+     *  Arguments specified with '-' are by default optional,
      *  But can be forced to be mandatory or required
      *
      *  Arguments specified without '-' are mandatory,
@@ -100,21 +100,21 @@ int main(int argc, char *argv[]) {
      *
      */
 
-    // arbitrary arguments can be made required
+    // optional arguments can be made required
     // in the following case, user should specify either '--req1' or '--req2', or both
     parser.addArgument<int>("--req1").Finalize()
-            .required() // make arbitrary argument required
+            .required() // make optional argument required
             .help("required argument 1 with implicit value");
 
     parser.addArgument<int>("--req2").Finalize()
-            .required() // make arbitrary argument required
+            .required() // make optional argument required
             .help("required argument 2 with implicit value");
 
     /**
      *  Args with parameters
      *
      *  Can be called with parameters: '-s aaa', '--str=aaa', '-sFFF', etc.
-     *  Or can be called without them, if parameter is arbitrary
+     *  Or can be called without them, if parameter is optional
      *
      *  An argument can have as many parameters as you like
      *
@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
      *  Arbitrary parameters can be omitted
      *  Mandatory parameters cannot be omitted
      *
-     *  Enclose parameter name with [] to make it arbitrary,
+     *  Enclose parameter name with [] to make it optional,
      *  Not []-enclosed params are considered mandatory
      */
 
@@ -148,9 +148,9 @@ int main(int argc, char *argv[]) {
     parser.addArgument<const char*>("--str", "-s")
             .SetParameters("str_value").Finalize()
             .global_ptr(&s_val) // pointer to global variable
-            .help("string arbitrary argument with mandatory parameter");
+            .help("string optional argument with mandatory parameter");
 
-    // an arbitrary argument can be made hidden,
+    // an optional argument can be made hidden,
     // so it's not shown in help message unless it's called with '-a' specifier
     // NOTE: mandatory or required arguments cannot be hidden
     parser.addArgument<int>("--hidden")
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
             .help("hidden int argument with mandatory value (can be viewed with --help -a)");
 
     // an argument can be made variadic
-    // in this case, an arbitrary number of options (but not less than 1) can be specified by the caller
+    // in this case, an optional number of options (but not less than 1) can be specified by the caller
     // for example, the following will add a variadic argument '--variadic'
     // so '-var 123', '-var 123 321' or '-var 123 321 231' etc... are VALID calls,
     // after argument is made variadic, its return type changes to std::vector<TYPE>()
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
             .help("nargs(1, -1) parses any number of integers. Result is std::vector<int>");
 
     // positional arguments can be specified by the separate method addPositional()
-    // positional arguments cannot be made hidden, arbitrary or required
+    // positional arguments cannot be made hidden, optional or required
     // all other properties apply
     parser.addPositional<int>("pos").Finalize()
             .global_ptr(&pos_val) // pointer to global variable
@@ -190,14 +190,14 @@ int main(int argc, char *argv[]) {
      *  By default, arithmetic, string or date_t arguments (implicit or having a single mandatory parameter)
      *  can be parsed by built-in logic, so no custom functions required
      *
-     *  Although, if an argument has more than 1 parameter, has arbitrary parameters, or is of custom type,
+     *  Although, if an argument has more than 1 parameter, has optional parameters, or is of custom type,
      *  a custom parsing function is required
      *
      *  Parsing function is any function, function pointer, lambda, etc...
      *  which takes as many string (const char*) arguments that there are specified by argument's parameter list (SetParameters),
      *  and returns a value of argument's type
      *
-     *  Also, such function can take an arbitrary number of so-called side arguments,
+     *  Also, such function can take an optional number of so-called side arguments,
      *  which are arguments of any type, specified by the function's signature
      *
      *  Side arguments (if present) in function's signature should go BEFORE string arguments which are to be parsed by that function
@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
 
     // here's an argument with custom parsing function 'test'
     // it returns a value of argument's type (std::string), and takes 1 string argument
-    // [str_value] - arbitrary value, can be omitted
+    // [str_value] - optional value, can be omitted
     // i.e. calls '-p aaaa' and '-p' are both VALID
     // function should return the argument's type value,
     // and its number of const char* arguments should be the same as number of parameters specified in parameter list
@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
             .SetParameters("[str_value]")
             .SetCallable(test)
             .Finalize()
-            .help("string arbitrary argument with arbitrary value and function test (if set, returns result of test())");
+            .help("string optional argument with optional value and function test (if set, returns result of test())");
 
     // function can accept not only string arguments that should be parsed,
     // but also any number of side arguments.
@@ -233,17 +233,17 @@ int main(int argc, char *argv[]) {
             .help("mandatory arg with mandatory value and side argument 5 for function tst()");
 
     // with custom parsing function, return type can be almost any type
-    // here, we create an argument with custom type CL and 2 parameters, one of which is arbitrary,
+    // here, we create an argument with custom type CL and 2 parameters, one of which is optional,
     // and parse it with createStruct function
     parser.addArgument<CL>("struct")
             .SetParameters("bool", "[integer]")
             .SetCallable(createStruct)
             .Finalize()
             .required() // make argument required instead of mandatory
-            .help("mandatory arg with 2 parameters: mandatory and arbitrary, returns result of function createStruct()");
+            .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()");
 
     // lambdas can be used as parsing functions too
-    // here, we create an argument with std::vector type and 2 parameters, one of which is arbitrary
+    // here, we create an argument with std::vector type and 2 parameters, one of which is optional
     // and parse it with lambda expression
     parser.addArgument<std::vector<const char*>>("-a", "--array")
             .SetParameters("a1", "[a2]")
@@ -251,7 +251,7 @@ int main(int argc, char *argv[]) {
                 return std::vector<const char*>{a1, a2==nullptr?"null":a2};
             })
             .Finalize()
-            .help("arbitrary argument with 2 string values (one arbitrary) and lambda converter");
+            .help("optional argument with 2 string values (one optional) and lambda converter");
 
     // for arguments of integral types or std::string with single parameter,
     // a list of choices can be specified inside an initializer_list:
@@ -275,7 +275,7 @@ int main(int argc, char *argv[]) {
      * - Number of mandatory parameters
      * - Total number of parameters
      *
-     * So, for example this call NArgs<1,3> will add 1 mandatory and 2 arbitrary parameters to an argument
+     * So, for example this call NArgs<1,3> will add 1 mandatory and 2 optional parameters to an argument
      *
      * SetParameters() can be called before NArgs(), but you can only specify ONE parameter there.
      * This way it will act as a metavar for parameter's name
@@ -295,7 +295,7 @@ int main(int argc, char *argv[]) {
     parser.addArgument<int>("--narg")
             .NArgs<1,3>()
             .Finalize()
-            .help("nargs(1, 3) arg with 3 values: 1 mandatory, 2 - arbitrary");
+            .help("nargs(1, 3) arg with 3 values: 1 mandatory, 2 - optional");
 
     /// pure variadic
     parser.addArgument<int>("--vararg")
