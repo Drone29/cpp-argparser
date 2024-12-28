@@ -109,7 +109,7 @@ MYTEST(AllowSpacesAndSpecialCharsForParams) {
 }
 
 MYTEST(AllowSpacesAndSpecialCharsForParams2) {
-    EXPECT_NO_THROW(parser.addArgument<int>("-i").SetParameters("0xNUM"));
+    EXPECT_NO_THROW(parser.addArgument<int>("-i").SetParameters("0x???"));
 }
 
 MYTEST(Redefinition){
