@@ -313,7 +313,6 @@ Here are some constraints for parsing functions:
                 
 * A parsing function must return a value of argument's type and 
 take as many `string parameters` (const char*) as there are `parameters` specified for argument
-* Parsing function `cannot be void`
 * Parsing function can also have `side parameters`. 
 They need to be placed before string parameters in a function declaration,
 and corresponding values should be specified in SetCallable method:

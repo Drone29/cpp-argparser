@@ -348,7 +348,19 @@ MYTEST(PosWithFunction) {
     ASSERT_EQ(parser.getValue<int>("i"), 456);
 }
 
-MYTEST(PureVariadicPosWithFunction) {
+MYTEST(VoidFunction){
+    int i = 0;
+    parser.addArgument<int>("-i")
+            .SetParameters("int")
+            .SetCallable([&i](auto i_str){
+                i = std::strtol(i_str, nullptr, 0);
+            })
+            .Finalize();
+    EXPECT_NO_THROW(CallParser({"-i", "456"}));
+    ASSERT_EQ(i, 456);
+}
+
+MYTEST(PureVariadicPos) {
     parser.addPositional<int>("i")
             .NArgs<0,-1>()
             .Finalize();

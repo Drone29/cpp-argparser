@@ -324,11 +324,21 @@ private:
                 // resulting tuple
                 auto tpl_res = std::tuple_cat(side_args, str_arr);
                 // call function with resulting tuple
-                m_value = std::apply(func, tpl_res);
+                using rType = decltype(std::apply(func, tpl_res));
+                if constexpr(!std::is_same_v<rType, void>) {
+                    m_value = std::apply(func, tpl_res);
+                } else {
+                    std::apply(func, tpl_res); // if void
+                }
             }
             else{
                 // call function with initial tuple
-                m_value = std::apply(func, side_args);
+                using rType = decltype(std::apply(func, side_args));
+                if constexpr(!std::is_same_v<rType, void>) {
+                    m_value = std::apply(func, side_args);
+                } else {
+                    std::apply(func, side_args); // if void
+                }
             }
         }
         set_global();
