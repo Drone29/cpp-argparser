@@ -228,11 +228,12 @@ class DerivedOption : public BaseOption{
 private:
     friend class argParser;
     friend class OptionBuilderHelper;
+    using NContainer = std::vector<T>;
 
     T m_value;
     std::tuple<Targs...> m_action_and_args; //holds action (function, lambda, etc) and side args supplied to it
     T *m_global = nullptr;
-    std::vector<T> m_choices {};
+    NContainer m_choices {};
     bool m_variadic = false;
     unsigned int m_nargs = 0;
     bool m_single_narg = false;
@@ -248,7 +249,7 @@ private:
         return std::is_arithmetic_v<T> || std::is_same_v<T, std::string>;
     }
 
-    static_assert(not_void(), "Return type cannot be void");
+    static_assert(not_void(), "Argument type cannot be void");
 
     void check_choices() const {
         // applicable only to arithmetic or strings
@@ -263,6 +264,10 @@ private:
                 throw std::runtime_error("value does not correspond to any of given choices");
             }
         }
+    }
+
+    void containerize(NContainer &&container = NContainer{}) {
+        m_anyval = std::move(container);
     }
 
     // parse variadic params, single scan and common action
@@ -289,7 +294,7 @@ private:
     // parse variadic
     void parse_variadic(const std::string *args, int size) {
         // parse variadic
-        std::vector<T> res;
+        NContainer res;
         // variadic action
         for(int i=0; i<size; ++i){
             if constexpr(has_action()){
@@ -300,7 +305,7 @@ private:
             check_choices();
             res.push_back(m_value);
         }
-        m_anyval = res;
+        containerize(std::move(res));
     }
     // for implicit args only
     void parse_implicit(){
@@ -435,14 +440,14 @@ private:
     }
 
     void make_variadic() override {
-        m_anyval = std::vector<T>{};
+        containerize();
         m_variadic = true;
     }
     bool is_variadic() override {return m_variadic;}
     void set_nargs(unsigned int n) override {
         if(n > 1){
             // return vector for m_nargs > 1
-            m_anyval = std::vector<T>{};
+            containerize();
             m_nargs = n;
         }else if(n == 1 && !m_variadic){
             // single narg treated as parameter
