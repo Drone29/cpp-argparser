@@ -9,15 +9,24 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
-      - name: Cache CMake dependencies
-        uses: actions/cache@v2
+          
+      # Cache APT packages
+      - name: Cache APT packages
+        uses: actions/cache@v3
         with:
-          path: |
-            build/_deps
-          key: ${{ runner.os }}-cmake-${{ hashFiles('CMakeLists.txt') }}
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            ${{ runner.os }}-cmake-
+            ${{ runner.os }}-apt-
+
+      # Cache APT package metadata
+      - name: Cache APT package metadata
+        uses: actions/cache@v3
+        with:
+          path: /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-lists-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-lists-
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake g++
