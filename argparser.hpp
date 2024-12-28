@@ -180,7 +180,7 @@ namespace parser_internal{
             return std::isalnum(c) || c == '-' || c == '_';
         };
         auto isValidParamChar = [](int c) -> bool {
-            return std::isalnum(c) || c == '-' || c == '_' || c == '[' || c == ']' || c == '|' || c == ' ';
+            return std::isalnum(c) || std::ispunct(c) || std::isspace(c);
         };
         auto isDigitOrPunct = [](int c) -> bool {
             return std::isdigit(c) || std::ispunct(c);
