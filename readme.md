@@ -478,7 +478,7 @@ Obtaining value with `global_ptr()` modifier:
 // declare int variable
 int j;
 // add int argument and pass the address of declared variable
-parser.addArgument<int>("-j")
+parser.addArgument<int>("-j").finalize()
       .global_ptr(&i)
       .help("int optional argument with (implicit)");
 // parse arguments
@@ -491,8 +491,9 @@ with the type `std::vector<arg_type>`:
     
 ```c++
 // add variadic int argument
-parser.addArgument<int>("--variadic, -var", {"N"})
-            .variadic() // make argument variadic
+parser.addArgument<int>("--variadic", "-var")
+            .nargs<0,-1>() // make argument variadic
+            .finalize()
             .help("parses any number of integers. Result is std::vector<int>");
 // parse arguments
 parser.parseArgs(argc, argv);  
@@ -544,7 +545,7 @@ Cannot be applied to `hidden` arguments
 * `required()` - make `optional` or `mandatory` argument `required`.
 Cannot be applied to `hidden` arguments
 In that case, an optional number (not less than 1) of parameters can be passed by the caller
-* `choices({choices_list})` - adds a list of possible valid choices for the argument. Applicable only to arithmetic types and strings
+* `choices(choices,...)` - adds a list of possible valid choices for the argument. Applicable only to arithmetic types and strings
 
 There are also some useful const methods for arguments:
 
