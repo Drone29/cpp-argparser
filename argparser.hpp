@@ -19,6 +19,7 @@
 #include <iomanip>
 #include <sstream>
 #include <algorithm>
+#include <functional>
 
 /// advanced help option (show hidden)
 #define HELP_HIDDEN_OPT "-h"
