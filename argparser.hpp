@@ -1603,14 +1603,20 @@ protected:
     static std::string formatOptions(const std::unique_ptr<Argument> &arg) {
         std::string result;
         std::string choices_str = formatChoices(arg);
+        bool is_positional = arg->is_positional();
         for(const auto &option : arg->m_options) {
-            result += " " + [&choices_str, &option](){
+            auto formatted = [&choices_str, &option, &is_positional](){
                 bool is_mandatory = parser_internal::isOptMandatory(option);
                 if (!choices_str.empty()) {
                     return is_mandatory ? choices_str : ("[" + choices_str + "]");
+                } else if (is_positional){
+                    return std::string();
                 }
                 return is_mandatory ? ("<" + option + ">") : option;
             }();
+            if(!formatted.empty()) {
+                result += " " + formatted;
+            }
         }
         if (arg->is_variadic()) {
             result += " " + formatVariadic(!choices_str.empty() ? choices_str : arg->m_nargs_var);
@@ -1623,10 +1629,6 @@ protected:
         for(const auto &posArg : m_posMap){
             const auto &details = m_argMap.at(posArg);
             std::string opt = details->m_nargs_var.empty() ? posArg : details->m_nargs_var;
-            auto choices = formatChoices(details);
-            if(!choices.empty()){
-                opt = choices;
-            }
             for(const auto &option : details->m_options){
                 std::string tmp = opt;
                 tmp = !parser_internal::isOptMandatory(option) ? ("[" + tmp + "]") : tmp;
@@ -1707,7 +1709,7 @@ protected:
         if(!m_posMap.empty()){
             std::cout << "Positional arguments:" << std::endl;
             for(const auto &x : m_posMap){
-                std::cout << "\t" << x << " : " << m_argMap.at(x)->m_help << std::endl;
+                std::cout << "\t" << x << formatOptions(m_argMap.at(x)) << " : " << m_argMap.at(x)->m_help << std::endl;
             }
         }
     }
@@ -1773,8 +1775,7 @@ protected:
         auto j = findArgument(param);
         if(j != m_argMap.end()){
             printParamDetails(j, true);
-            std::cout << " :" << std::endl;
-            std::cout << j->second->m_help << std::endl;
+            std::cout << " : " << j->second->m_help << std::endl;
             std::cout << j->second->m_advanced_help << std::endl;
         }else{
             //look for child

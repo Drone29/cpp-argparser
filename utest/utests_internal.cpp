@@ -319,9 +319,8 @@ MYTEST(helpForParam) {
             .advanced_help("advanced help message");
     parser.printHelpForParamTest("-i");
     auto lines = GetOutLines();
-    ASSERT_EQ(lines.size(), 3);
-    EXPECT_EQ(lines[0], "-i :");
-    EXPECT_EQ(lines[1], "help message");
-    EXPECT_EQ(lines[2], "advanced help message");
+    ASSERT_EQ(lines.size(), 2);
+    EXPECT_EQ(lines[0], "-i : help message");
+    EXPECT_EQ(lines[1], "advanced help message");
 }
 

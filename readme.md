@@ -35,7 +35,7 @@ It supports positional arguments, flags, and options, allowing for flexible and 
    // add positional int argument
    parser.addPositional<int>("positional")
                .Finalize() 
-               .help("positional argument (flag)");
+               .help("positional argument");
    // add mandatory argument with parameter
    parser.addArgument<int>("mandatory")
                .SetParameters("mandatory_param")
@@ -55,16 +55,43 @@ It supports positional arguments, flags, and options, allowing for flexible and 
                .SetParameters("[optional_param]") 
                .Finalize() 
                .help("flag with single optional param");
-   // add int flag with multiple parameters
-   parser.addArgument<int>("-optional--with-multiple-params")
-               .SetParameters("mandatory_param", "[optional_param]") 
-               .Finalize() 
-               .help("flag with multiple params");
+   // add int flag with multiple parameters and parsing function
+    parser.addArgument<int>("-optional--with-multiple-params")
+            .SetParameters("mandatory_param", "[optional_param]")
+            .SetCallable([](auto mandatory_param, auto optional_param) {
+                int result = argParser::scanValue<int>(mandatory_param);
+                if (optional_param){
+                    result += argParser::scanValue<int>(optional_param);
+                }
+                return result;
+            })
+            .Finalize()
+            .help("flag with multiple params and parsing function");
     ```  
 4. Parse arguments from command line
     ```c++
    parser.parseArgs(argc, argv);
     ```
+
+### Help message
+
+argParser generates help message automatically if invoked with `--help` or `-h` flag
+
+   ```text
+   >./app -h
+   this program does some useful stuff
+   Usage: program name [flags...] parameters... positional
+   Positional arguments:
+       positional : positional argument
+   Flags (optional):
+       -h, --help [arg] : Show this message and exit. 'arg' to get help about certain arg
+       -optional : int optional argument (flag) with implicit value
+       -optional--with-multiple-params <mandatory_param> [optional_param] : flag with multiple params
+       -optional-with-param <mandatory_param> : flag with single mandatory param
+       -optional-with-param2 [optional_param] : flag with single optional param
+   Parameters (mandatory):
+       mandatory <mandatory_param> : mandatory argument with mandatory param
+   ```
    
 ## Details
 
@@ -83,7 +110,7 @@ Arguments with no parameters are called `implicit`
 
 `addPositional` method is used to add a `positional` argument
 
-#### Positional arguments
+### Positional arguments
 
 `positional` arguments are parsed in the end, when all other arguments are parsed
 
@@ -96,7 +123,7 @@ parser.addPositional<int>("pos")
               .help("Positional int argument");
 ```
 
-#### Arbitrary arguments
+### Arbitrary arguments
 
 `optional` arguments are not required to be set by user
 
@@ -110,7 +137,7 @@ parser.addArgument<int>("-x")
           .help("int optional argument with implicit value");
 ```
  
-#### Mandatory arguments
+### Mandatory arguments
 
 All `mandatory` arguments must be set by the caller, otherwise an error is generated
 
@@ -137,7 +164,7 @@ parser.addArgument<bool>("-m")
      
 **NOTE:** positional or hidden arguments cannot be made mandatory
      
-#### Required arguments
+### Required arguments
 
 The logic behind `required` arguments is such that `at least one` required argument should be set by the caller
 
@@ -169,7 +196,7 @@ parser.addArgument<bool>("m")
           .help("mandatory bool argument made required");
 ```
 
-#### Aliases
+### Aliases
 
 Non-positional arguments can have aliases
 
