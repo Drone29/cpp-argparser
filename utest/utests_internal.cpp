@@ -280,6 +280,18 @@ MYTEST(helpCommonNargPositional){
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
     EXPECT_EQ(lines[0], "Usage:  [flags...] pos pos pos");
+    EXPECT_EQ(lines[2], "\tpos : ");
+}
+
+MYTEST(helpCommonNargVariadicPositional){
+    parser.addPositional<int>("pos")
+            .nargs<1, 3>()
+            .finalize();
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 5);
+    EXPECT_EQ(lines[0], "Usage:  [flags...] pos [pos] [pos]");
+    EXPECT_EQ(lines[2], "\tpos : ");
 }
 
 MYTEST(helpCommonNargPureVariadicPositional){
@@ -290,6 +302,30 @@ MYTEST(helpCommonNargPureVariadicPositional){
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
     EXPECT_EQ(lines[0], "Usage:  [flags...] [pos...]");
+    EXPECT_EQ(lines[2], "\tpos : ");
+}
+
+MYTEST(helpCommonPositionalWithChoices){
+    parser.addPositional<int>("pos")
+            .finalize()
+            .choices(1, 2, 3);
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 5);
+    EXPECT_EQ(lines[0], "Usage:  [flags...] pos");
+    EXPECT_EQ(lines[2], "\tpos {1,2,3} : ");
+}
+
+MYTEST(helpCommonVariadicPositionalWithChoices){
+    parser.addPositional<int>("pos")
+            .nargs<0,-1>()
+            .finalize()
+            .choices(1, 2, 3);
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 5);
+    EXPECT_EQ(lines[0], "Usage:  [flags...] [pos...]");
+    EXPECT_EQ(lines[2], "\tpos {1,2,3} : ");
 }
 
 MYTEST(helpRepeatable) {

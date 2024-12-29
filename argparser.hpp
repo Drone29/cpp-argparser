@@ -53,10 +53,15 @@ namespace parser_internal{
         template <typename TypeToStringify>
         struct GetTypeNameHelper{
             static std::string GetTypeName(){
-#ifdef __GNUC__
-                //For GCC
+#ifdef __clang__
+                // For Clang
                 std::string y = __PRETTY_FUNCTION__;
-                std::string start = std::string("TypeToStringify") + " = ";
+                std::string start = "TypeToStringify = ";
+                std::string end = "]";
+#elif defined(__GNUC__)
+                // For GCC
+                std::string y = __PRETTY_FUNCTION__;
+                std::string start = "TypeToStringify = ";
                 std::string end = ";";
 #elif defined _MSC_VER
                 //For MSVC
@@ -1603,14 +1608,11 @@ protected:
     static std::string formatOptions(const std::unique_ptr<Argument> &arg) {
         std::string result;
         std::string choices_str = formatChoices(arg);
-        bool is_positional = arg->is_positional();
         for(const auto &option : arg->m_options) {
-            auto formatted = [&choices_str, &option, &is_positional](){
+            auto formatted = [&choices_str, &option](){
                 bool is_mandatory = parser_internal::isOptMandatory(option);
                 if (!choices_str.empty()) {
                     return is_mandatory ? choices_str : ("[" + choices_str + "]");
-                } else if (is_positional){
-                    return std::string();
                 }
                 return is_mandatory ? ("<" + option + ">") : option;
             }();
@@ -1622,6 +1624,11 @@ protected:
             result += " " + formatVariadic(!choices_str.empty() ? choices_str : arg->m_nargs_var);
         }
         return result;
+    }
+
+    static std::string formatPositionalOptions(const std::unique_ptr<Argument> &arg) {
+        std::string choices_str = formatChoices(arg);
+        return choices_str.empty() ? "" : " " + choices_str;
     }
 
     [[nodiscard]] std::string getPositionalArgsUsage() const {
@@ -1709,7 +1716,7 @@ protected:
         if(!m_posMap.empty()){
             std::cout << "Positional arguments:" << std::endl;
             for(const auto &x : m_posMap){
-                std::cout << "\t" << x << formatOptions(m_argMap.at(x)) << " : " << m_argMap.at(x)->m_help << std::endl;
+                std::cout << "\t" << x << formatPositionalOptions(m_argMap.at(x)) << " : " << m_argMap.at(x)->m_help << std::endl;
             }
         }
     }
