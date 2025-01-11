@@ -3,6 +3,27 @@
 A C++17 header-only library for parsing command-line arguments.  
 It supports positional arguments, flags, and options, allowing for flexible and robust command-line interfaces.
 
+## Table of contents
+
+- [Features](#features)
+- [Basic usage](#basic-usage)
+- [Details](#details)
+  * [Positional arguments](#positional-arguments)
+  * [Optional arguments](#optional-arguments)
+  * [Mandatory arguments](#mandatory-arguments)
+  * [Required arguments](#required-arguments)
+  * [Aliases](#aliases)
+  * [Parameters](#parameters)
+  * [nargs](#nargs)
+  * [Parsing function](#parsing-function)
+  * [Parsing logic](#parsing-logic)
+  * [Obtaining parsed values](#obtaining-parsed-values)
+  * [Public parser methods](#public-parser-methods)
+  * [Modifiers](#modifiers)
+  * [Exceptions](#exceptions)
+  * [Parse errors](#parse-errors)
+- [Environment](#environment)
+
 ## Features
 
 - **Single Header**
@@ -123,11 +144,11 @@ parser.addPositional<int>("pos")
               .help("Positional int argument");
 ```
 
-### Arbitrary arguments
+### Optional arguments
 
 `optional` arguments are not required to be set by user
 
-Arbitrary arguments can be `implicit`
+Optional arguments can be `implicit`
 
 To specify an optional argument, start it `with -`
 
@@ -227,7 +248,7 @@ Non-positional arguments can have `parameters`
 
 Parameters can also be `mandatory` or `optional`
 
-`optional` parameters should be enclosed in `[]` and placed at the end
+`optional` parameters should be enclosed in `[]` and must not precede mandatory parameters
 
 ```c++
 parser.addArgument<const char*>("-s, --str")
@@ -240,8 +261,8 @@ parser.addArgument<const char*>("-p")
           .help("string optional argument with optional parameter");  
 ```
 
-If an argument has no parameters (`implicit`), and it's of arithmetic type (bool, int, float,...),
-its value is `incremented` each time a user specify it.
+If an argument has no parameters (`implicit`), and is of arithmetic type (bool, int, float,...),
+its value is `incremented` each time a user specifies it.
 
 Arguments can also be made `repeatable`, which allows them to be set more than once:
 
@@ -254,24 +275,23 @@ parser.addArgument<int>("-j")
 > ./app -jjj    - Repeatable argument, increments 3 times  
 ```
                               
-If an argument can have an arbitrary number of parameters, it can be made `variadic`
-
-Here's an example of variadic argument:
+If an argument can have several or an arbitrary number of identical parameters,  
+this can be achieved with `nargs`:
 
 ```c++
 parser.addArgument<int>("--variadic", "-var")
-                .nargs<3>() // make argument variadic
+                .nargs<3>() // takes 3 mandatory integers
                 .finalize() 
                 .help("parses 3 integers. Result is std::vector<int>");
                 
 > ./app -var 123 321 12     - stores 3 numbers as a vector
 ```
 
-And here's an example of a `pure variadic` argument (it can take any number of parameters):
+And here's an example of a `variadic` argument (can take any number of parameters):
 
 ```c++
 parser.addArgument<int>("--variadic", "-var")
-                .nargs<0,-1>() // make argument pure variadic
+                .nargs<0,-1>() // takes any number of integer parameters
                 .finalize() 
                 .help("parses any number of integers. Result is std::vector<int>");
                 
@@ -293,6 +313,8 @@ parser.addPositional<int>("var_pos")
                 
 > ./app 1 2 3 4 5       - stores 5 numbers as a vector  
 ```
+
+For more, refer to [nargs](#nargs) section
                         
 ### nargs
 
@@ -536,7 +558,7 @@ Returns a reference to the instance of unparsed argument
     
 ### Modifiers
 
-Here's the full list of `addArgument()` and `addPositional()` modifiers:
+Here's the full list of argument methods (modifiers):
 
 * `help("your help text")` - specify help text for the argument
 * `advanced_help("advanced help text")` - specify advanced help text, 
@@ -579,7 +601,7 @@ Some methods may throw exceptions on the stage where arguments are added if some
 * `std::invalid_argument` is thrown by parser methods like `addArgument()`, `addPositional()`, `getValue()`, etc...        
 * `std::runtime_error` is thrown by `scanValue()` method along with some internal methods     
 
-### Parse errors    
+### Parse errors
 
 `parseArgs()` can throw 2 types of errors:
 * `argParser::unparsed_param` - if a certain argument could not be parsed.
