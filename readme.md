@@ -7,6 +7,7 @@ It supports positional arguments, flags, and options, allowing for flexible and 
 
 - [Features](#features)
 - [Basic usage](#basic-usage)
+  * [Help message](#help-message) 
 - [Details](#details)
   * [Positional arguments](#positional-arguments)
   * [Optional arguments](#optional-arguments)
@@ -18,6 +19,7 @@ It supports positional arguments, flags, and options, allowing for flexible and 
   * [Parsing function](#parsing-function)
   * [Parsing logic](#parsing-logic)
   * [Obtaining parsed values](#obtaining-parsed-values)
+  * [Typo detection](#typo-detection)
   * [Public parser methods](#public-parser-methods)
   * [Modifiers](#modifiers)
   * [Exceptions](#exceptions)
@@ -534,6 +536,26 @@ parser.parseArgs(argc, argv);
 auto x = parser.getValue<std::vector<int>>("-var");  
 ```
 
+### Typo detection
+
+argParser is capable of detecting single-character typos in arguments' names
+
+If a user specifies an unknown argument that is similar to a valid argument, a message is displayed:
+
+```c++
+parser.addArgument<int>("--list")
+            .nargs<0,-1>()
+            .finalize()
+            .help("list of integers");
+
+> ./app --lis 1 2 3
+Output:
+Unknown argument: --lis. Did you mean --list?
+> ./app --lsit 1 2 3
+Output:
+Unknown argument: --lsit. Did you mean --list?
+```
+
 ### Public parser methods
 
 A list of public parser methods:
@@ -546,7 +568,7 @@ with aliases
 * `setCallable(callable, size_args,...)` - adds callable (function, lambda, etc) along with its side arguments
 * `nargs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
 * `finalize()` - finalizes argument definition
-* `finalizeWithHelp()` - finalizes argument definition and adds help message
+* `finalizeWithHelp("help message")` - finalizes argument definition and adds help message
 * `getValue<T>("name or alias")` - returns value of type T of specified argument
 * `scanValue<T>(value)` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values.
