@@ -546,6 +546,7 @@ with aliases
 * `setCallable(callable, size_args,...)` - adds callable (function, lambda, etc) along with its side arguments
 * `nargs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
 * `finalize()` - finalizes argument definition
+* `finalizeWithHelp()` - finalizes argument definition and adds help message
 * `getValue<T>("name or alias")` - returns value of type T of specified argument
 * `scanValue<T>(value)` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values.

@@ -900,6 +900,11 @@ public:
         }
         return createArg(option);
     }
+
+    // finalize with help
+    Argument &finalizeWithHelp(std::string help) {
+        return finalize().help(std::move(help));
+    }
 };
 
 class argParser
