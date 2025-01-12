@@ -79,7 +79,7 @@ It supports positional arguments, flags, and options, allowing for flexible and 
                .finalize() 
                .help("flag with single optional param");
    // add int flag with multiple parameters and parsing function
-    parser.addArgument<int>("-optional--with-multiple-params")
+   parser.addArgument<int>("-optional--with-multiple-params")
             .setParameters("mandatory_param", "[optional_param]")
             .setCallable([](auto mandatory_param, auto optional_param) {
                 int result = argParser::scanValue<int>(mandatory_param);
@@ -90,7 +90,10 @@ It supports positional arguments, flags, and options, allowing for flexible and 
             })
             .finalize()
             .help("flag with multiple params and parsing function");
-    ```  
+   // alternatively, you can combine finalize() and help() methods using finalizeWithHelp()
+   parser.addArgument<int>("-combined-finalize-and-help")
+            .finalizeWithHelp("int optional argument (flag) with implicit value");
+    ```
 4. Parse arguments from command line
     ```c++
    parser.parseArgs(argc, argv);
@@ -567,10 +570,10 @@ with aliases
 * `setParameters("params",...)` - adds string parameters to an argument (not applicable to positionals)
 * `setCallable(callable, size_args,...)` - adds callable (function, lambda, etc) along with its side arguments
 * `nargs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
-* `finalize()` - finalizes argument definition
-* `finalizeWithHelp("help message")` - finalizes argument definition and adds help message
-* `getValue<T>("name or alias")` - returns value of type T of specified argument
-* `scanValue<T>(value)` - static method to parse some value from string using built-in parser.
+* `finalize()` - finalizes argument definition. An argument is not considered defined until this method is called
+* `finalizeWithHelp("help message")` - finalizes argument definition and adds help message. A shortcut for finalize().help()
+* `getValue<T>("name or alias")` - returns parsed value of type T of the argument
+* `scanValue<T>("string value")` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values.
 * `getLastUnparsed()` - get last unparsed argument (in case of argparser::unparsed_parameter error).
 Returns a reference to the instance of unparsed argument

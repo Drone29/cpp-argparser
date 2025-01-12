@@ -139,8 +139,7 @@ int main(int argc, char *argv[]) {
     // mandatory arguments should have at least 1 mandatory parameter
     parser.addArgument<bool>("m")
             .setParameters("m_param")
-            .finalize()
-            .help("mandatory bool argument with mandatory parameter");
+            .finalizeWithHelp("mandatory bool argument with mandatory parameter");
 
     // str_value - mandatory parameter, cannot be omitted
     // i.e. calls like '-s aaa' or '--str=aaa' are VALID,
