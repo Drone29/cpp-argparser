@@ -215,7 +215,7 @@ MYTEST(GlobalPtr){
     parser.addArgument<int>("-i")
             .setParameters("int")
             .finalize()
-            .global_ptr(&i);
+            .globalPtr(&i);
     CallParser({"-i", "345"});
     auto res = parser.getValue<int>("-i");
     ASSERT_EQ(res, 345);
@@ -241,7 +241,7 @@ MYTEST(AdjacentKeyValue){
 MYTEST(IncrementImplicit) {
     parser.addArgument<int>("-i")
             .finalize()
-            .default_value(5);
+            .defaultValue(5);
     CallParser({"-i"});
     ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should increment implicit arithmetic type";
 }
@@ -249,7 +249,7 @@ MYTEST(IncrementImplicit) {
 MYTEST(IncrementImplicitBool) {
     parser.addArgument<bool>("-b")
             .finalize()
-            .default_value(false);
+            .defaultValue(false);
     CallParser({"-b"});
     ASSERT_TRUE(parser.getValue<bool>("-b")) << "Should set implicit bool to true";
 }
@@ -257,7 +257,7 @@ MYTEST(IncrementImplicitBool) {
 MYTEST(ImplicitBoolRepeated) {
     parser.addArgument<bool>("-b")
             .finalize()
-            .default_value(false)
+            .defaultValue(false)
             .repeatable();
     CallParser({"-b", "-b"});
     ASSERT_FALSE(parser.getValue<bool>("-b")) << "Should 'increment' boolean twice, thus setting it to false";
@@ -266,7 +266,7 @@ MYTEST(ImplicitBoolRepeated) {
 MYTEST(ImplicitFloat) {
     parser.addArgument<float>("-f")
             .finalize()
-            .default_value(1.35f);
+            .defaultValue(1.35f);
     CallParser({"-f"});
     ASSERT_EQ(parser.getValue<float>("-f"), 2.35f) << "Should 'increment' float, increasing it by 1";
 }
@@ -276,8 +276,8 @@ MYTEST(RepeatableShortArgIncrement){
     int i_val;
     parser.addArgument<int>("-i", "--int")
             .finalize()
-            .default_value(3)
-            .global_ptr(&i_val)
+            .defaultValue(3)
+            .globalPtr(&i_val)
             .repeatable();
     EXPECT_NO_THROW(CallParser({"-i", "-i", "-iii"}));
     ASSERT_EQ(i_val, 8) << "i repeats 5 times starting at 3, so result should be 8";            
@@ -288,7 +288,7 @@ MYTEST(SimilarKeyAsValueEq){
     parser.addArgument<std::string>("--str")
             .setParameters("str_val")
             .finalize()
-            .global_ptr(&res);
+            .globalPtr(&res);
     EXPECT_NO_THROW(CallParser({"--str=--str"}));
     ASSERT_EQ(res, "--str") << "Should parse '--str' after '=' as value";            
 }
@@ -298,7 +298,7 @@ MYTEST(SimilarKeyAsValueAdjacent){
     parser.addArgument<std::string>("-s")
             .setParameters("str_val")
             .finalize()
-            .global_ptr(&res);
+            .globalPtr(&res);
     EXPECT_NO_THROW(CallParser({"-s-sss"}));
     ASSERT_EQ(res, "-sss") << "Should parse '-sss' after '-s' as value";
 }
@@ -399,9 +399,9 @@ MYTEST(ArgWithSingleOptionalParamNoFunctionNotProvided) {
     ASSERT_NO_THROW(parser.addArgument<int>("-i")
                             .setParameters("[int]")
                             .finalize()
-            .default_value(5));
+                            .defaultValue(5));
     CallParser({"-i"});
-    ASSERT_TRUE(parser["-i"].is_set());
+    ASSERT_TRUE(parser["-i"].isSet());
     ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
 }
 
@@ -409,9 +409,9 @@ MYTEST(ArgWithSingleOptionalNArgNoFunctionNotProvided) {
     parser.addArgument<int>("-i")
             .nargs<0, 1>()
             .finalize()
-            .default_value(5);
+            .defaultValue(5);
     CallParser({"-i"});
-    ASSERT_TRUE(parser["-i"].is_set());
+    ASSERT_TRUE(parser["-i"].isSet());
     ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
 }
 
@@ -428,7 +428,7 @@ MYTEST(ArgWithSingleOptionalParamWithFunctionNotProvided) {
                             })
                             .finalize());
     CallParser({"-i"});
-    ASSERT_TRUE(parser["-i"].is_set());
+    ASSERT_TRUE(parser["-i"].isSet());
     ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
 }
 
@@ -445,7 +445,7 @@ MYTEST(ArgWithSingleOptionalNArgWithFunctionNotProvided) {
             })
             .finalize();
     CallParser({"-i"});
-    ASSERT_TRUE(parser["-i"].is_set());
+    ASSERT_TRUE(parser["-i"].isSet());
     ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
 }
 
@@ -895,7 +895,7 @@ MYTEST(NargsPureVariadicEmpty){
             .nargs<0, -1>() //pure variadic arg
             .finalize();
     CallParser({"--var"});
-    ASSERT_TRUE(parser["--var"].is_set());  
+    ASSERT_TRUE(parser["--var"].isSet());
     EXPECT_NO_THROW(parser.getValue<std::vector<int>>("--var"));          
     ASSERT_TRUE(parser.getValue<std::vector<int>>("--var").empty())  << "Should be empty vector";
 }
@@ -1029,7 +1029,7 @@ MYTEST(NargsForMandatoryArgWithParam){
 MYTEST(ChildParser){
     auto &child = parser.addCommand("child", "child parser");
     child.addArgument<int>("--int").finalize()
-        .default_value(36);
+            .defaultValue(36);
     CallParser({"child", "--int"});
     ASSERT_EQ(child.getValue<int>("--int"), 37);
 }

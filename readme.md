@@ -485,7 +485,7 @@ Here are some examples:
 Parsed values can be obtained with one of the following methods:
 
 * Using `getValue()` method after `parseArgs()` is called 
-* Using `global_ptr()` modifier upon defining arguments with `addArgument` or `addPositional`
+* Using `globalPtr()` modifier upon defining arguments with `addArgument` or `addPositional`
 * Using function or lambda to set the variable
 
 Examples:
@@ -505,14 +505,14 @@ auto x = parser.getValue<int>("-x");
 int x2 = parser["-x"]; 
 ```
     
-Obtaining value with `global_ptr()` modifier:
+Obtaining value with `globalPtr()` modifier:
     
 ```c++
 // declare int variable
 int j;
 // add int argument and pass the address of declared variable
 parser.addArgument<int>("-j").finalize()
-      .global_ptr(&i)
+      .globalPtr(&i)
       .help("int optional argument with (implicit)");
 // parse arguments
 parser.parseArgs(argc, argv);
@@ -554,23 +554,23 @@ Returns a reference to the instance of unparsed argument
 * `setAlias("name", "aliases")` - set aliases to argument name if wasn't set in addArgument
 * `getSelfName()` - get executable self name, applicable only after arguments are parsed
 * `parseArgs(argc, argv)` - parse arguments from command line
-* `operator [] ("name or alias")` - provides access to const methods of argument, such as `is_set()`. Can also be used along with static cast to obtain values
+* `operator [] ("name or alias")` - provides access to const methods of argument, such as `isSet()`. Can also be used along with static cast to obtain values
     
 ### Modifiers
 
 Here's the full list of argument methods (modifiers):
 
 * `help("your help text")` - specify help text for the argument
-* `advanced_help("advanced help text")` - specify advanced help text, 
+* `advancedHelp("advanced help text")` - specify advanced help text, 
 will be shown if user calls `--help your_argument_here`
 * `hidden()` - make argument `hidden` from generic help message 
 (can still be displayed with advanced help call `--help -h`). Only for `optional` arguments
 * `repeatable()` - make argument `repeatable`. Only for non-positional arguments
-* `default_value(default_value, hide_in_help=false)` - specify default 
+* `defaultValue(defaultValue, hide_in_help=false)` - specify default 
 (the one that will be assigned if not set by user) 
 value for argument. Only for `optional` or `required` arguments. 
 `hide_in_help` - optional parameter, hides default value from help message if set to true
-* `global_ptr(pointer)` - specify pointer to 'global' variable. 
+* `globalPtr(pointer)` - specify pointer to 'global' variable. 
 Must point to the variable of corresponding type.
 Not applicable to variadic arguments
 * `mandatory()` - make `optional` or `required` argument `mandatory`. 
@@ -581,23 +581,23 @@ Cannot be applied to `hidden` arguments
 
 There are also some useful const methods for arguments:
 
-* `is_set()` - returns `true` if argument was set by user
-* `is_optional()` - returns `true` if argument is optional
-* `is_required()` - returns `true` if argument is required
-* `is_positional()` - returns `true` if argument is positional
-* `is_implicit()` - returns `true` if argument is implicit
-* `is_repeatable()` - returns `true` if argument is repeatable
-* `is_variadic()`   - returns `true` if argument is variadic
-* `options_size()` - returns `size_t` size of argument parameters
-* `get_cli_params()` - returns an `std::vector<std::string>` of parameters passed by the caller.
+* `isSet()` - returns `true` if argument was set by user
+* `isOptional()` - returns `true` if argument is optional
+* `isRequired()` - returns `true` if argument is required
+* `isPositional()` - returns `true` if argument is positional
+* `isImplicit()` - returns `true` if argument is implicit
+* `isRepeatable()` - returns `true` if argument is repeatable
+* `isVariadic()`   - returns `true` if argument is variadic
+* `optionsSize()` - returns `size_t` size of argument parameters
+* `getCliParams()` - returns an `std::vector<std::string>` of parameters passed by the caller.
 Applicable only after parseArgs is called
-* `get_name()` - returns `std::string` argument's name without aliases
+* `getName()` - returns `std::string` argument's name without aliases
  
 ### Exceptions
 
 Some methods may throw exceptions on the stage where arguments are added if some conditions are not met:
 
-* `std::logic_error` is thrown by arg modifiers like `default_value()` and some others
+* `std::logic_error` is thrown by arg modifiers like `defaultValue()` and some others
 * `std::invalid_argument` is thrown by parser methods like `addArgument()`, `addPositional()`, `getValue()`, etc...        
 * `std::runtime_error` is thrown by `scanValue()` method along with some internal methods     
 
@@ -619,10 +619,10 @@ try{
     std::cout << "Caught error: " + std::string(e.what()) << std::endl;
     // check unparsed argument
     auto &last_unparsed = parser.getLastUnparsed();
-    std::cout << "Last unparsed arg: " << last_unparsed.get_name() << std::endl;
+    std::cout << "Last unparsed arg: " << last_unparsed.getName() << std::endl;
     // get list of parameters that were provided by the caller
     std::cout << "Passed parameters:";
-    auto raw_params = last_unparsed.get_cli_params();
+    auto raw_params = last_unparsed.getCliParams();
     for(auto &el : raw_params){
         std::cout << " " + el;
     }

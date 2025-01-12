@@ -341,7 +341,7 @@ MYTEST(helpRepeatable) {
 MYTEST(helpDefault) {
     parser.addArgument<int>("-i")
             .finalize()
-            .default_value(5);
+            .defaultValue(5);
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
@@ -352,7 +352,7 @@ MYTEST(helpForParam) {
     parser.addArgument<int>("-i")
             .finalize()
             .help("help message")
-            .advanced_help("advanced help message");
+            .advancedHelp("advanced help message");
     parser.printHelpForParamTest("-i");
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 2);

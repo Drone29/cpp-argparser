@@ -66,11 +66,11 @@ int main(int argc, char *argv[]) {
     // and returns 8
     parser.addArgument<int>("-j")
             .finalize()
-            .default_value(5)   // specify default value for argument
+            .defaultValue(5)   // specify default value for argument
             .repeatable()   // make argument repeatable
             .help("int optional repeatable argument with implicit value and default value 5")
-            // advanced help message can be viewed if '--help' is called with argument's name
-            .advanced_help("and with advanced help string (can be viewed with --help -j)");
+                    // advanced help message can be viewed if '--help' is called with argument's name
+            .advancedHelp("and with advanced help string (can be viewed with --help -j)");
 
     // to automatically set value to 'global' variable (visible in current scope)
     // global_ptr() method is used.
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
     // after such argument is parsed, that variable's value is automatically set
     // NOTE: not applicable for variadic arguments
     parser.addArgument<int>("-i", "--int").finalize()
-            .global_ptr(&i_val) // specify global variable for argument
+            .globalPtr(&i_val) // specify global variable for argument
             .repeatable()   // make argument repeatable
             .help("int optional repeatable argument with alias, implicit value and pointer to global variable (if set, returns 1)");
 
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
     // but '-s' or '--str' are NOT VALID and will cast an error
     parser.addArgument<const char *>("--str", "-s")
             .setParameters("str_value").finalize()
-            .global_ptr(&s_val) // pointer to global variable
+            .globalPtr(&s_val) // pointer to global variable
             .help("string optional argument with mandatory parameter");
 
     // an optional argument can be made hidden,
@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
     // positional arguments cannot be made hidden, optional or required
     // all other properties apply
     parser.addPositional<int>("pos").finalize()
-            .global_ptr(&pos_val) // pointer to global variable
+            .globalPtr(&pos_val) // pointer to global variable
             .help("Positional int argument with global variable");
 
     // positional arguments can be variadic too
@@ -324,10 +324,10 @@ int main(int argc, char *argv[]) {
         std::cout << "Caught error: " + std::string(e.what()) << std::endl;
         // check unparsed argument
         auto &last_unparsed = parser.getLastUnparsed();
-        std::cout << "Last unparsed arg: " << last_unparsed.get_name() << std::endl;
+        std::cout << "Last unparsed arg: " << last_unparsed.getName() << std::endl;
         // get list of parameters that were provided along with that argument by the caller
         std::cout << "Passed parameters:";
-        auto raw_params = last_unparsed.get_cli_params();
+        auto raw_params = last_unparsed.getCliParams();
         for(auto &el : raw_params){
             std::cout << " " + el;
         }
@@ -343,7 +343,7 @@ int main(int argc, char *argv[]) {
     //-b date=01.02.2000-13:56 m=true v=4 --req1 1 23
     // const methods of argument struct can be accessed via [ ]
     // here it returns true if argument 'v' was set by user
-    auto isArgumentSet = parser["v"].is_set();
+    auto isArgumentSet = parser["v"].isSet();
 
     // to get parsed value, use getValue, explicitly setting the type
     // if wrong type is specified, an std::invalid_argument exception is thrown

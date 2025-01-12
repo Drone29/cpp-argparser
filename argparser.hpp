@@ -475,7 +475,7 @@ struct Argument{
         m_help = std::move(hlp);
         return *this;
     }
-    Argument &advanced_help(std::string hlp){
+    Argument &advancedHelp(std::string hlp){
         m_advanced_help = std::move(hlp);
         return *this;
     }
@@ -488,13 +488,13 @@ struct Argument{
         return *this;
     }
     Argument &repeatable(){
-        if(!m_positional && !is_variadic())
+        if(!m_positional && !isVariadic())
             m_repeatable = true;
         return *this;
     }
-    Argument &default_value(std::any val, bool hide_in_help = false){
+    Argument &defaultValue(std::any val, bool hide_in_help = false){
         try{
-            if(m_optional && !m_positional && !is_variadic()){
+            if(m_optional && !m_positional && !isVariadic()){
                 m_arg_handle->set_value(val);
                 m_show_default = !hide_in_help;
             }
@@ -503,7 +503,7 @@ struct Argument{
         }
         return *this;
     }
-    Argument &global_ptr(std::any ptr){
+    Argument &globalPtr(std::any ptr){
         try {
             m_arg_handle->set_global_ptr(ptr);
         }catch(std::invalid_argument &e){
@@ -553,39 +553,39 @@ struct Argument{
         return *this;
     }
 
-    [[nodiscard]] bool is_set() const{
+    [[nodiscard]] bool isSet() const{
         return m_set;
     }
-    [[nodiscard]] bool is_optional() const{
+    [[nodiscard]] bool isOptional() const{
         return m_optional;
     }
-    [[nodiscard]] bool is_required() const{
+    [[nodiscard]] bool isRequired() const{
         return m_required;
     }
-    [[nodiscard]] bool is_positional() const{
+    [[nodiscard]] bool isPositional() const{
         return m_positional;
     }
-    [[nodiscard]] bool is_implicit() const{
+    [[nodiscard]] bool isImplicit() const{
         return m_implicit;
     }
-    [[nodiscard]] bool is_repeatable() const{
+    [[nodiscard]] bool isRepeatable() const{
         return m_repeatable;
     }
-    [[nodiscard]] bool is_variadic() const{
+    [[nodiscard]] bool isVariadic() const{
         return m_arg_handle->is_variadic();
     };
-    [[nodiscard]] auto options_size() const{
+    [[nodiscard]] auto optionsSize() const{
         return m_options.size();
     }
     // get raw string parameters passed from cli
-    [[nodiscard]] std::vector<std::string> get_cli_params() const{
+    [[nodiscard]] std::vector<std::string> getCliParams() const{
         return m_cli_params;
     }
-    [[nodiscard]] std::string get_name() const{
+    [[nodiscard]] std::string getName() const{
         return m_name;
     }
     // get nargs
-    [[nodiscard]] unsigned int get_nargs() const{
+    [[nodiscard]] unsigned int getNargs() const{
         return m_arg_handle->get_nargs();
     };
 
@@ -666,7 +666,7 @@ protected:
                           m_is_positional(is_positional),
                           m_callback(std::move(callback)){}
 
-    Argument &CreateArg(ArgHandleBase *handle) {
+    Argument &createArg(ArgHandleBase *handle) {
 
         bool flag = m_key[0] == '-';
         bool starts_with_minus = flag;
@@ -898,7 +898,7 @@ public:
                         (std::make_index_sequence<func_tpl_size>{}, std::move(func_tpl));
             }
         }
-        return CreateArg(option);
+        return createArg(option);
     }
 };
 
@@ -975,7 +975,7 @@ public:
         /// check if variadic pos already defined
         for(const auto &p : m_posMap){
             const auto &x = m_argMap.at(p);
-            if(x->is_variadic()){
+            if(x->isVariadic()){
                 throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot add positional argument after variadic positional argument " + p);
             }
             for(const auto &o : x->m_options){
@@ -1339,8 +1339,8 @@ protected:
     [[nodiscard]] int parseHandlePositional(int index) {
         const auto &pos_name = m_posMap[m_positional_args_parsed++];
         int opts_cnt = 0;
-        auto nargs = m_argMap[pos_name]->get_nargs();
-        bool variadic = m_argMap[pos_name]->is_variadic();
+        auto nargs = m_argMap[pos_name]->getNargs();
+        bool variadic = m_argMap[pos_name]->isVariadic();
         if(nargs > 0 || variadic){
             auto cnt = index-1;
             while(++cnt < m_argVec.size()){
@@ -1391,7 +1391,7 @@ protected:
 
         int opts_cnt = 0;
         auto cnt = index;
-        bool infinite_opts = m_argMap[pName]->is_variadic();
+        bool infinite_opts = m_argMap[pName]->isVariadic();
 
         while(++cnt < m_argVec.size()){
             // if all options found, break
@@ -1464,13 +1464,13 @@ protected:
         if(!proposed_value.empty()){
             const auto &prop = m_argMap.find(proposed_value)->second;
             //if not set and positionals have not yet been parsed
-            bool before_pos = !prop->is_set() && m_positional_args_parsed == 0;
+            bool before_pos = !prop->isSet() && m_positional_args_parsed == 0;
             //if optional and no mandatory args have been parsed yet
-            bool is_arb = prop->is_optional() && !prop->is_required() && m_parsed_mnd_args == 0;
+            bool is_arb = prop->isOptional() && !prop->isRequired() && m_parsed_mnd_args == 0;
             //if mandatory and not all of them provided
-            bool unparsed_mnd = !prop->is_optional() && (m_parsed_mnd_args != m_mandatory_args);
+            bool unparsed_mnd = !prop->isOptional() && (m_parsed_mnd_args != m_mandatory_args);
             //if required
-            bool is_req = prop->is_required();
+            bool is_req = prop->isRequired();
             if(before_pos && (unparsed_mnd || is_arb || is_req)){
                 throw parse_error("Unknown argument: " + std::string(pName) + ". Did you mean " + proposed_value + "?");
             }
@@ -1620,7 +1620,7 @@ protected:
                 result += " " + formatted;
             }
         }
-        if (arg->is_variadic()) {
+        if (arg->isVariadic()) {
             result += " " + formatVariadic(!choices_str.empty() ? choices_str : arg->m_nargs_var);
         }
         return result;
@@ -1641,7 +1641,7 @@ protected:
                 tmp = !parser_internal::isOptMandatory(option) ? ("[" + tmp + "]") : tmp;
                 usage += " " + tmp;
             }
-            if(details->is_variadic()){
+            if(details->isVariadic()){
                 usage += " " + formatVariadic(opt);
             }
         }
