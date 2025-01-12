@@ -1,7 +1,3 @@
-//
-// Created by andrey on 17.12.2021.
-//
-
 #pragma once
 
 #include <map>
@@ -11,8 +7,6 @@
 #include <vector>
 #include <cstring>
 #include <any>
-#include <memory>
-#include <typeindex>
 #include <tuple>
 #include <array>
 #include <ctime>
@@ -258,7 +252,7 @@ private:
         // applicable only to arithmetic or strings
         if constexpr(choices_viable()) {
             if(!m_choices.empty()){
-                // check if result corresponds to one of the m_choices
+                // check if result corresponds to one of the choices
                 for(const auto &v : m_choices){
                     if(m_value == v){
                         return;
