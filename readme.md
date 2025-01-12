@@ -574,7 +574,6 @@ with aliases
 Applicable to `arithmetic` or `string` values.
 * `getLastUnparsed()` - get last unparsed argument (in case of argparser::unparsed_parameter error).
 Returns a reference to the instance of unparsed argument
-* `setAlias("name", "aliases")` - set aliases to argument name if wasn't set in addArgument
 * `getSelfName()` - get executable self name, applicable only after arguments are parsed
 * `parseArgs(argc, argv)` - parse arguments from command line
 * `operator [] ("name or alias")` - provides access to const methods of argument, such as `isSet()`. Can also be used along with static cast to obtain values
@@ -639,7 +638,7 @@ try{
     parser.parseArgs(argc, argv);
 }catch(argParser::unparsed_param &e){
     //catch argument parsing error
-    std::cout << "Caught error: " + std::string(e.what()) << std::endl;
+    std::cout << "Caught error: " << e.what() << std::endl;
     // check unparsed argument
     auto &last_unparsed = parser.getLastUnparsed();
     std::cout << "Last unparsed arg: " << last_unparsed.getName() << std::endl;
@@ -654,7 +653,7 @@ try{
     
 }catch(argParser::parse_error &e){
     // catch other exceptions
-    std::cout << "Caught error: " + std::string(e.what()) << std::endl;
+    std::cout << "Caught error: " << e.what() << std::endl;
     return -1;
 }
 
