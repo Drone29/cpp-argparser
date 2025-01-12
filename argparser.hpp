@@ -208,16 +208,16 @@ protected:
     ArgHandleBase() = default;
     virtual ~ArgHandleBase() = default;
     virtual void action (const std::string *args, int size) {}
-    virtual void set(std::any x) {}
+    virtual void set_value(const std::any &x) {}
     virtual std::string get_str_val() const {return "";}
     virtual std::vector<std::string> get_str_choices() const {return {};}
-    virtual void set_global_ptr(std::any ptr) {}
+    virtual void set_global_ptr(const std::any &ptr) {}
     virtual void set_choices(std::initializer_list<std::any> &&choices_list) {}
     virtual void make_variadic() {}
     virtual bool is_variadic() {return false;}
     virtual void set_nargs(unsigned int n) {}
     virtual unsigned int get_nargs() {return 0;}
-    std::any m_anyval;
+    virtual std::any get_any_val() const {return {};}
 };
 
 template <typename T, size_t STR_ARGS, typename...Targs>
@@ -228,6 +228,7 @@ private:
     using NContainer = std::vector<T>;
 
     T m_value;
+    std::any m_anyval;
     std::tuple<Targs...> m_action_and_args; //holds action (function, lambda, etc) and side args supplied to it
     T *m_global = nullptr;
     NContainer m_choices {};
@@ -267,6 +268,11 @@ private:
         m_anyval = std::move(container);
     }
 
+    void set_any_val() {
+        set_global();
+        m_anyval = m_value;
+    }
+
     // parse variadic params, single scan and common action
     void action(const std::string *args, int size) override {
         if(!m_variadic && m_nargs == 0) {
@@ -281,7 +287,8 @@ private:
                 parse_common(args, size);
             }else{
                 // simple scan of single value
-                set(parser_internal::scan<T>(args[0].c_str()));
+                m_value = parser_internal::scan<T>(args[0].c_str());
+                set_any_val();
             }
             check_choices();
         } else {
@@ -343,8 +350,7 @@ private:
                 }
             }
         }
-        set_global();
-        m_anyval = m_value;
+        set_any_val();
     }
     void increment() {
         if constexpr(std::is_arithmetic_v<T>) {
@@ -356,8 +362,7 @@ private:
                 m_value += 1;
             }
         }
-        set_global();
-        m_anyval = m_value;
+        set_any_val();
     }
 
     std::string get_str_val(T val) const {
@@ -394,17 +399,16 @@ private:
         return res;
     }
 
-    void set(std::any x) override {
+    void set_value(const std::any &x) override {
         try{
-            m_anyval = x;
-            m_value = std::any_cast<T>(m_anyval);
-            set_global();
+            m_value = std::any_cast<T>(x);
+            set_any_val();
         }catch(std::bad_any_cast &e){
             throw std::invalid_argument("invalid type");
         }
     }
 
-    void set_global_ptr(std::any ptr) override {
+    void set_global_ptr(const std::any &ptr) override {
         try{
             m_global = std::any_cast<T*>(ptr);
         }catch(std::bad_any_cast &e){
@@ -414,7 +418,6 @@ private:
 
     void set_global() {
         if(m_global != nullptr) {
-            //set global
             *m_global = m_value;
         }
     }
@@ -454,11 +457,14 @@ private:
 
     unsigned int get_nargs() override {return m_nargs;}
 
+    std::any get_any_val() const override {
+        return m_anyval;
+    }
+
     explicit ArgHandle(std::tuple<Targs...> &&tpl) :
             m_value(),
-            m_action_and_args(std::move(tpl)) {
-        m_anyval = m_value;
-    }
+            m_anyval(m_value),
+            m_action_and_args(std::move(tpl)) {}
 
     ~ArgHandle() override = default;
 };
@@ -489,7 +495,7 @@ struct Argument{
     Argument &default_value(std::any val, bool hide_in_help = false){
         try{
             if(m_optional && !m_positional && !is_variadic()){
-                m_arg_handle->set(std::move(val));
+                m_arg_handle->set_value(val);
                 m_show_default = !hide_in_help;
             }
         }catch(std::invalid_argument &e){
@@ -499,7 +505,7 @@ struct Argument{
     }
     Argument &global_ptr(std::any ptr){
         try {
-            m_arg_handle->set_global_ptr(std::move(ptr));
+            m_arg_handle->set_global_ptr(ptr);
         }catch(std::invalid_argument &e){
             throw std::logic_error(std::string(__func__) + "(" + m_type_str + "): error: " + e.what());
         }
@@ -586,7 +592,7 @@ struct Argument{
     // conversion operator template
     template<typename T>
     operator T() const {
-        return std::any_cast<T>(m_arg_handle->m_anyval);
+        return std::any_cast<T>(m_arg_handle->get_any_val());
     }
 
     ~Argument() {
@@ -1006,7 +1012,7 @@ public:
         auto strType = parser_internal::GetTypeName<T>();
         auto &r = getArg(key);
         try{
-            return std::any_cast<T>(r.m_arg_handle->m_anyval);
+            return std::any_cast<T>(r.m_arg_handle->get_any_val());
         }catch(const std::bad_any_cast& e){
             throw std::invalid_argument(std::string(__func__) + ": " + key + " cannot cast to " + strType);
         }
