@@ -19,6 +19,7 @@ It supports positional arguments, flags, and options, allowing for flexible and 
   * [Parsing function](#parsing-function)
   * [Parsing logic](#parsing-logic)
   * [Obtaining parsed values](#obtaining-parsed-values)
+  * [Child parsers (commands)](#child-parsers-commands)
   * [Typo detection](#typo-detection)
   * [Public parser methods](#public-parser-methods)
   * [Modifiers](#modifiers)
@@ -558,6 +559,31 @@ parser.parseArgs(argc, argv);
 auto x = parser.getValue<std::vector<int>>("-var");  
 ```
 
+### Child parsers (commands)
+
+Child parsers can be added to the main parser with `addCommand` method
+
+They can have their own arguments and help messages
+
+Here's how a child parser can be added:
+
+```c++
+// create main parser
+argParser parser;
+// add child parser
+auto &child_parser = parser.addCommand("child", "child parser description");
+// add an argument to child parser
+child.addArgument<int>("--int")
+    .finalize()
+    .help("int value");
+// parse arguments
+parser.parseArgs(argc, argv);
+
+> ./app child --int 5 // child parser is called with int argument
+// now you can obtain parsed value from child parser:
+auto x = child_parser.getValue<int>("--int");
+```
+
 ### Typo detection
 
 argParser is capable of detecting single-character typos in arguments' names
@@ -586,6 +612,8 @@ A list of public parser methods:
 with optional parser function and side arguments
 * `addArgument<T>("aliases",...)` - adds argument of type T
 with aliases
+* `addCommand("name", "description")` - adds a child parser with a name and description.  
+Returns a reference to the child parser
 * `setParameters("params",...)` - adds string parameters to an argument (not applicable to positionals)
 * `setCallable(callable, size_args,...)` - adds callable (function, lambda, etc) along with its side arguments
 * `nargs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
