@@ -241,10 +241,10 @@ and other elements are aliases
 if the name starts with `-`, aliases should also start with `-`:
 
 ```c++
-parser.addArgument<int>("i, integer") //VALID
-     parser.addArgument<int>("-i, --integer") //VALID
-     parser.addArgument<int>("i, -integer") //NOT VALID
-     parser.addArgument<int>("-i, integer") //NOT VALID
+parser.addArgument<int>("i", "integer") //VALID
+     parser.addArgument<int>("-i", "--integer") //VALID
+     parser.addArgument<int>("i", "-integer") //NOT VALID
+     parser.addArgument<int>("-i", "integer") //NOT VALID
 ```
      
 ### Parameters
@@ -256,7 +256,7 @@ Parameters can also be `mandatory` or `optional`
 `optional` parameters should be enclosed in `[]` and must not precede mandatory parameters
 
 ```c++
-parser.addArgument<const char*>("-s, --str")
+parser.addArgument<const char*>("-s", "--str")
           .setParameters("str_value")
           .finalize()
           .help("string optional argument with mandatory parameter"); 
