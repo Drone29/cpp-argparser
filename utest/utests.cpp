@@ -395,7 +395,7 @@ MYTEST(PureVariadicPos) {
     ASSERT_TRUE(check);
 }
 
-MYTEST(ArgWithSingleOptionalParamNoFunctionNotProvided) {
+MYTEST(ArgWithSingleOptionalParamFunctionNotProvided) {
     ASSERT_NO_THROW(parser.addArgument<int>("-i")
                             .setParameters("[int]")
                             .finalize()
@@ -405,7 +405,7 @@ MYTEST(ArgWithSingleOptionalParamNoFunctionNotProvided) {
     ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
 }
 
-MYTEST(ArgWithSingleOptionalNArgNoFunctionNotProvided) {
+MYTEST(ArgWithSingleOptionalNArgFunctionNotProvided) {
     parser.addArgument<int>("-i")
             .nargs<0, 1>()
             .finalize()
@@ -415,7 +415,7 @@ MYTEST(ArgWithSingleOptionalNArgNoFunctionNotProvided) {
     ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
 }
 
-MYTEST(ArgWithSingleOptionalParamWithFunctionNotProvided) {
+MYTEST(ArgWithSingleOptionalParamWithFunctionProvided) {
     int val = 5;
     ASSERT_NO_THROW(parser.addArgument<int>("-i")
                             .setParameters("[int]")
@@ -432,7 +432,7 @@ MYTEST(ArgWithSingleOptionalParamWithFunctionNotProvided) {
     ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
 }
 
-MYTEST(ArgWithSingleOptionalNArgWithFunctionNotProvided) {
+MYTEST(ArgWithSingleOptionalNArgWithFunctionProvided) {
     int val = 5;
     parser.addArgument<int>("-i")
             .nargs<0, 1>()

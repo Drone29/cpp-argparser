@@ -372,11 +372,13 @@ The second parameter in `nargs` can be -1 (or any value less than 0), thus makin
 ### Parsing function
                                                             
 An argument can be parsed by built-in parser only if
-it has `0 or 1 mandatory parameters` of `arithmetic` or `string` type:
+it has `0 or 1 parameters` of `arithmetic` or `string` type:
 * `bool`, `int`, `float`, `double`, `unsigned int`, ... (arithmetic types)
 * `char*`, `const char*`, `std::string` (string types)
 
-Otherwise, a `parsing function` should be specified
+Otherwise, a `parsing function` should be provided with `setCallable` method
+
+**NOTE:** `nargs` does not add multiple parameters to an argument, it still counts as 1 parameter
     
 ```c++
 // Parsing function
@@ -404,19 +406,20 @@ The parsing function `must` be specified for an argument in the following cases:
 * The argument has `more than 1 parameter`
                 
 Here are some constraints for parsing functions:                
-                
-* A parsing function must return a value of argument's type and 
-take as many `string parameters` (const char*) as there are `parameters` specified for argument
+
+* Parsing function can be `void` (no return value) or have a return type           
+* Function's return type must be convertible to the argument's type (if not `void`) 
+* Parsing function should take as many `string parameters` (const char*) as there are `parameters` specified for argument (unless `nargs` are used, in that case it should have 1 string param)
 * Parsing function can also have `side parameters`. 
-They need to be placed before string parameters in a function declaration,
-and corresponding values should be specified in setCallable method:
+They need to be placed before string parameters in the function declaration,
+and corresponding values should be fed to `setCallable` method:
     
 ```c++
-// Function not valid, side parameters must be placed before string
-int func(const char* a, int i){...}
+// Function not valid, side parameters must be placed before string params
+int invalid_func(const char* a, int i){...}
 
-// Valid parsing function 
-int tst(int a, const char* a1){
+// Valid parsing function, int goes before string
+int valid_func(int a, const char* a1){
     return a + (int)strtol(a1, nullptr, 0);
 }
 
@@ -426,11 +429,12 @@ int tst(int a, const char* a1){
 int x = 5;
 parser.addArgument<int>("v", "v_int")
         .setParameters("vv")
-        .setCallable(tst, x)
+        .setCallable(valid_func, x)
         .finalize()
         .help("mandatory arg with mandatory value and side argument x for function tst()");
 ```
 
+Custom parsing function allows for custom types to be used as arguments.  
 Here's an example of an argument with custom type CL:                 
     
 ```c++
@@ -442,7 +446,7 @@ struct CL{
 
 // Parsing function
 CL createStruct(const char *bl, const char *itgr = nullptr){
-    //static parser helper function, converts string to  basic type
+    //static parser helper function, converts string to basic type
     bool b = argParser::scanValue<bool>(bl);
     int i = argParser::scanValue<int>(itgr);
     return CL{b, i};
@@ -457,7 +461,7 @@ parser.addArgument<CL>("struct")
         .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()");
 ```
 
-Lambdas can be used as parsing functions too:
+Lambdas can be used as parsing functions as well:
 
 ```c++
 parser.addArgument<std::vector<const char*>>("-a", "--array")
@@ -506,7 +510,7 @@ parser.parseArgs(argc, argv);
 // retrieve int value. The type of getValue() must correspond to the type of addArgument(), 
 // otherwise error is thrown 
 auto x = parser.getValue<int>("-x"); 
-// it's also possible to obtain value with overloaded operator[]:
+// it's also possible to obtain value with overloaded operators [] and T:
 int x2 = parser["-x"]; 
 ```
     
@@ -518,7 +522,22 @@ int j;
 // add int argument and pass the address of declared variable
 parser.addArgument<int>("-j").finalize()
       .globalPtr(&i)
-      .help("int optional argument with (implicit)");
+      .help("int optional argument with implicit value");
+// parse arguments
+parser.parseArgs(argc, argv);
+// after that, the parsed result will be stored in j variable
+```
+
+Obtaining value with capturing lambda:
+
+```c++
+// declare int variable
+int j = 0;
+// add int argument with capturing lambda
+parser.addArgument<int>("-j")
+            .setCallable([&j](){j++;})
+            .finalize()
+            .help("int optional argument with implicit value");
 // parse arguments
 parser.parseArgs(argc, argv);
 // after that, the parsed result will be stored in j variable
