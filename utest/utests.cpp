@@ -643,6 +643,27 @@ MYTEST(ChoicesStringConversion){
     EXPECT_EQ(parser.getValue<std::string>("--choices"), "def"s);
 }
 
+MYTEST(ChoicesArithmeticConversion) {
+    EXPECT_NO_THROW(parser.addArgument<float>("--choices").setParameters("float")
+                            .choices(1, 2, 3).finalize()) << "Should convert const char* to std::string";
+    EXPECT_NO_THROW(CallParser({"--choices=3.0"}));
+    EXPECT_EQ(parser.getValue<float>("--choices"), 3.0f);
+}
+
+MYTEST(ChoicesArithmeticConversionUp) {
+    EXPECT_NO_THROW(parser.addArgument<long long>("--choices").setParameters("float")
+                            .choices(1, 2, 3).finalize()) << "Should convert const char* to std::string";
+    EXPECT_NO_THROW(CallParser({"--choices=3"}));
+    EXPECT_EQ(parser.getValue<long long>("--choices"), 3);
+}
+
+MYTEST(ChoicesArithmeticConversionDown) {
+    EXPECT_NO_THROW(parser.addArgument<int>("--choices").setParameters("float")
+                            .choices(1LL, 2LL, 3LL).finalize()) << "Should convert const char* to std::string";
+    EXPECT_NO_THROW(CallParser({"--choices=3"}));
+    EXPECT_EQ(parser.getValue<int>("--choices"), 3);
+}
+
 MYTEST(ChoicesNull){
     EXPECT_THROW(parser.addArgument<std::string>("--choices").setParameters("char")
             .choices(nullptr, nullptr, nullptr).finalize(), std::logic_error);

@@ -862,17 +862,13 @@ public:
 
         auto validate_and_convert = [](auto &&choice) -> std::any {
             using T = decltype(choice);
-            if constexpr (std::is_convertible_v<T, std::string>) {
-                return std::string(std::forward<T>(choice)); // Convert strings
-            } else {
-                return std::forward<T>(choice); // Arithmetic types or others
-            }
+            return VType(std::forward<T>(choice));
         };
         setArgChoices({validate_and_convert(choices)...});
         return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
     }
 
-    // finalize and get to runtime params
+    // finalize argument declaration
     Argument &finalize() {
         auto val = std::get<0>(m_components);
         using VType = decltype(val);
@@ -918,11 +914,6 @@ public:
         }
         setArgStrType(str_type);
         return createArg(option);
-    }
-
-    // finalize with help
-    Argument &finalizeWithHelp(std::string help) {
-        return finalize().help(std::move(help));
     }
 };
 
