@@ -646,54 +646,56 @@ class argParser;
 
 class ArgBuilderBase {
 protected:
-    std::string m_key;
-    std::vector<std::string> m_aliases;
-    bool m_is_positional;
     std::function<Argument&(std::unique_ptr<Argument> &&)> m_callback;
-    std::vector<std::string> m_opts;
-    std::string m_strType;
-    int m_mandatory_args = 0;
+    std::unique_ptr<Argument> m_arg;
     bool m_is_variadic = false;
-    std::string m_narg_name;
     int m_nargs_size = 0;
 
-    ArgBuilderBase(std::string &&key,
+    ArgBuilderBase(const std::string &key,
                    std::vector<std::string> &&aliases,
                    bool is_positional,
                    std::function<Argument&(std::unique_ptr<Argument> &&)> &&callback)
-                        : m_key(std::move(key)),
-                          m_aliases(std::move(aliases)),
-                          m_is_positional(is_positional),
-                          m_callback(std::move(callback)){}
+                        : m_callback(std::move(callback)){
+        m_arg = std::unique_ptr<Argument>(new Argument(key));
+        m_arg->m_positional = is_positional;
+        m_arg->m_aliases = std::move(aliases);
+    }
+
+    void setArgOpts(std::vector<std::string> &&opts, int mandatory_opts){
+        m_arg->m_options = std::move(opts);
+        m_arg->m_mandatory_options = mandatory_opts;
+    }
+
+    void setArgStrType(const std::string &strType){
+        m_arg->m_type_str = std::move(strType);
+    }
+
+    void setArgNargTraits(const std::string &narg_name, int nargs_size, bool is_variadic){
+        m_arg->m_nargs_var = narg_name;
+        m_nargs_size = nargs_size;
+        m_is_variadic = is_variadic;
+    }
 
     Argument &createArg(ArgHandleBase *handle) {
 
-        bool flag = m_key[0] == '-';
+        bool flag = m_arg->m_name.front() == '-';
         bool starts_with_minus = flag;
-        bool is_implicit = m_opts.empty();
+        bool is_implicit = m_arg->m_options.empty();
 
-        if(!m_mandatory_args && !m_is_positional && !flag){
-            throw std::invalid_argument(std::string(__func__) + ": " + m_key + " should have at least 1 mandatory parameter");
+        if(!m_arg->m_mandatory_options && !m_arg->m_positional && !flag){
+            throw std::invalid_argument(std::string(__func__) + ": " + m_arg->m_name + " should have at least 1 mandatory parameter");
         }
 
-        // Create arg and add to map
-        auto arg = std::unique_ptr<Argument>(new Argument(m_key));
         if (m_is_variadic) {
             handle->make_variadic();
         }
         handle->set_nargs(m_nargs_size);
-        arg->m_type_str = std::move(m_strType);
-        arg->m_arg_handle = handle;
-        arg->m_options = std::move(m_opts);
-        arg->m_optional = flag;
-        arg->m_implicit = is_implicit;
-        arg->m_starts_with_minus = starts_with_minus;
-        arg->m_mandatory_options = m_mandatory_args;
-        arg->m_positional = m_is_positional;
-        arg->m_aliases = std::move(m_aliases);
-        arg->m_nargs_var = std::move(m_narg_name);
+        m_arg->m_arg_handle = handle;
+        m_arg->m_optional = flag;
+        m_arg->m_implicit = is_implicit;
+        m_arg->m_starts_with_minus = starts_with_minus;
 
-        return m_callback(std::move(arg));
+        return m_callback(std::move(m_arg));
     }
 
     // Helper function to forward all types in the tuple
@@ -731,7 +733,6 @@ protected:
                 );
     }
 
-
 public:
     // ctor
     explicit ArgBuilder(std::string &&key,
@@ -756,17 +757,18 @@ public:
         static_assert(STR_PARAM_IDX == 0, "Params or nargs already set");
         const size_t current_size = std::tuple_size_v<decltype(m_components)>;
         std::string m_last_optional_arg;
+        int mandatory_opts = 0;
         // func to check options
-        auto checkOpts = [this, func=__func__, &m_last_optional_arg](const char *k) {
+        auto checkOpts = [this, func=__func__, &m_last_optional_arg, &mandatory_opts](const char *k) {
             if (!k){
                 throw std::invalid_argument("Arg cannot be null!");
             }
             auto sopt = std::string(k);
             parser_internal::validateKeyOrParam(sopt, /*is_param=*/true, func);
             if(parser_internal::isOptMandatory(sopt)){
-                m_mandatory_args++;
+                mandatory_opts++;
                 if(!m_last_optional_arg.empty()){
-                    throw std::invalid_argument(std::string(func) + ": " + m_key
+                    throw std::invalid_argument(std::string(func) + ": " + m_arg->getName()
                                                 + ": optional argument "
                                                 + m_last_optional_arg
                                                 + " cannot be followed by mandatory argument "
@@ -778,8 +780,10 @@ public:
             }
             return sopt;
         };
+
         // populate opts
-        m_opts = {checkOpts(strArgs)...};
+        std::vector<std::string> opts = {checkOpts(strArgs)...};
+        setArgOpts(std::move(opts), mandatory_opts);
 
         return addComponent<current_size, CALLABLE_IDX>(std::make_tuple(strArgs...));
     }
@@ -787,16 +791,17 @@ public:
     // set NArgs
     template<unsigned int FRO, int TO = 0>
     auto nargs() {
-        auto prepareNargs = [this](){
+        std::string narg_name;
+        auto prepareNargs = [this, &narg_name](){
             // handle variadic
-            m_is_variadic = TO < 0;
+            bool is_variadic = TO < 0;
             int max_size = TO > int(FRO) ? TO : int(FRO);
-            m_opts = std::vector<std::string>(max_size, m_narg_name);
+            auto opts = std::vector<std::string>(max_size, narg_name);
             for(int i = int(FRO); i < TO; ++i) {
-                m_opts[i] = "[" + m_opts[i] + "]";
+                opts[i] = "[" + opts[i] + "]";
             }
-            m_nargs_size = max_size;
-            m_mandatory_args = FRO;
+            setArgOpts(std::move(opts), FRO);
+            setArgNargTraits(narg_name, max_size, is_variadic);
         };
 
         static_assert(FRO != 0 || TO != 0, "nargs cannot be zero!");
@@ -808,30 +813,30 @@ public:
             // provided param is metavar
             auto &[param_name] = str_params;
             if (!parser_internal::isOptMandatory(param_name)) {
-                throw std::invalid_argument(std::string(__func__) + ": " + m_key + " ambiguity detected: optional param used along with nargs");
+                throw std::invalid_argument(std::string(__func__) + ": " + m_arg->getName() + " ambiguity detected: optional param used along with nargs");
             }
-            m_narg_name = param_name;
+            narg_name = param_name;
             static_assert(str_params_size < 2, "Nargs only applicable to args with 0 or 1 parameters");
             prepareNargs();
             return forwardComponents<STR_PARAM_IDX, CALLABLE_IDX>();
         } else {
             // provide our own param idx
             const size_t current_size = std::tuple_size_v<decltype(m_components)>;
-            m_narg_name = m_key;
+            narg_name = m_arg->getName();
             // convert non-positional to upper case
-            if(!m_is_positional){
+            if(!m_arg->isPositional()){
                 //remove --
-                while(parser_internal::starts_with("-", m_narg_name)){
-                    m_narg_name.erase(0, 1);
+                while(parser_internal::starts_with("-", narg_name)){
+                    narg_name.erase(0, 1);
                 }
                 //convert to upper case
-                for(auto &elem : m_narg_name) {
+                for(auto &elem : narg_name) {
                     elem = char(std::toupper(elem));
                 }
             }
             prepareNargs();
             return addComponent<current_size, CALLABLE_IDX>(
-                    std::make_tuple(std::make_tuple(m_narg_name.c_str()))
+                    std::make_tuple(std::make_tuple(narg_name.c_str()))
             );
         }
     }
@@ -856,14 +861,15 @@ public:
         const bool has_params = STR_PARAM_IDX > 0;
         const bool has_callable = CALLABLE_IDX > 0;
         /// get template type string
-        m_strType = parser_internal::GetTypeName<VType>();
+        const auto str_type = parser_internal::GetTypeName<VType>();
+
         ArgHandleBase *option = nullptr;
         auto checkScan = [&, func=__func__]() {
             ///check if default parser for this type is present
             try{
                 parser_internal::scan<VType>(nullptr);
             }catch(std::logic_error &e){
-                throw std::invalid_argument(std::string(func) + ": " + m_key + " no default parser for " + m_strType);
+                throw std::invalid_argument(std::string(func) + ": " + m_arg->getName() + " no default parser for " + str_type);
             }catch(std::runtime_error &){
                 //do nothing
             }
@@ -898,6 +904,7 @@ public:
                         (std::make_index_sequence<func_tpl_size>{}, std::move(func_tpl));
             }
         }
+        setArgStrType(str_type);
         return createArg(option);
     }
 
