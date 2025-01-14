@@ -59,29 +59,29 @@ It supports positional arguments, flags, and options, allowing for flexible and 
     ```c++
    // add positional int argument
    parser.addPositional<int>("positional")
-               .finalize() 
-               .help("positional argument");
+               .help("positional argument")
+               .finalize();
    // add mandatory argument with parameter
    parser.addArgument<int>("mandatory")
                .parameters("mandatory_param")
-               .finalize()
-               .help("mandatory argument with mandatory param"); 
+               .help("mandatory argument with mandatory param")
+               .finalize();
    // add implicit int flag
    parser.addArgument<int>("-optional")
-               .finalize() 
-               .help("int optional argument (flag) with implicit value");
+               .help("int optional argument (flag) with implicit value")
+               .finalize();
    // add int flag with mandatory parameter
    parser.addArgument<int>("-optional-with-param")
-               .parameters("mandatory_param") 
-               .finalize() 
-               .help("flag with single mandatory param");
+               .parameters("mandatory_param")
+               .help("flag with single mandatory param")
+               .finalize();
    // add int flag with optional parameter
    parser.addArgument<int>("-optional-with-param2")
-               .parameters("[optional_param]") 
-               .finalize() 
-               .help("flag with single optional param");
+               .parameters("[optional_param]")
+               .help("flag with single optional param")
+               .finalize()
    // add int flag with multiple parameters and parsing function
-   parser.addArgument<int>("-optional--with-multiple-params")
+   parser.addArgument<int>("-optional-with-multiple-params")
             .parameters("mandatory_param", "[optional_param]")
             .callable([](auto mandatory_param, auto optional_param) {
                 int result = argParser::scanValue<int>(mandatory_param);
@@ -90,11 +90,8 @@ It supports positional arguments, flags, and options, allowing for flexible and 
                 }
                 return result;
             })
-            .finalize()
-            .help("flag with multiple params and parsing function");
-   // alternatively, you can combine finalize() and help() methods using finalizeWithHelp()
-   parser.addArgument<int>("-combined-finalize-and-help")
-            .finalizeWithHelp("int optional argument (flag) with implicit value");
+            .help("flag with multiple params and parsing function")
+            .finalize();
     ```
 4. Parse arguments from command line
     ```c++
@@ -114,7 +111,7 @@ argParser generates help message automatically if invoked with `--help` or `-h` 
    Flags (optional):
        -h, --help [arg] : Show this message and exit. 'arg' to get help about certain arg
        -optional : int optional argument (flag) with implicit value
-       -optional--with-multiple-params <mandatory_param> [optional_param] : flag with multiple params
+       -optional-with-multiple-params <mandatory_param> [optional_param] : flag with multiple params
        -optional-with-param <mandatory_param> : flag with single mandatory param
        -optional-with-param2 [optional_param] : flag with single optional param
    Parameters (mandatory):
@@ -147,8 +144,8 @@ Positional arguments `cannot have aliases and parameters`
 To specify a positional argument, use `addPositional` method:
 ```c++
 parser.addPositional<int>("pos")
-              .finalize()
-              .help("Positional int argument");
+              .help("Positional int argument")
+              .finalize();
 ```
 
 ### Optional arguments
@@ -161,8 +158,8 @@ To specify an optional argument, start it `with -`
 
 ```c++
 parser.addArgument<int>("-x")
-          .finalize()
-          .help("int optional argument with implicit value");
+          .help("int optional argument with implicit value")
+          .finalize();
 ```
  
 ### Mandatory arguments
@@ -176,8 +173,8 @@ To specify a mandatory argument, its name/aliases should start `without -`
 ```c++
 parser.addArgument<bool>("m")
           .parameters("m_param")
-          .finalize()
-          .help("mandatory bool argument with mandatory parameter");
+          .help("mandatory bool argument with mandatory parameter")
+          .finalize();
 ```
      
 Also, any `optional` argument can be made `mandatory` using method `mandatory()`:
@@ -185,9 +182,9 @@ Also, any `optional` argument can be made `mandatory` using method `mandatory()`
 ```c++
 parser.addArgument<bool>("-m")
           .parameters("m_param")
-          .finalize()
           .mandatory()
-          .help("optional argument made mandatory"); 
+          .help("optional argument made mandatory")
+          .finalize();
 ```
      
 **NOTE:** positional or hidden arguments cannot be made mandatory
@@ -202,14 +199,14 @@ Here we declare 2 optional arguments `--req1` and `--req2` and then make them re
 
 ```c++
 parser.addArgument<int>("--req1")
-          .finalize()
           .required()
-          .help("required argument 1 with implicit value");
+          .help("required argument 1 with implicit value")
+          .finalize();
     
 parser.addArgument<int>("--req2")
-          .finalize()
           .required()
-          .help("required argument 2 with implicit value"); 
+          .help("required argument 2 with implicit value")
+          .finalize();
 ```
 
 Now the caller should set `either --req1 or --req2` or `both`, otherwise an error will be thrown
@@ -219,9 +216,9 @@ Mandatory arguments can be made required too:
 ```c++
 parser.addArgument<bool>("m")
           .parameters("m_param")
-          .finalize()
           .required()
-          .help("mandatory bool argument made required");
+          .help("mandatory bool argument made required")
+          .finalize();
 ```
 
 ### Aliases
@@ -232,8 +229,8 @@ Here is a `--bool` argument with `-b` alias:
 
 ```c++
 parser.addArgument<bool>("-b", "--bool")
-          .finalize()
-          .help("implicit bool flag with alias");
+          .help("implicit bool flag with alias")
+          .finalize();
 ```
 
 The last string in the list is considered argument's name,
@@ -260,12 +257,12 @@ Parameters can also be `mandatory` or `optional`
 ```c++
 parser.addArgument<const char*>("-s")
           .parameters("str_value")
-          .finalize()
-          .help("string optional argument with mandatory parameter str_value"); 
+          .help("string optional argument with mandatory parameter str_value")
+          .finalize();
 parser.addArgument<const char*>("-p")
           .parameters("[str_value]")
-          .finalize()
-          .help("string optional argument with optional parameter str_value");  
+          .help("string optional argument with optional parameter str_value")
+          .finalize();
 ```
 
 ### Implicit arguments
@@ -276,14 +273,14 @@ If an `implicit` argument is of arithmetic type (bool, int, float,...), its valu
 
 ```c++
 parser.addArgument<bool>("-b")
-          .finalize()
           .repeatable()
-          .help("implicit bool flag");    
+          .help("implicit bool flag")
+          .finalize();
 parser.addArgument<int>("-i")
-          .finalize()
           .defaultValue(4) //set default value to 4
           .repeatable()
-          .help("implicit bool flag"); 
+          .help("implicit bool flag")
+          .finalize();
                 
 > ./app -b    - Will set the -b flag to true
 > ./app -i    - Will increment the -i flag, resulting in 5
@@ -293,8 +290,8 @@ parser.addArgument<int>("-i")
 ```c++
 parser.addArgument<int>("-i")
           .parameters("[int]") //single optional parameter
-          .finalize()
-          .help("int argument with single optional parameter");
+          .help("int argument with single optional parameter")
+          .finalize();
 
 > ./app -i 10    - Will explicitly set the -i flag to 10
 > ./app -i       - Will increment the -i flag, resulting in 1
@@ -305,9 +302,9 @@ Arguments can also be made `repeatable`, which allows them to be set more than o
 
 ```c++
 parser.addArgument<int>("-j")
-          .finalize()
           .repeatable()
-          .help("int optional repeatable argument (implicit)");    
+          .help("int optional repeatable argument (implicit)")
+          .finalize();
                 
 > ./app -jjj    - Repeatable implicit argument, increments 3 times, resulting in 3 
 ```
@@ -320,8 +317,8 @@ It's useful if an argument can have several or an arbitrary number of identical 
 ```c++
 parser.addArgument<int>("-var")
                 .nargs<3>() // takes 3 mandatory integers
-                .finalize() 
-                .help("parses 3 integers. Result is std::vector<int>");
+                .help("parses 3 integers. Result is std::vector<int>")
+                .finalize();
 
 > ./app -var 1 2 3       - stores 3 numbers as a vector
 > ./app -var 1 2         - ERROR: not enough parameters
@@ -335,8 +332,8 @@ So, for example the call `nargs<1,3>` will add 1 mandatory and 2 optional parame
 ```c++
 parser.addArgument<int>("-i")
                 .nargs<1, 3>() // add 1 mandatory and 2 optional parameters
-                .finalize()
-                .help("Variadic pos argument of type int");
+                .help("Variadic pos argument of type int")
+                .finalize();
 
 > ./app -i 1 2 3       - stores 3 numbers as a vector    
 > ./app -i 1 2         - stores 2 numbers as a vector 
@@ -348,8 +345,8 @@ parser.addArgument<int>("-i")
 ```c++
 parser.addArgument<int>("-i")
                 .nargs<3, 1>() // add 3 mandatory parameters
-                .finalize()
-                .help("Variadic pos argument of type int");
+                .help("Variadic pos argument of type int")
+                .finalize();
 
 > ./app -i 1 2 3       - stores 3 numbers as a vector    
 > ./app -i 1 2         - ERROR: not enough parameters
@@ -362,8 +359,8 @@ A `variadic` argument can take any number of parameters:
 ```c++
 parser.addArgument<int>("-var")
                 .nargs<0,-1>() // takes any number of integer parameters
-                .finalize() 
-                .help("parses any number of integers. Result is std::vector<int>");
+                .help("parses any number of integers. Result is std::vector<int>")
+                .finalize();
                 
 > ./app -var 123 321 12     - stores 3 numbers as a vector
 > ./app -var 123            - stores 1 number in a vector
@@ -373,8 +370,8 @@ Positional arguments can be variadic too:
 ```c++
 parser.addPositional<int>("var_pos") 
                 .nargs<0,-1>() // make argument variadic
-                .finalize() 
-                .help("Variadic pos argument of type int");
+                .help("Variadic pos argument of type int")
+                .finalize();
                 
 > ./app 1 2 3 4 5       - stores 5 numbers as a vector  
 ```
@@ -469,8 +466,8 @@ int x = 5;
 parser.addArgument<int>("v", "v_int")
         .parameters("vv")
         .callable(valid_func, x)
-        .finalize()
-        .help("mandatory arg with mandatory value and side argument x for function tst()");
+        .help("mandatory arg with mandatory value and side argument x for function tst()")
+        .finalize();
 ```
 
 Custom parsing function allows for custom types to be used as arguments.  
@@ -496,8 +493,8 @@ CL createStruct(const char *bl, const char *itgr = nullptr){
 parser.addArgument<CL>("struct")
         .parameters("bool", "[integer]")
         .callable(createStruct)
-        .finalize()
-        .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()");
+        .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()")
+        .finalize();
 ```
 
 Lambdas can be used as parsing functions as well:
@@ -508,8 +505,8 @@ parser.addArgument<std::vector<const char*>>("-a", "--array")
             .callable([](auto a1, auto a2){
                 return std::vector<const char*>{a1, a2==nullptr?"null":a2};
             })
-            .finalize()
-            .help("optional argument with 2 string values (one optional) and lambda converter");
+            .help("optional argument with 2 string values (one optional) and lambda converter")
+            .finalize();
 ```
 
 ### Parsing logic
@@ -542,8 +539,9 @@ Obtaining value with `getValue()` method:
     
 ```c++
 // add int argument
-parser.addArgument<int>("-x").finalize()
-      .help("int optional argument with implicit value");
+parser.addArgument<int>("-x")
+      .help("int optional argument with implicit value")
+      .finalize();
 // parse arguments
 parser.parseArgs(argc, argv);            
 // retrieve int value. The type of getValue() must correspond to the type of addArgument(), 
@@ -559,9 +557,10 @@ Obtaining value with `globalPtr()` modifier:
 // declare int variable
 int j;
 // add int argument and pass the address of declared variable
-parser.addArgument<int>("-j").finalize()
+parser.addArgument<int>("-j")
       .globalPtr(&i)
-      .help("int optional argument with implicit value");
+      .help("int optional argument with implicit value")
+      .finalize();
 // parse arguments
 parser.parseArgs(argc, argv);
 // after that, the parsed result will be stored in j variable
@@ -575,8 +574,8 @@ int j = 0;
 // add int argument with capturing lambda
 parser.addArgument<int>("-j")
             .callable([&j](){j++;})
-            .finalize()
-            .help("int optional argument with implicit value");
+            .help("int optional argument with implicit value")
+            .finalize();
 // parse arguments
 parser.parseArgs(argc, argv);
 // after that, the parsed result will be stored in j variable
@@ -589,8 +588,8 @@ with the type `std::vector<arg_type>`:
 // add variadic int argument
 parser.addArgument<int>("--variadic", "-var")
             .nargs<0,-1>() // make argument variadic
-            .finalize()
-            .help("parses any number of integers. Result is std::vector<int>");
+            .help("parses any number of integers. Result is std::vector<int>")
+            .finalize();
 // parse arguments
 parser.parseArgs(argc, argv);  
 // retrieve variadic arg value as a vector
@@ -612,8 +611,8 @@ argParser parser;
 auto &child_parser = parser.addCommand("child", "child parser description");
 // add an argument to child parser
 child.addArgument<int>("--int")
-    .finalize()
-    .help("int value");
+    .help("int value")
+    .finalize();
 // parse arguments
 parser.parseArgs(argc, argv);
 
@@ -631,8 +630,8 @@ If a user specifies an unknown argument that is similar to a valid argument, a m
 ```c++
 parser.addArgument<int>("--list")
             .nargs<0,-1>()
-            .finalize()
-            .help("list of integers");
+            .help("list of integers")
+            .finalize();
 
 > ./app --lis 1 2 3
 Output:
