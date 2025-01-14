@@ -598,11 +598,12 @@ MYTEST(ChoicesInvalid){
     EXPECT_THROW(CallParser({"--choices=4"}), argParser::unparsed_param) << "Should throw if not a valid choice";            
 }
 
-MYTEST(ChoicesThrow){
-    EXPECT_THROW(parser.addArgument<const char *>("--choices").setParameters("str")
-                    .choices("1","2","3","4").finalize(),
-                    std::logic_error) << "Should throw if not arithmetic or not std::string";
-}
+// now compilation error
+//MYTEST(ChoicesThrow){
+//    EXPECT_THROW(parser.addArgument<const char *>("--choices").setParameters("str")
+//                    .choices("1","2","3","4").finalize(),
+//                    std::logic_error) << "Should throw if not arithmetic or not std::string";
+//}
 
 MYTEST(ChoicesInt){
     parser.addArgument<int>("--choices").setParameters("int")

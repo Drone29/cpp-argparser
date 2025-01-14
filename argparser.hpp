@@ -400,20 +400,12 @@ private:
     }
 
     void set_value(const std::any &x) override {
-        try{
-            m_value = std::any_cast<T>(x);
-            set_any_val();
-        }catch(std::bad_any_cast &e){
-            throw std::invalid_argument("invalid type");
-        }
+        m_value = std::any_cast<T>(x);
+        set_any_val();
     }
 
     void set_global_ptr(const std::any &ptr) override {
-        try{
-            m_global = std::any_cast<T*>(ptr);
-        }catch(std::bad_any_cast &e){
-            throw std::invalid_argument("invalid pointer type");
-        }
+        m_global = std::any_cast<T*>(ptr);
     }
 
     void set_global() {
@@ -423,19 +415,8 @@ private:
     }
 
     void set_choices(std::vector<std::any> &&choices_list) override {
-        if constexpr(choices_viable()) {
-            if (STR_ARGS > 1) {
-                throw std::invalid_argument("choices are not applicable to args with more than 1 parameter");
-            }
-            try{
-                for(auto &&c : choices_list) {
-                    m_choices.push_back(std::any_cast<T>(c));
-                }
-            }catch(std::bad_any_cast &){
-                throw std::invalid_argument("invalid choices list");
-            }
-        }else{
-            throw std::invalid_argument("type can be either arithmetic or string");
+        for(auto &&c : choices_list) {
+            m_choices.push_back(std::any_cast<T>(c));
         }
     }
 
@@ -669,12 +650,7 @@ protected:
 };
 
 // arg builder
-template<
-        size_t STR_PARAM_IDX,
-        size_t CALLABLE_IDX,
-        bool POSITIONAL,
-        typename... Types
-        >
+template<size_t STR_PARAM_IDX, size_t CALLABLE_IDX, bool POSITIONAL, typename... Types>
 class ArgBuilder : public ArgBuilderBase {
 protected:
     friend class argParser;
@@ -865,11 +841,17 @@ public:
     template<typename... Choices>
     auto choices(Choices ...choices){
         auto val = std::get<0>(m_components);
+        auto str_params = std::get<STR_PARAM_IDX>(m_components); // string params
         using VType = decltype(val);
-        static_assert(std::is_arithmetic_v<VType> || std::is_convertible_v<VType, std::string>,
+        const size_t str_params_size = std::tuple_size_v<decltype(str_params)>;
+
+        static_assert(std::is_arithmetic_v<VType> || std::is_same_v<VType, std::string>,
                       "Choices are applicable only to arithmetic types and strings");
         static_assert((std::is_convertible_v<Choices, VType> && ...),
                       "Choices should be convertible to the type of the argument");
+        static_assert(STR_PARAM_IDX > 0, "Params or nargs should be set before choices");
+        static_assert(str_params_size < 2, "Choices only applicable to args with 1 parameter");
+
         auto validate_and_convert = [](auto &&choice) -> std::any {
             using T = decltype(choice);
             if constexpr (std::is_convertible_v<T, std::string>) {
