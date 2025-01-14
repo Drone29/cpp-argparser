@@ -695,6 +695,13 @@ protected:
     void setArgGlobPtr(std::any &&ptr){
         m_global_ptr = std::move(ptr);
     }
+    void makeArgMandatory(){
+        m_arg->m_optional = false;
+    }
+    void makeArgRequired(){
+        m_arg->m_required = true;
+        m_arg->m_optional = true;
+    }
 
     Argument &createArg(ArgHandleBase *handle) {
         bool flag = m_arg->m_name.front() == '-';
@@ -921,6 +928,18 @@ public:
         static_assert(std::is_same_v<VType, T>, "Pointer type mismatch");
         setArgGlobPtr(glob_ptr);
         return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+    }
+
+    auto mandatory() {
+        static_assert(OPTIONAL && !POSITIONAL && !HIDDEN, "Only optional non-positional non-hidden args can be mandatory");
+        makeArgMandatory();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,false,REQUIRED,VARIADIC,HIDDEN>();
+    }
+
+    auto required() {
+        static_assert(!POSITIONAL, "Positional args cannot be made required");
+        makeArgRequired();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,true,true,VARIADIC,HIDDEN>();
     }
 
     // finalize and get to runtime params
