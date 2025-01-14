@@ -600,7 +600,7 @@ struct Argument{
     }
 private:
 
-    explicit Argument(std::string name)
+    explicit Argument(std::string name) noexcept
             : m_name(std::move(name)){}
 
     friend class argParser;
@@ -645,18 +645,19 @@ private:
 class argParser;
 
 class ArgBuilderBase {
+private:
+    bool m_is_variadic = false;
+    int m_nargs_size = 0;
 protected:
     std::function<Argument&(std::unique_ptr<Argument> &&)> m_callback;
     std::unique_ptr<Argument> m_arg;
-    bool m_is_variadic = false;
-    int m_nargs_size = 0;
 
     ArgBuilderBase(const std::string &key,
                    std::vector<std::string> &&aliases,
                    bool is_positional,
                    std::function<Argument&(std::unique_ptr<Argument> &&)> &&callback)
-                        : m_callback(std::move(callback)){
-        m_arg = std::unique_ptr<Argument>(new Argument(key));
+                        : m_callback(std::move(callback)) {
+        m_arg.reset(new Argument(key));
         m_arg->m_positional = is_positional;
         m_arg->m_aliases = std::move(aliases);
     }
@@ -667,7 +668,7 @@ protected:
     }
 
     void setArgStrType(const std::string &strType){
-        m_arg->m_type_str = std::move(strType);
+        m_arg->m_type_str = strType;
     }
 
     void setArgNargTraits(const std::string &narg_name, int nargs_size, bool is_variadic){
@@ -677,7 +678,6 @@ protected:
     }
 
     Argument &createArg(ArgHandleBase *handle) {
-
         bool flag = m_arg->m_name.front() == '-';
         bool starts_with_minus = flag;
         bool is_implicit = m_arg->m_options.empty();
