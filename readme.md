@@ -653,7 +653,7 @@ with aliases
 * `addCommand("name", "description")` - adds a child parser with a name and description.  
 Returns a reference to the child parser
 * `setParameters("params",...)` - adds string parameters to an argument (not applicable to positionals)
-* `setCallable(callable, size_args,...)` - adds callable (function, lambda, etc) along with its side arguments
+* `setCallable(callable, side_args,...)` - adds callable (function, lambda, etc) along with its side arguments
 * `nargs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
 * `finalize()` - finalizes argument definition. An argument is not considered defined until this method is called
 * `finalizeWithHelp("help message")` - finalizes argument definition and adds help message. A shortcut for finalize().help()
