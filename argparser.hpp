@@ -666,15 +666,25 @@ protected:
         m_arg->m_options = std::move(opts);
         m_arg->m_mandatory_options = mandatory_opts;
     }
-
     void setArgStrType(const std::string &strType){
         m_arg->m_type_str = strType;
     }
-
     void setArgNargTraits(const std::string &narg_name, int nargs_size, bool is_variadic){
         m_arg->m_nargs_var = narg_name;
         m_nargs_size = nargs_size;
         m_is_variadic = is_variadic;
+    }
+    void setArgHelp(const std::string &help){
+        m_arg->m_help = help;
+    }
+    void setArgAdvancedHelp(const std::string &adv_help){
+        m_arg->m_advanced_help = adv_help;
+    }
+    void makeArgHidden(){
+        m_arg->m_hidden = true;
+    }
+    void makeArgRepeatable(){
+        m_arg->m_repeatable = true;
     }
 
     Argument &createArg(ArgHandleBase *handle) {
@@ -799,10 +809,11 @@ public:
     // set NArgs
     template<unsigned int FRO, int TO = 0>
     auto nargs() {
+        static_assert(FRO != 0 || TO != 0, "nargs cannot be zero!");
         std::string narg_name;
-        auto prepareNargs = [this, &narg_name](){
-            // handle variadic
-            bool is_variadic = TO < 0;
+        // handle variadic
+        const bool is_variadic = TO < 0;
+        auto prepareNargs = [this, &narg_name, &is_variadic](){
             int max_size = TO > int(FRO) ? TO : int(FRO);
             auto opts = std::vector<std::string>(max_size, narg_name);
             for(int i = int(FRO); i < TO; ++i) {
@@ -811,8 +822,6 @@ public:
             setArgOpts(std::move(opts), FRO);
             setArgNargTraits(narg_name, max_size, is_variadic);
         };
-
-        static_assert(FRO != 0 || TO != 0, "nargs cannot be zero!");
 
         //if single parameter provided, it's ok
         if constexpr (STR_PARAM_IDX > 0) {
@@ -826,7 +835,7 @@ public:
             narg_name = param_name;
             static_assert(str_params_size < 2, "Nargs only applicable to args with 0 or 1 parameters");
             prepareNargs();
-            return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+            return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,is_variadic,HIDDEN>();
         } else {
             // provide our own param idx
             const size_t current_size = std::tuple_size_v<decltype(m_components)>;
@@ -843,7 +852,7 @@ public:
                 }
             }
             prepareNargs();
-            return addComponent<current_size,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>(
+            return addComponent<current_size,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,is_variadic,HIDDEN>(
                     std::make_tuple(std::make_tuple(narg_name.c_str()))
             );
         }
@@ -859,6 +868,28 @@ public:
                 std::forward<Callable>(callable),
                 std::make_tuple(std::forward<SideArgs>(sideArgs)...))
         );
+    }
+
+    auto help(const std::string &help_message) {
+        setArgHelp(help_message);
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+    }
+
+    auto advancedHelp(const std::string &adv_help_message) {
+        setArgAdvancedHelp(adv_help_message);
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+    }
+
+    auto hidden() {
+        static_assert(!POSITIONAL && OPTIONAL, "Only optional non-positional args can be hidden");
+        makeArgHidden();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+    }
+
+    auto repeatable() {
+        static_assert(!POSITIONAL && !VARIADIC, "Only non-positional non-variadic args can be repeatable");
+        makeArgRepeatable();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
     }
 
     // finalize and get to runtime params
