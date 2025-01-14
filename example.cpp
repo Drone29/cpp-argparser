@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     // arguments without '-' are mandatory
     // mandatory arguments should have at least 1 mandatory parameter
     parser.addArgument<bool>("m")
-            .setParameters("m_param")
+            .parameters("m_param")
             .help("mandatory bool argument with mandatory parameter")
             .finalize();
 
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
     // i.e. calls like '-s aaa' or '--str=aaa' are VALID,
     // but '-s' or '--str' are NOT VALID and will cast an error
     parser.addArgument<const char *>("--str", "-s")
-            .setParameters("str_value")
+            .parameters("str_value")
             .globalPtr(&s_val) // pointer to global variable
             .help("string optional argument with mandatory parameter")
             .finalize();
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
     // so it's not shown in help message unless it's called with '-a' specifier
     // NOTE: mandatory or required arguments cannot be hidden
     parser.addArgument<int>("--hidden")
-            .setParameters("int_value")
+            .parameters("int_value")
             .hidden() // specify argument as hidden
             .help("hidden int argument with mandatory value (can be viewed with --help -a)")
             .finalize();
@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
      *  a custom parsing function is required
      *
      *  Parsing function is any function, function pointer, lambda, etc...
-     *  which takes as many string (const char*) arguments that there are specified by argument's parameter list (setParameters),
+     *  which takes as many string (const char*) arguments that there are specified by argument's parameter list (parameters),
      *  and returns a value of argument's type
      *
      *  Also, such function can take an optional number of so-called side arguments,
@@ -221,7 +221,7 @@ int main(int argc, char *argv[]) {
     // and its number of const char* arguments should be the same as number of parameters specified in parameter list
     // (otherwise it won't compile anyway)
     parser.addArgument<std::string>("-p")
-            .setParameters("[str_value]")
+            .parameters("[str_value]")
             .setCallable(test)
             .help("string optional argument with optional value and function test (if set, returns result of test())")
             .finalize();
@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
     // func(const char*b, int a) is NOT VALID
     // side arguments should be passed to setCallable after function as a parameter pack
     parser.addArgument<int>("v", "v_int")
-            .setParameters("vv")
+            .parameters("vv")
             .setCallable(tst, 5)
             .help("mandatory arg with mandatory value and side argument 5 for function tst()")
             .finalize();
@@ -242,7 +242,7 @@ int main(int argc, char *argv[]) {
     // here, we create an argument with custom type CL and 2 parameters, one of which is optional,
     // and parse it with createStruct function
     parser.addArgument<CL>("struct")
-            .setParameters("bool", "[integer]")
+            .parameters("bool", "[integer]")
             .setCallable(createStruct)
             .required() // make argument required instead of mandatory
             .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()")
@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
     // here, we create an argument with std::vector type and 2 parameters, one of which is optional
     // and parse it with lambda expression
     parser.addArgument<std::vector<const char *>>("-a", "--array")
-            .setParameters("a1", "[a2]")
+            .parameters("a1", "[a2]")
             .setCallable([](auto a1, auto a2) {
                 return std::vector<const char *>{a1, a2 == nullptr ? "null" : a2};
             })
@@ -262,7 +262,7 @@ int main(int argc, char *argv[]) {
     // for arguments of integral types or std::string with single parameter,
     // a list of choices can be specified inside an initializer_list:
     parser.addArgument<int>("--choices")
-            .setParameters("int")
+            .parameters("int")
             .choices(0,1,2,3) // create list of possible valid choices for that argument
             .help("list with choices")
             .finalize();
@@ -276,19 +276,19 @@ int main(int argc, char *argv[]) {
     /**
      * nargs
      *
-     * Apart from specifying argument's parameters with setParameters(), we can also specify them with nargs
+     * Apart from specifying argument's parameters with parameters(), we can also specify them with nargs
      * nargs() takes 2 template parameters:
      * - Number of mandatory parameters
      * - Total number of parameters
      *
      * So, for example this call nargs<1,3> will add 1 mandatory and 2 optional parameters to an argument
      *
-     * setParameters() can be called before nargs(), but you can only specify ONE parameter there.
+     * parameters() can be called before nargs(), but you can only specify ONE parameter there.
      * This way it will act as a metavar for parameter's name
      *
-     * Passing more than 1 parameter to setParameters() followed by nargs(), will result in a compilation error
+     * Passing more than 1 parameter to parameters() followed by nargs(), will result in a compilation error
      *
-     * If setParameters() were not called before nargs(), a default name is provided for parameter (capitalized argument's key)
+     * If parameters() were not called before nargs(), a default name is provided for parameter (capitalized argument's key)
      *
      * The second parameter in nargs can be -1 (or any value less than 0), thus making the argument variadic
      * (i.e. it can take as many parameters as supplied by the caller)

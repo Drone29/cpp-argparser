@@ -697,7 +697,7 @@ public:
 
     // add arguments
     template<typename... Params>
-    auto setParameters(Params ...strArgs) {
+    auto parameters(Params ...strArgs) {
         if constexpr (sizeof...(strArgs) > 0) {
             static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
         }
@@ -788,12 +788,12 @@ public:
 
     // add callable and side args (if any)
     template<typename Callable, typename... SideArgs>
-    auto setCallable(Callable && callable, SideArgs ...sideArgs) {
+    auto setCallable(Callable && clbl, SideArgs ...sideArgs) {
         static_assert(CALLABLE_IDX == 0, "Callable already set");
         const size_t current_size = std::tuple_size_v<decltype(m_components)>;
         return addComponent<STR_PARAM_IDX,current_size,POSITIONAL>(
                 std::make_tuple(
-                std::forward<Callable>(callable),
+                std::forward<Callable>(clbl),
                 std::make_tuple(std::forward<SideArgs>(sideArgs)...))
         );
     }
@@ -1016,7 +1016,7 @@ public:
                 std::vector<std::string>(),
                 std::forward<decltype(callback)>(callback),
                 std::make_tuple(T{})
-        ).setParameters(ckey); // set single parameter for positional (for size)
+        ).parameters(ckey); // set single parameter for positional (for size)
     }
 
     template <typename T>

@@ -156,7 +156,7 @@ MYTEST(helpCommonImplicitFlagWithAlias) {
 
 MYTEST(helpCommonSingleParamFlag) {
     parser.addArgument<int>("-i")
-            .setParameters("int")
+            .parameters("int")
             .finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
@@ -166,7 +166,7 @@ MYTEST(helpCommonSingleParamFlag) {
 
 MYTEST(helpCommonSingleParamArbitraryFlag) {
     parser.addArgument<int>("-i")
-            .setParameters("[int]")
+            .parameters("[int]")
             .finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
@@ -176,7 +176,7 @@ MYTEST(helpCommonSingleParamArbitraryFlag) {
 
 MYTEST(helpCommonTwoParamFlag) {
     parser.addArgument<int>("-i")
-            .setParameters("int", "[int]")
+            .parameters("int", "[int]")
             .setCallable([](auto a, auto b) {
                 return 0;
             })
@@ -209,7 +209,7 @@ MYTEST(helpCommonNArgMetavarArbitraryFlag) {
 
 MYTEST(helpCommonNArgParamMndFlag) {
     parser.addArgument<int>("-i")
-            .setParameters("meta")
+            .parameters("meta")
             .nargs<1>()
             .finalize();
     parser.printHelpCommonTest(false);
@@ -220,7 +220,7 @@ MYTEST(helpCommonNArgParamMndFlag) {
 
 MYTEST(helpCommonNArgParamArbFlag) {
     parser.addArgument<int>("-i")
-            .setParameters("meta")
+            .parameters("meta")
             .nargs<0, 1>()
             .finalize();
     parser.printHelpCommonTest(false);
@@ -241,7 +241,7 @@ MYTEST(helpCommonNArgPureVariadicFlag) {
 
 MYTEST(helpCommonOption){
     parser.addArgument<int>("i")
-            .setParameters("int")
+            .parameters("int")
             .finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();

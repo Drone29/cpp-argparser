@@ -63,7 +63,7 @@ It supports positional arguments, flags, and options, allowing for flexible and 
                .help("positional argument");
    // add mandatory argument with parameter
    parser.addArgument<int>("mandatory")
-               .setParameters("mandatory_param")
+               .parameters("mandatory_param")
                .finalize()
                .help("mandatory argument with mandatory param"); 
    // add implicit int flag
@@ -72,17 +72,17 @@ It supports positional arguments, flags, and options, allowing for flexible and 
                .help("int optional argument (flag) with implicit value");
    // add int flag with mandatory parameter
    parser.addArgument<int>("-optional-with-param")
-               .setParameters("mandatory_param") 
+               .parameters("mandatory_param") 
                .finalize() 
                .help("flag with single mandatory param");
    // add int flag with optional parameter
    parser.addArgument<int>("-optional-with-param2")
-               .setParameters("[optional_param]") 
+               .parameters("[optional_param]") 
                .finalize() 
                .help("flag with single optional param");
    // add int flag with multiple parameters and parsing function
    parser.addArgument<int>("-optional--with-multiple-params")
-            .setParameters("mandatory_param", "[optional_param]")
+            .parameters("mandatory_param", "[optional_param]")
             .setCallable([](auto mandatory_param, auto optional_param) {
                 int result = argParser::scanValue<int>(mandatory_param);
                 if (optional_param){
@@ -175,7 +175,7 @@ To specify a mandatory argument, its name/aliases should start `without -`
     
 ```c++
 parser.addArgument<bool>("m")
-          .setParameters("m_param")
+          .parameters("m_param")
           .finalize()
           .help("mandatory bool argument with mandatory parameter");
 ```
@@ -184,7 +184,7 @@ Also, any `optional` argument can be made `mandatory` using method `mandatory()`
     
 ```c++
 parser.addArgument<bool>("-m")
-          .setParameters("m_param")
+          .parameters("m_param")
           .finalize()
           .mandatory()
           .help("optional argument made mandatory"); 
@@ -218,7 +218,7 @@ Mandatory arguments can be made required too:
     
 ```c++
 parser.addArgument<bool>("m")
-          .setParameters("m_param")
+          .parameters("m_param")
           .finalize()
           .required()
           .help("mandatory bool argument made required");
@@ -259,11 +259,11 @@ Parameters can also be `mandatory` or `optional`
 
 ```c++
 parser.addArgument<const char*>("-s")
-          .setParameters("str_value")
+          .parameters("str_value")
           .finalize()
           .help("string optional argument with mandatory parameter str_value"); 
 parser.addArgument<const char*>("-p")
-          .setParameters("[str_value]")
+          .parameters("[str_value]")
           .finalize()
           .help("string optional argument with optional parameter str_value");  
 ```
@@ -292,7 +292,7 @@ parser.addArgument<int>("-i")
 **NOTE:** arguments with single optional parameter are also considered `implicit` in case the parameter is not set:
 ```c++
 parser.addArgument<int>("-i")
-          .setParameters("[int]") //single optional parameter
+          .parameters("[int]") //single optional parameter
           .finalize()
           .help("int argument with single optional parameter");
 
@@ -314,7 +314,7 @@ parser.addArgument<int>("-j")
                         
 ### nargs
 
-Apart from `setParameters()` method, an `nargs()` method can be used to specify the number of parameters an argument can have
+Apart from `parameters()` method, an `nargs()` method can be used to specify the number of parameters an argument can have
 
 It's useful if an argument can have several or an arbitrary number of identical parameters:
 ```c++
@@ -400,13 +400,13 @@ parser.addArgument<int>("-var")
 auto var = parser.getValue<int>("-var");               
 ```
 
-`setParameters()` can be called before `nargs()`, but you can only specify ONE parameter there.  
+`parameters()` can be called before `nargs()`, but you can only specify ONE parameter there.  
 This way it will act as a metavar for parameter's name.  
-Passing more than 1 parameter to `setParameters()` followed by `nargs()`, will result in a compilation error
+Passing more than 1 parameter to `parameters()` followed by `nargs()`, will result in a compilation error
 
-**NOTE:** Calling `setParameters("[optional]")` along with `nargs()` will throw an exception
+**NOTE:** Calling `parameters("[optional]")` along with `nargs()` will throw an exception
 
-If `setParameters()` was not called before `nargs()`, a default name is provided for parameter (capitalized argument's key)
+If `parameters()` was not called before `nargs()`, a default name is provided for parameter (capitalized argument's key)
       
 ### Parsing function
                                                             
@@ -431,7 +431,7 @@ std::string test(const char* a){
 ...
 // add parsing function test() to argument with optional parameter
 parser.addArgument<std::string>("-p")
-        .setParameters("[str_value]")
+        .parameters("[str_value]")
         .setCallable(test)
         .finalize();  
 ```
@@ -467,7 +467,7 @@ int valid_func(int a, const char* a1){
 // variable will be used as side parameter
 int x = 5;
 parser.addArgument<int>("v", "v_int")
-        .setParameters("vv")
+        .parameters("vv")
         .setCallable(valid_func, x)
         .finalize()
         .help("mandatory arg with mandatory value and side argument x for function tst()");
@@ -494,7 +494,7 @@ CL createStruct(const char *bl, const char *itgr = nullptr){
 ...
 // specify parsing function for custom type
 parser.addArgument<CL>("struct")
-        .setParameters("bool", "[integer]")
+        .parameters("bool", "[integer]")
         .setCallable(createStruct)
         .finalize()
         .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()");
@@ -504,7 +504,7 @@ Lambdas can be used as parsing functions as well:
 
 ```c++
 parser.addArgument<std::vector<const char*>>("-a", "--array")
-            .setParameters("a1", "[a2]")
+            .parameters("a1", "[a2]")
             .setCallable([](auto a1, auto a2){
                 return std::vector<const char*>{a1, a2==nullptr?"null":a2};
             })
@@ -652,7 +652,7 @@ with optional parser function and side arguments
 with aliases
 * `addCommand("name", "description")` - adds a child parser with a name and description.  
 Returns a reference to the child parser
-* `setParameters("params",...)` - adds string parameters to an argument (not applicable to positionals)
+* `parameters("params",...)` - adds string parameters to an argument (not applicable to positionals)
 * `setCallable(callable, side_args,...)` - adds callable (function, lambda, etc) along with its side arguments
 * `nargs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
 * `finalize()` - finalizes argument definition. An argument is not considered defined until this method is called
