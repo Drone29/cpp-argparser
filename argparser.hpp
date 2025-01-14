@@ -212,7 +212,7 @@ protected:
     virtual std::string get_str_val() const {return "";}
     virtual std::vector<std::string> get_str_choices() const {return {};}
     virtual void set_global_ptr(const std::any &ptr) {}
-    virtual void set_choices(std::initializer_list<std::any> &&choices_list) {}
+    virtual void set_choices(std::vector<std::any> &&choices_list) {}
     virtual void make_variadic() {}
     virtual bool is_variadic() {return false;}
     virtual void set_nargs(unsigned int n) {}
@@ -422,7 +422,7 @@ private:
         }
     }
 
-    void set_choices(std::initializer_list<std::any> &&choices_list) override {
+    void set_choices(std::vector<std::any> &&choices_list) override {
         if constexpr(choices_viable()) {
             if (STR_ARGS > 1) {
                 throw std::invalid_argument("choices are not applicable to args with more than 1 parameter");
@@ -650,6 +650,7 @@ private:
     int m_nargs_size = 0;
     std::any m_default_val;
     std::any m_global_ptr;
+    std::vector<std::any> m_choices;
 protected:
     std::function<Argument&(std::unique_ptr<Argument> &&)> m_callback;
     std::unique_ptr<Argument> m_arg;
@@ -701,6 +702,9 @@ protected:
     void makeArgRequired(){
         m_arg->m_required = true;
         m_arg->m_optional = true;
+    }
+    void setArgChoices(std::vector<std::any> &&choices){
+        m_choices = std::move(choices);
     }
 
     Argument &createArg(ArgHandleBase *handle) {
@@ -940,6 +944,26 @@ public:
         static_assert(!POSITIONAL, "Positional args cannot be made required");
         makeArgRequired();
         return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,true,true,VARIADIC,HIDDEN>();
+    }
+
+    template<typename... Choices>
+    auto choices(Choices ...choices){
+        auto val = std::get<0>(m_components);
+        using VType = decltype(val);
+        static_assert(std::is_arithmetic_v<VType> || std::is_convertible_v<VType, std::string>,
+                      "Choices are applicable only to arithmetic types and strings");
+        static_assert((std::is_same_v<Choices, VType> && ...),
+                      "Choices should be of the same type as the argument");
+        auto validate_and_convert = [](auto &&choice) -> std::any {
+            using T = decltype(choice);
+            if constexpr (std::is_convertible_v<T, std::string>) {
+                return std::string(std::forward<T>(choice)); // Convert strings
+            } else {
+                return std::forward<T>(choice); // Arithmetic types or others
+            }
+        };
+        setArgChoices({validate_and_convert(choices)...});
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
     }
 
     // finalize and get to runtime params
