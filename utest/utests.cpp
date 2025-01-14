@@ -317,7 +317,7 @@ MYTEST(VariadicOpt){
 MYTEST(ArgImplicitWithFunction){
     int val = 0;
     parser.addArgument<int>("-i")
-            .setCallable([&val]() {
+            .callable([&val]() {
                 return ++val;
             })
             .finalize();
@@ -329,7 +329,7 @@ MYTEST(ArgImplicitWithFunction){
 MYTEST(ArgSingleMandatoryParamWithFunction) {
     parser.addArgument<int>("-i")
             .parameters("int")
-            .setCallable([](auto i) {
+            .callable([](auto i) {
                 return int(std::strtol(i, nullptr, 0));
             })
             .finalize();
@@ -340,7 +340,7 @@ MYTEST(ArgSingleMandatoryParamWithFunction) {
 MYTEST(ArgSingleOptionalParamWithFunction) {
     parser.addArgument<int>("-i")
             .parameters("[int]")
-            .setCallable([](auto i) {
+            .callable([](auto i) {
                 if (i == nullptr) {
                     return 13;
                 }
@@ -354,7 +354,7 @@ MYTEST(ArgSingleOptionalParamWithFunction) {
 MYTEST(ArgSingleOptionalParamSpecialWithFunction) {
     parser.addArgument<int>("-i")
             .parameters("[int | float]")
-            .setCallable([](auto i) {
+            .callable([](auto i) {
                 if (i == nullptr) {
                     return 13;
                 }
@@ -367,7 +367,7 @@ MYTEST(ArgSingleOptionalParamSpecialWithFunction) {
 
 MYTEST(PosWithFunction) {
     parser.addPositional<int>("i")
-            .setCallable([](auto i) {
+            .callable([](auto i) {
                 return int(std::strtol(i, nullptr, 0));
             })
             .finalize();
@@ -379,7 +379,7 @@ MYTEST(VoidFunction){
     int i = 0;
     parser.addArgument<int>("-i")
             .parameters("int")
-            .setCallable([&i](auto i_str) {
+            .callable([&i](auto i_str) {
                 i = std::strtol(i_str, nullptr, 0);
             })
             .finalize();
@@ -420,7 +420,7 @@ MYTEST(ArgWithSingleOptionalParamWithFunctionProvided) {
     int val = 5;
     ASSERT_NO_THROW(parser.addArgument<int>("-i")
                             .parameters("[int]")
-                            .setCallable([&val](auto c) {
+                            .callable([&val](auto c) {
                                 if (c == nullptr) {
                                     return ++val;
                                 }
@@ -437,7 +437,7 @@ MYTEST(ArgWithSingleOptionalNArgWithFunctionProvided) {
     int val = 5;
     parser.addArgument<int>("-i")
             .nargs<0, 1>()
-            .setCallable([&val](auto c) {
+            .callable([&val](auto c) {
                 if (c == nullptr) {
                     return ++val;
                 }
@@ -467,10 +467,10 @@ MYTEST(ArgWithParamsAndVariadicPos){
 
     parser.addArgument<int>("-i")
             .parameters("mnd", "[arb]")
-            .setCallable(lmb)
+            .callable(lmb)
             .finalize();
     parser.addPositional<int>("pos")
-            .setCallable(pos_lmb)
+            .callable(pos_lmb)
             .nargs<1, -1>()
             .finalize();
     EXPECT_NO_THROW(CallParser({"-i", "67", "7", "3", "4", "5"}));
@@ -497,7 +497,7 @@ MYTEST(OptionalArgWithVariadicArg){
     };
     parser.addArgument<std::string>("-p")
             .parameters("[str_value]")
-            .setCallable(test).finalize();
+            .callable(test).finalize();
     parser.addArgument<int>("--variadic", "-var")
             .nargs<1, -1>()
             .finalize();
@@ -517,7 +517,7 @@ MYTEST(MeshedArgNameAndValue){
     };
     parser.addArgument<std::string>("-p")
             .parameters("[str_value]")
-            .setCallable(test).finalize();
+            .callable(test).finalize();
     parser.addArgument<int>("--variadic", "-var")
             .nargs<1, -1>()
             .finalize();
@@ -586,7 +586,7 @@ MYTEST(PosCallableWithSideArgs){
         return g + a_;
     };
     parser.addPositional<int>("pos")
-            .setCallable(parse_pos, 34)
+            .callable(parse_pos, 34)
             .finalize();
     CallParser({"6"});
     ASSERT_EQ(parser.getValue<int>("pos"), 40);
@@ -986,7 +986,7 @@ MYTEST(NargsPosWithFunction){
         return int(std::strtol(arg, nullptr, 0)) + 12;
     };
     parser.addPositional<int>("n")
-            .setCallable(func)
+            .callable(func)
             .nargs<1>()
             .finalize();
     CallParser({"543"});
@@ -998,7 +998,7 @@ MYTEST(NargsWithFunction){
         return int(std::strtol(arg, nullptr, 0)) + 12;
     };
     parser.addArgument<int>("-n")
-            .setCallable(func)
+            .callable(func)
             .nargs<1>()
             .finalize();
     CallParser({"-n", "543"});
@@ -1010,7 +1010,7 @@ MYTEST(NargsVarWithFunction){
         return int(std::strtol(arg, nullptr, 0)) + 12;
     };
     parser.addArgument<int>("-n")
-            .setCallable(func)
+            .callable(func)
             .nargs<0, -1>()
             .finalize();
     CallParser({"-n", "543", "12", "345"});
@@ -1024,7 +1024,7 @@ MYTEST(NargsWithFuncSideParams){
         return int(std::strtol(arg, nullptr, 0)) + s_par++;
     };
     parser.addArgument<int>("-n")
-            .setCallable(func, std::ref(side_par))
+            .callable(func, std::ref(side_par))
             .nargs<0, -1>()
             .finalize();
     CallParser({"-n", "543", "12", "345"});

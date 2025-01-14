@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
      *  which are arguments of any type, specified by the function's signature
      *
      *  Side arguments (if present) in function's signature should go BEFORE string arguments which are to be parsed by that function
-     *  Side arguments are specified in setCallable method after the function itself
+     *  Side arguments are specified in callable method after the function itself
      *
      *  NOTE: a function must have a return type corresponding to argument's type, and CANNOT BE VOID
      *
@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) {
     // (otherwise it won't compile anyway)
     parser.addArgument<std::string>("-p")
             .parameters("[str_value]")
-            .setCallable(test)
+            .callable(test)
             .help("string optional argument with optional value and function test (if set, returns result of test())")
             .finalize();
 
@@ -231,10 +231,10 @@ int main(int argc, char *argv[]) {
     // side arguments need to be placed before strings in function declaration:
     // func(int a, const char* b) is VALID,
     // func(const char*b, int a) is NOT VALID
-    // side arguments should be passed to setCallable after function as a parameter pack
+    // side arguments should be passed to callable after function as a parameter pack
     parser.addArgument<int>("v", "v_int")
             .parameters("vv")
-            .setCallable(tst, 5)
+            .callable(tst, 5)
             .help("mandatory arg with mandatory value and side argument 5 for function tst()")
             .finalize();
 
@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
     // and parse it with createStruct function
     parser.addArgument<CL>("struct")
             .parameters("bool", "[integer]")
-            .setCallable(createStruct)
+            .callable(createStruct)
             .required() // make argument required instead of mandatory
             .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()")
             .finalize();
@@ -253,7 +253,7 @@ int main(int argc, char *argv[]) {
     // and parse it with lambda expression
     parser.addArgument<std::vector<const char *>>("-a", "--array")
             .parameters("a1", "[a2]")
-            .setCallable([](auto a1, auto a2) {
+            .callable([](auto a1, auto a2) {
                 return std::vector<const char *>{a1, a2 == nullptr ? "null" : a2};
             })
             .help("optional argument with 2 string values (one optional) and lambda converter")

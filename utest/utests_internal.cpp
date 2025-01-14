@@ -177,7 +177,7 @@ MYTEST(helpCommonSingleParamArbitraryFlag) {
 MYTEST(helpCommonTwoParamFlag) {
     parser.addArgument<int>("-i")
             .parameters("int", "[int]")
-            .setCallable([](auto a, auto b) {
+            .callable([](auto a, auto b) {
                 return 0;
             })
             .finalize();

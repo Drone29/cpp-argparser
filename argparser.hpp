@@ -788,7 +788,7 @@ public:
 
     // add callable and side args (if any)
     template<typename Callable, typename... SideArgs>
-    auto setCallable(Callable && clbl, SideArgs ...sideArgs) {
+    auto callable(Callable && clbl, SideArgs ...sideArgs) {
         static_assert(CALLABLE_IDX == 0, "Callable already set");
         const size_t current_size = std::tuple_size_v<decltype(m_components)>;
         return addComponent<STR_PARAM_IDX,current_size,POSITIONAL>(

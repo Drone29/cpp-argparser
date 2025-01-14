@@ -83,7 +83,7 @@ It supports positional arguments, flags, and options, allowing for flexible and 
    // add int flag with multiple parameters and parsing function
    parser.addArgument<int>("-optional--with-multiple-params")
             .parameters("mandatory_param", "[optional_param]")
-            .setCallable([](auto mandatory_param, auto optional_param) {
+            .callable([](auto mandatory_param, auto optional_param) {
                 int result = argParser::scanValue<int>(mandatory_param);
                 if (optional_param){
                     result += argParser::scanValue<int>(optional_param);
@@ -415,7 +415,7 @@ it has `0 or 1 parameters` of `arithmetic` or `string` type:
 * `bool`, `int`, `float`, `double`, `unsigned int`, ... (arithmetic types)
 * `char*`, `const char*`, `std::string` (string types)
 
-Otherwise, a `parsing function` should be provided with `setCallable` method
+Otherwise, a `parsing function` should be provided with `callable` method
 
 **NOTE:** `nargs` does not add multiple parameters to an argument, it still counts as 1 parameter
     
@@ -432,7 +432,7 @@ std::string test(const char* a){
 // add parsing function test() to argument with optional parameter
 parser.addArgument<std::string>("-p")
         .parameters("[str_value]")
-        .setCallable(test)
+        .callable(test)
         .finalize();  
 ```
                 
@@ -451,7 +451,7 @@ Here are some constraints for parsing functions:
 * Parsing function should take as many `string parameters` (const char*) as there are `parameters` specified for argument (unless `nargs` are used, in that case it should have 1 string param)
 * Parsing function can also have `side parameters`. 
 They need to be placed before string parameters in the function declaration,
-and corresponding values should be fed to `setCallable` method:
+and corresponding values should be fed to `callable` method:
     
 ```c++
 // Function not valid, side parameters must be placed before string params
@@ -468,7 +468,7 @@ int valid_func(int a, const char* a1){
 int x = 5;
 parser.addArgument<int>("v", "v_int")
         .parameters("vv")
-        .setCallable(valid_func, x)
+        .callable(valid_func, x)
         .finalize()
         .help("mandatory arg with mandatory value and side argument x for function tst()");
 ```
@@ -495,7 +495,7 @@ CL createStruct(const char *bl, const char *itgr = nullptr){
 // specify parsing function for custom type
 parser.addArgument<CL>("struct")
         .parameters("bool", "[integer]")
-        .setCallable(createStruct)
+        .callable(createStruct)
         .finalize()
         .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()");
 ```
@@ -505,7 +505,7 @@ Lambdas can be used as parsing functions as well:
 ```c++
 parser.addArgument<std::vector<const char*>>("-a", "--array")
             .parameters("a1", "[a2]")
-            .setCallable([](auto a1, auto a2){
+            .callable([](auto a1, auto a2){
                 return std::vector<const char*>{a1, a2==nullptr?"null":a2};
             })
             .finalize()
@@ -574,7 +574,7 @@ Obtaining value with capturing lambda:
 int j = 0;
 // add int argument with capturing lambda
 parser.addArgument<int>("-j")
-            .setCallable([&j](){j++;})
+            .callable([&j](){j++;})
             .finalize()
             .help("int optional argument with implicit value");
 // parse arguments
@@ -653,10 +653,9 @@ with aliases
 * `addCommand("name", "description")` - adds a child parser with a name and description.  
 Returns a reference to the child parser
 * `parameters("params",...)` - adds string parameters to an argument (not applicable to positionals)
-* `setCallable(callable, side_args,...)` - adds callable (function, lambda, etc) along with its side arguments
+* `callable(callable, side_args,...)` - adds callable (function, lambda, etc) along with its side arguments
 * `nargs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
 * `finalize()` - finalizes argument definition. An argument is not considered defined until this method is called
-* `finalizeWithHelp("help message")` - finalizes argument definition and adds help message. A shortcut for finalize().help()
 * `getValue<T>("name or alias")` - returns parsed value of type T of the argument
 * `scanValue<T>("string value")` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values.
