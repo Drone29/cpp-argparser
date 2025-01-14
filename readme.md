@@ -15,6 +15,7 @@ It supports positional arguments, flags, and options, allowing for flexible and 
   * [Required arguments](#required-arguments)
   * [Aliases](#aliases)
   * [Parameters](#parameters)
+  * [Implicit arguments](#implicit-arguments)
   * [nargs](#nargs)
   * [Parsing function](#parsing-function)
   * [Parsing logic](#parsing-logic)
@@ -51,7 +52,7 @@ It supports positional arguments, flags, and options, allowing for flexible and 
         // Without parameters
         argParser parser;
         // Optional, specify program name and description
-        argParser parser("program name", "this program does some useful stuff");
+        argParser parser("program_name", "this program does some useful stuff");
    }
    ```
 3. Add arguments to parse
@@ -107,7 +108,7 @@ argParser generates help message automatically if invoked with `--help` or `-h` 
    ```text
    >./app -h
    this program does some useful stuff
-   Usage: program name [flags...] parameters... positional
+   Usage: program_name [flags...] parameters... positional
    Positional arguments:
        positional : positional argument
    Flags (optional):
@@ -232,7 +233,7 @@ Here is a `--bool` argument with `-b` alias:
 ```c++
 parser.addArgument<bool>("-b", "--bool")
           .finalize()
-          .help("specifying name and alias in a single string");
+          .help("implicit bool flag with alias");
 ```
 
 The last string in the list is considered argument's name,
@@ -257,20 +258,50 @@ Parameters can also be `mandatory` or `optional`
 `optional` parameters should be enclosed in `[]` and must not precede mandatory parameters
 
 ```c++
-parser.addArgument<const char*>("-s", "--str")
+parser.addArgument<const char*>("-s")
           .setParameters("str_value")
           .finalize()
-          .help("string optional argument with mandatory parameter"); 
+          .help("string optional argument with mandatory parameter str_value"); 
 parser.addArgument<const char*>("-p")
           .setParameters("[str_value]")
           .finalize()
-          .help("string optional argument with optional parameter");  
+          .help("string optional argument with optional parameter str_value");  
 ```
 
-If an argument has no parameters (`implicit`), and is of arithmetic type (bool, int, float,...),
-its value is `incremented` each time a user specifies it.
+### Implicit arguments
 
-Arguments can also be made `repeatable`, which allows them to be set more than once:
+If an argument has no parameters, it's called `implicit`.
+
+If an `implicit` argument is of arithmetic type (bool, int, float,...), its value is `incremented` each time a user specifies it:
+
+```c++
+parser.addArgument<bool>("-b")
+          .finalize()
+          .repeatable()
+          .help("implicit bool flag");    
+parser.addArgument<int>("-i")
+          .finalize()
+          .defaultValue(4) //set default value to 4
+          .repeatable()
+          .help("implicit bool flag"); 
+                
+> ./app -b    - Will set the -b flag to true
+> ./app -i    - Will increment the -i flag, resulting in 5
+```
+
+**NOTE:** arguments with single optional parameters are also considered `implicit` in case the parameter is not set:
+```c++
+parser.addArgument<int>("-i")
+          .setParameters("[int]") //single optional parameter
+          .finalize()
+          .help("int argument with single optional parameter");
+
+> ./app -i 10    - Will explicitly set the -i flag to 10
+> ./app -i       - Will increment the -i flag, resulting in 1
+```
+
+Arguments can also be made `repeatable`, which allows them to be set more than once  
+(This is applicable not only to implicit arguments):
 
 ```c++
 parser.addArgument<int>("-j")
@@ -278,60 +309,29 @@ parser.addArgument<int>("-j")
           .repeatable()
           .help("int optional repeatable argument (implicit)");    
                 
-> ./app -jjj    - Repeatable argument, increments 3 times  
+> ./app -jjj    - Repeatable implicit argument, increments 3 times, resulting in 3 
 ```
-                              
-If an argument can have several or an arbitrary number of identical parameters,  
-this can be achieved with `nargs`:
-
-```c++
-parser.addArgument<int>("--variadic", "-var")
-                .nargs<3>() // takes 3 mandatory integers
-                .finalize() 
-                .help("parses 3 integers. Result is std::vector<int>");
-                
-> ./app -var 123 321 12     - stores 3 numbers as a vector
-```
-
-And here's an example of a `variadic` argument (can take any number of parameters):
-
-```c++
-parser.addArgument<int>("--variadic", "-var")
-                .nargs<0,-1>() // takes any number of integer parameters
-                .finalize() 
-                .help("parses any number of integers. Result is std::vector<int>");
-                
-> ./app -var 123 321 12     - stores 3 numbers as a vector
-> ./app -var 123            - stores 1 number as a vector
-```
-
-The return type of variadic argument changes to `std::vector<argument_type>`
-
-**NOTE:** `nargs<1>` or `nargs<0,1>` will not change the return type to `vector`
-
-Positional arguments can be variadic too:
-
-```c++
-parser.addPositional<int>("var_pos") 
-                .nargs<0,-1>() // make argument variadic
-                .finalize() 
-                .help("Variadic pos argument of type int");
-                
-> ./app 1 2 3 4 5       - stores 5 numbers as a vector  
-```
-
-For more, refer to [nargs](#nargs) section
                         
 ### nargs
 
-Apart from `setParameters` method, an `Nargs` method can be used
+Apart from `setParameters()` method, an `nargs()` method can be used to specify the number of parameters an argument can have
 
-nargs() takes 2 template parameters:
+It's useful if an argument can have several or an arbitrary number of identical parameters:
+```c++
+parser.addArgument<int>("-var")
+                .nargs<3>() // takes 3 mandatory integers
+                .finalize() 
+                .help("parses 3 integers. Result is std::vector<int>");
+
+> ./app -var 1 2 3       - stores 3 numbers as a vector
+> ./app -var 1 2         - ERROR: not enough parameters
+```
+
+`nargs()` takes 2 template parameters:
 - Number of mandatory parameters
 - Total number of parameters (ignored if less than the first one)
 
 So, for example the call `nargs<1,3>` will add 1 mandatory and 2 optional parameters to an argument
-
 ```c++
 parser.addArgument<int>("-i")
                 .nargs<1, 3>() // add 1 mandatory and 2 optional parameters
@@ -341,11 +341,10 @@ parser.addArgument<int>("-i")
 > ./app -i 1 2 3       - stores 3 numbers as a vector    
 > ./app -i 1 2         - stores 2 numbers as a vector 
 > ./app -i 1           - stores 1 numbers as a vector
-> ./app -i 1 2 3 4     - ERROR: only 3 values allowed, provided 4    
+> ./app -i 1 2 3 4     - ERROR: only 3 values allowed, provided 4
 ```
 
 `nargs<3,1>` will simply add 3 mandatory parameters, ignoring the value 1 as it's less than 3
-
 ```c++
 parser.addArgument<int>("-i")
                 .nargs<3, 1>() // add 3 mandatory parameters
@@ -354,8 +353,51 @@ parser.addArgument<int>("-i")
 
 > ./app -i 1 2 3       - stores 3 numbers as a vector    
 > ./app -i 1 2         - ERROR: not enough parameters
-> ./app -i 1           - ERROR: not enough parameters
 > ./app -i 1 2 3 4     - ERROR: only 3 values allowed, provided 4
+```
+
+The second parameter in `nargs` can be -1 (or any value less than 0), thus making the argument `variadic`
+
+A `variadic` argument can take any number of parameters:
+```c++
+parser.addArgument<int>("-var")
+                .nargs<0,-1>() // takes any number of integer parameters
+                .finalize() 
+                .help("parses any number of integers. Result is std::vector<int>");
+                
+> ./app -var 123 321 12     - stores 3 numbers as a vector
+> ./app -var 123            - stores 1 number in a vector
+```
+
+Positional arguments can be variadic too:
+```c++
+parser.addPositional<int>("var_pos") 
+                .nargs<0,-1>() // make argument variadic
+                .finalize() 
+                .help("Variadic pos argument of type int");
+                
+> ./app 1 2 3 4 5       - stores 5 numbers as a vector  
+```
+
+**NOTE:** `nargs()` cannot have both parameters set to 0, this will result in a compilation error
+
+The return type of the argument with nargs changes to `std::vector<argument_type>`:
+```c++
+parser.addArgument<int>("-var")
+                .nargs<3>() ...
+
+> ./app -var 123 321 12     - stores 3 numbers as a vector
+
+// obtain parsed value as a vector
+auto var = parser.getValue<std::vector<int>>("-var");
+```
+
+**NOTE:** `nargs<1>` or `nargs<0,1>` will not change the return type to `vector`, but will act as a single parameter:
+```c++
+parser.addArgument<int>("-var")
+                .nargs<1>() ...
+// argument's type is not changed to vector                        
+auto var = parser.getValue<int>("-var");               
 ```
 
 `setParameters()` can be called before `nargs()`, but you can only specify ONE parameter there.  
@@ -364,11 +406,7 @@ Passing more than 1 parameter to `setParameters()` followed by `nargs()`, will r
 
 **NOTE:** Calling `setParameters("[optional]")` along with `nargs()` will throw an exception
 
-If setParameters() were not called before nargs(), a default name is provided for parameter (capitalized argument's key)
-
-The second parameter in `nargs` can be -1 (or any value less than 0), thus making the argument variadic
-
-**NOTE:** `nargs` cannot have both parameters set to 0, this will result in a compilation error
+If `setParameters()` was not called before `nargs()`, a default name is provided for parameter (capitalized argument's key)
       
 ### Parsing function
                                                             
