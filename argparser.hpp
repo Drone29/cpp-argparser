@@ -648,6 +648,8 @@ class ArgBuilderBase {
 private:
     bool m_is_variadic = false;
     int m_nargs_size = 0;
+    std::any m_default_val;
+    std::any m_global_ptr;
 protected:
     std::function<Argument&(std::unique_ptr<Argument> &&)> m_callback;
     std::unique_ptr<Argument> m_arg;
@@ -686,6 +688,13 @@ protected:
     void makeArgRepeatable(){
         m_arg->m_repeatable = true;
     }
+    void setArgDefaultValue(std::any &&val, bool hide_in_help){
+        m_default_val = std::move(val);
+        m_arg->m_show_default = !hide_in_help;
+    }
+    void setArgGlobPtr(std::any &&ptr){
+        m_global_ptr = std::move(ptr);
+    }
 
     Argument &createArg(ArgHandleBase *handle) {
         bool flag = m_arg->m_name.front() == '-';
@@ -696,9 +705,12 @@ protected:
             throw std::invalid_argument(std::string(__func__) + ": " + m_arg->m_name + " should have at least 1 mandatory parameter");
         }
 
-        if (m_is_variadic) {
+        if (m_is_variadic)
             handle->make_variadic();
-        }
+        if (m_default_val.has_value())
+            handle->set_value(m_default_val);
+        if (m_global_ptr.has_value())
+            handle->set_global_ptr(m_global_ptr);
         handle->set_nargs(m_nargs_size);
         m_arg->m_arg_handle = handle;
         m_arg->m_optional = flag;
@@ -883,12 +895,31 @@ public:
     auto hidden() {
         static_assert(!POSITIONAL && OPTIONAL, "Only optional non-positional args can be hidden");
         makeArgHidden();
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,true>();
     }
 
     auto repeatable() {
         static_assert(!POSITIONAL && !VARIADIC, "Only non-positional non-variadic args can be repeatable");
         makeArgRepeatable();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+    }
+
+    template<typename T>
+    auto defaultValue(T &&default_val, bool hide_in_help = false) {
+        auto val = std::get<0>(m_components);
+        using VType = decltype(val);
+        static_assert(std::is_same_v<VType, T>, "Default value type mismatch");
+        static_assert(OPTIONAL && !POSITIONAL && !VARIADIC, "Default value can be set only for optional non-positional non-variadic args");
+        setArgDefaultValue(std::forward<T>(default_val), hide_in_help);
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+    }
+
+    template<typename T>
+    auto globalPtr(T *glob_ptr) {
+        auto val = std::get<0>(m_components);
+        using VType = decltype(val);
+        static_assert(std::is_same_v<VType, T>, "Pointer type mismatch");
+        setArgGlobPtr(glob_ptr);
         return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
     }
 
