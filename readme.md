@@ -289,7 +289,7 @@ parser.addArgument<int>("-i")
 > ./app -i    - Will increment the -i flag, resulting in 5
 ```
 
-**NOTE:** arguments with single optional parameters are also considered `implicit` in case the parameter is not set:
+**NOTE:** arguments with single optional parameter are also considered `implicit` in case the parameter is not set:
 ```c++
 parser.addArgument<int>("-i")
           .setParameters("[int]") //single optional parameter
