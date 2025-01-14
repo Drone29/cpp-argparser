@@ -722,6 +722,8 @@ protected:
             handle->set_value(m_default_val);
         if (m_global_ptr.has_value())
             handle->set_global_ptr(m_global_ptr);
+        if (!m_choices.empty())
+            handle->set_choices(std::move(m_choices));
         handle->set_nargs(m_nargs_size);
         m_arg->m_arg_handle = handle;
         m_arg->m_optional = flag;
