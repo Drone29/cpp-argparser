@@ -137,8 +137,8 @@ MYTEST(helpEmpty) {
 
 MYTEST(helpCommonImplicitFlagWithHelp) {
     parser.addArgument<int>("-i")
-            .finalize()
-            .help("help message for -i");
+            .help("help message for -i")
+            .finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
@@ -307,8 +307,8 @@ MYTEST(helpCommonNargPureVariadicPositional){
 
 MYTEST(helpCommonPositionalWithChoices){
     parser.addPositional<int>("pos")
-            .finalize()
-            .choices(1, 2, 3);
+            .choices(1, 2, 3)
+            .finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
@@ -319,8 +319,8 @@ MYTEST(helpCommonPositionalWithChoices){
 MYTEST(helpCommonVariadicPositionalWithChoices){
     parser.addPositional<int>("pos")
             .nargs<0,-1>()
-            .finalize()
-            .choices(1, 2, 3);
+            .choices(1, 2, 3)
+            .finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
@@ -330,8 +330,8 @@ MYTEST(helpCommonVariadicPositionalWithChoices){
 
 MYTEST(helpRepeatable) {
     parser.addArgument<int>("-i")
-            .finalize()
-            .repeatable();
+            .repeatable()
+            .finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
@@ -340,8 +340,8 @@ MYTEST(helpRepeatable) {
 
 MYTEST(helpDefault) {
     parser.addArgument<int>("-i")
-            .finalize()
-            .defaultValue(5);
+            .defaultValue(5)
+            .finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
@@ -350,9 +350,9 @@ MYTEST(helpDefault) {
 
 MYTEST(helpForParam) {
     parser.addArgument<int>("-i")
-            .finalize()
             .help("help message")
-            .advancedHelp("advanced help message");
+            .advancedHelp("advanced help message")
+            .finalize();
     parser.printHelpForParamTest("-i");
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 2);

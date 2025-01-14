@@ -214,8 +214,8 @@ MYTEST(GlobalPtr){
     int i;
     parser.addArgument<int>("-i")
             .setParameters("int")
-            .finalize()
-            .globalPtr(&i);
+            .globalPtr(&i)
+            .finalize();
     CallParser({"-i", "345"});
     auto res = parser.getValue<int>("-i");
     ASSERT_EQ(res, 345);
@@ -240,33 +240,33 @@ MYTEST(AdjacentKeyValue){
 
 MYTEST(IncrementImplicit) {
     parser.addArgument<int>("-i")
-            .finalize()
-            .defaultValue(5);
+            .defaultValue(5)
+            .finalize();
     CallParser({"-i"});
     ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should increment implicit arithmetic type";
 }
 
 MYTEST(IncrementImplicitBool) {
     parser.addArgument<bool>("-b")
-            .finalize()
-            .defaultValue(false);
+            .defaultValue(false)
+            .finalize();
     CallParser({"-b"});
     ASSERT_TRUE(parser.getValue<bool>("-b")) << "Should set implicit bool to true";
 }
 
 MYTEST(ImplicitBoolRepeated) {
     parser.addArgument<bool>("-b")
-            .finalize()
             .defaultValue(false)
-            .repeatable();
+            .repeatable()
+            .finalize();
     CallParser({"-b", "-b"});
     ASSERT_FALSE(parser.getValue<bool>("-b")) << "Should 'increment' boolean twice, thus setting it to false";
 }
 
 MYTEST(ImplicitFloat) {
     parser.addArgument<float>("-f")
-            .finalize()
-            .defaultValue(1.35f);
+            .defaultValue(1.35f)
+            .finalize();
     CallParser({"-f"});
     ASSERT_EQ(parser.getValue<float>("-f"), 2.35f) << "Should 'increment' float, increasing it by 1";
 }
@@ -275,10 +275,10 @@ MYTEST(RepeatableShortArgIncrement){
     // add repeatable arg with global ptr, starting at 3
     int i_val;
     parser.addArgument<int>("-i", "--int")
-            .finalize()
             .defaultValue(3)
             .globalPtr(&i_val)
-            .repeatable();
+            .repeatable()
+            .finalize();
     EXPECT_NO_THROW(CallParser({"-i", "-i", "-iii"}));
     ASSERT_EQ(i_val, 8) << "i repeats 5 times starting at 3, so result should be 8";            
 }
@@ -287,8 +287,8 @@ MYTEST(SimilarKeyAsValueEq){
     std::string res;
     parser.addArgument<std::string>("--str")
             .setParameters("str_val")
-            .finalize()
-            .globalPtr(&res);
+            .globalPtr(&res)
+            .finalize();
     EXPECT_NO_THROW(CallParser({"--str=--str"}));
     ASSERT_EQ(res, "--str") << "Should parse '--str' after '=' as value";            
 }
@@ -297,8 +297,8 @@ MYTEST(SimilarKeyAsValueAdjacent){
     std::string res;
     parser.addArgument<std::string>("-s")
             .setParameters("str_val")
-            .finalize()
-            .globalPtr(&res);
+            .globalPtr(&res)
+            .finalize();
     EXPECT_NO_THROW(CallParser({"-s-sss"}));
     ASSERT_EQ(res, "-sss") << "Should parse '-sss' after '-s' as value";
 }
@@ -398,8 +398,8 @@ MYTEST(PureVariadicPos) {
 MYTEST(ArgWithSingleOptionalParamFunctionNotProvided) {
     ASSERT_NO_THROW(parser.addArgument<int>("-i")
                             .setParameters("[int]")
-                            .finalize()
-                            .defaultValue(5));
+                            .defaultValue(5).finalize());
+
     CallParser({"-i"});
     ASSERT_TRUE(parser["-i"].isSet());
     ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
@@ -408,8 +408,8 @@ MYTEST(ArgWithSingleOptionalParamFunctionNotProvided) {
 MYTEST(ArgWithSingleOptionalNArgFunctionNotProvided) {
     parser.addArgument<int>("-i")
             .nargs<0, 1>()
-            .finalize()
-            .defaultValue(5);
+            .defaultValue(5)
+            .finalize();
     CallParser({"-i"});
     ASSERT_TRUE(parser["-i"].isSet());
     ASSERT_EQ(parser.getValue<int>("-i"), 6) << "Should treat as implicit if optional param not provided";
@@ -593,64 +593,64 @@ MYTEST(PosCallableWithSideArgs){
 
 // Choices
 MYTEST(ChoicesInvalid){
-    parser.addArgument<int>("--choices").setParameters("int").finalize()
-                .choices(0,1,2,3);
+    parser.addArgument<int>("--choices").setParameters("int")
+                .choices(0,1,2,3).finalize();
     EXPECT_THROW(CallParser({"--choices=4"}), argParser::unparsed_param) << "Should throw if not a valid choice";            
 }
 
 MYTEST(ChoicesThrow){
-    EXPECT_THROW(parser.addArgument<const char *>("--choices").setParameters("str").finalize()
-                    .choices("1","2","3","4"),
+    EXPECT_THROW(parser.addArgument<const char *>("--choices").setParameters("str")
+                    .choices("1","2","3","4").finalize(),
                     std::logic_error) << "Should throw if not arithmetic or not std::string";
 }
 
 MYTEST(ChoicesInt){
-    parser.addArgument<int>("--choices").setParameters("int").finalize()
-            .choices(0,1,2,3);
+    parser.addArgument<int>("--choices").setParameters("int")
+            .choices(0,1,2,3).finalize();
     EXPECT_NO_THROW(CallParser({"--choices=3"})) << "Should not throw if valid choice";
     EXPECT_EQ(parser.getValue<int>("--choices"), 3);
 }
 
 MYTEST(ChoicesFloat){
-    parser.addArgument<float>("--choices").setParameters("float").finalize()
-                .choices(0.12f, 0.15f, 1.14f);
+    parser.addArgument<float>("--choices").setParameters("float")
+                .choices(0.12f, 0.15f, 1.14f).finalize();
     EXPECT_NO_THROW(CallParser({"--choices=0.15"}));
     EXPECT_EQ(parser.getValue<float>("--choices"), 0.15f);
 }
 
 MYTEST(ChoicesChar){
-    parser.addArgument<char>("--choices").setParameters("char").finalize()
-                .choices('a', 'b', 'c');
+    parser.addArgument<char>("--choices").setParameters("char")
+                .choices('a', 'b', 'c').finalize();
     EXPECT_NO_THROW(CallParser({"--choices=b"}));
     EXPECT_EQ(parser.getValue<char>("--choices"), 'b');
 }
 
 MYTEST(ChoicesString){
     using namespace std::string_literals;
-    parser.addArgument<std::string>("--choices").setParameters("int").finalize()
-                .choices("abc"s, "def"s, "ghi"s);
+    parser.addArgument<std::string>("--choices").setParameters("int")
+                .choices("abc"s, "def"s, "ghi"s).finalize();
     EXPECT_NO_THROW(CallParser({"--choices=def"}));
     EXPECT_EQ(parser.getValue<std::string>("--choices"), "def"s);
 }
 
 MYTEST(ChoicesStringConversion){
     using namespace std::string_literals;
-    EXPECT_NO_THROW(parser.addArgument<std::string>("--choices").setParameters("int").finalize()
-            .choices("abc", "def", "ghi")) << "Should convert const char* to std::string";
+    EXPECT_NO_THROW(parser.addArgument<std::string>("--choices").setParameters("int")
+            .choices("abc", "def", "ghi").finalize()) << "Should convert const char* to std::string";
     EXPECT_NO_THROW(CallParser({"--choices=def"}));
     EXPECT_EQ(parser.getValue<std::string>("--choices"), "def"s);
 }
 
 MYTEST(ChoicesNull){
-    EXPECT_THROW(parser.addArgument<std::string>("--choices").setParameters("char").finalize()
-            .choices(nullptr, nullptr, nullptr), std::logic_error);
+    EXPECT_THROW(parser.addArgument<std::string>("--choices").setParameters("char")
+            .choices(nullptr, nullptr, nullptr).finalize(), std::logic_error);
 }
 
 MYTEST(ChoicesVarPos){
     parser.addPositional<int>("ch_pos")
             .nargs<1, -1>()
-            .finalize()
-            .choices(0,1,2,3);
+            .choices(0,1,2,3)
+            .finalize();
     CallParser({"2", "3", "0", "1"});
     bool check = parser.getValue<std::vector<int>>("ch_pos") == std::vector<int>{2,3,0,1};
     ASSERT_TRUE(check) << "Variadic choices should be allowed"; 
@@ -659,8 +659,8 @@ MYTEST(ChoicesVarPos){
 MYTEST(ChoicesSingleNArgs){
     parser.addPositional<int>("ch_pos")
             .nargs<1>()
-            .finalize()
-            .choices(0,1,2,3);
+            .choices(0,1,2,3)
+            .finalize();
     CallParser({"3"});
     ASSERT_EQ(parser.getValue<int>("ch_pos"), 3) << "Should parse single narg with allowed choice";           
 }
@@ -668,8 +668,8 @@ MYTEST(ChoicesSingleNArgs){
 MYTEST(ChoicesVarPosThrow){
     parser.addPositional<int>("ch_pos")
             .nargs<1, -1>()
-            .finalize()
-            .choices(0,1,2,3);
+            .choices(0,1,2,3)
+            .finalize();
     EXPECT_THROW(CallParser({"2", "3", "4", "1"}), argParser::unparsed_param) << "Should throw error if unknown value is found";                
 }
 
@@ -825,8 +825,8 @@ MYTEST(NargsOptionalOnly){
 MYTEST(NargsChoices){
     parser.addArgument<int>("--arg")
             .nargs<3>()
-            .finalize()
-            .choices(2,3,4);
+            .choices(2,3,4)
+            .finalize();
     EXPECT_THROW(CallParser({"--arg", "1", "2", "3"}), argParser::unparsed_param) << "Should check choices for nargs as well";             
 }
 
@@ -928,8 +928,8 @@ MYTEST(NargsPureVariadicPosWithZero){
 MYTEST(NargsPureVariadicChoices){
     parser.addArgument<int>("--arg")
             .nargs<0, -1>()
-            .finalize()
-            .choices(2,3,4);
+            .choices(2,3,4)
+            .finalize();
     CallParser({"--arg", "2", "2", "3"});
     bool check = parser.getValue<std::vector<int>>("--arg") == std::vector<int>{2,2,3};            
     ASSERT_TRUE(check);
@@ -938,8 +938,8 @@ MYTEST(NargsPureVariadicChoices){
 MYTEST(NargsPureVariadicChoicesInvalid){
     parser.addArgument<int>("--arg")
             .nargs<0, -1>()
-            .finalize()
-            .choices(2,3,4);
+            .choices(2,3,4)
+            .finalize();
     EXPECT_THROW(CallParser({"--arg", "1", "2", "3"}), argParser::unparsed_param);                
 }
 
@@ -1028,8 +1028,9 @@ MYTEST(NargsForMandatoryArgWithParam){
 
 MYTEST(ChildParser){
     auto &child = parser.addCommand("child", "child parser");
-    child.addArgument<int>("--int").finalize()
-            .defaultValue(36);
+    child.addArgument<int>("--int")
+            .defaultValue(36)
+            .finalize();
     CallParser({"child", "--int"});
     ASSERT_EQ(child.getValue<int>("--int"), 37);
 }

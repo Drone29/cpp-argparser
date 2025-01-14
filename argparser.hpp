@@ -471,88 +471,6 @@ private:
 
 struct Argument{
 
-    Argument &help(std::string hlp){
-        m_help = std::move(hlp);
-        return *this;
-    }
-    Argument &advancedHelp(std::string hlp){
-        m_advanced_help = std::move(hlp);
-        return *this;
-    }
-    /// positional, mandatory options cannot be hidden
-    /// NOTE: if hidden AND required, use carefully
-    /// DO NOT make ALL required args hidden!!!
-    Argument &hidden(){
-        if(!m_positional && m_optional)
-            m_hidden = true;
-        return *this;
-    }
-    Argument &repeatable(){
-        if(!m_positional && !isVariadic())
-            m_repeatable = true;
-        return *this;
-    }
-    Argument &defaultValue(std::any val, bool hide_in_help = false){
-        try{
-            if(m_optional && !m_positional && !isVariadic()){
-                m_arg_handle->set_value(val);
-                m_show_default = !hide_in_help;
-            }
-        }catch(std::invalid_argument &e){
-            throw std::logic_error(std::string(__func__) + "(" + m_type_str + "): error: " + e.what());
-        }
-        return *this;
-    }
-    Argument &globalPtr(std::any ptr){
-        try {
-            m_arg_handle->set_global_ptr(ptr);
-        }catch(std::invalid_argument &e){
-            throw std::logic_error(std::string(__func__) + "(" + m_type_str + "): error: " + e.what());
-        }
-        return *this;
-    }
-    ///display as mandatory in help
-    ///user should specify all of mandatory options
-    Argument &mandatory(){
-        /// hidden cannot be mandatory
-        if(m_optional && !m_positional && !m_hidden)
-            m_optional = false;
-        return *this;
-    }
-    ///only for optional arguments
-    ///user should specify at least one required option
-    Argument &required(){
-        /// positional cannot be required
-        if(!m_positional){
-            m_required = true;
-            /// if mandatory option forced to be required, set flag to optional
-            m_optional = true;
-        }
-        return *this;
-    }
-    /// choices
-    template<typename... Choices>
-    Argument &choices(Choices ...choices){
-        static_assert(((std::is_arithmetic_v<Choices> || std::is_convertible_v<Choices, std::string>) && ...),
-                "Choices should be either arithmetic or strings");
-        static_assert(parser_internal::areSameType<Choices...>::value,
-                "Choices should be of the same type");
-        auto validate_and_convert = [](auto &&choice) -> std::any {
-            using T = decltype(choice);
-            if constexpr (std::is_convertible_v<T, std::string>) {
-                return std::string(std::forward<T>(choice)); // Convert strings
-            } else {
-                return std::forward<T>(choice); // Arithmetic types or others
-            }
-        };
-        try{
-            m_arg_handle->set_choices({validate_and_convert(choices)...});
-        }catch(std::invalid_argument &e){
-            throw std::logic_error(std::string(__func__) + "(" + m_type_str + "): error: " + e.what());
-        }
-        return *this;
-    }
-
     [[nodiscard]] bool isSet() const{
         return m_set;
     }
@@ -663,6 +581,8 @@ protected:
         m_arg.reset(new Argument(key));
         m_arg->m_positional = is_positional;
         m_arg->m_aliases = std::move(aliases);
+        m_arg->m_optional = key.front() == '-';
+        m_arg->m_starts_with_minus = m_arg->m_optional;
     }
 
     void setArgOpts(std::vector<std::string> &&opts, int mandatory_opts){
@@ -684,35 +604,41 @@ protected:
         m_arg->m_advanced_help = adv_help;
     }
     void makeArgHidden(){
-        m_arg->m_hidden = true;
+        if(!m_arg->m_positional && m_arg->m_optional)
+            m_arg->m_hidden = true;
     }
     void makeArgRepeatable(){
-        m_arg->m_repeatable = true;
+        if(!m_arg->m_positional && !m_is_variadic)
+            m_arg->m_repeatable = true;
     }
     void setArgDefaultValue(std::any &&val, bool hide_in_help){
-        m_default_val = std::move(val);
-        m_arg->m_show_default = !hide_in_help;
+        if(m_arg->m_optional && !m_arg->m_positional && !m_is_variadic) {
+            m_default_val = std::move(val);
+            m_arg->m_show_default = !hide_in_help;
+        }
     }
     void setArgGlobPtr(std::any &&ptr){
         m_global_ptr = std::move(ptr);
     }
     void makeArgMandatory(){
-        m_arg->m_optional = false;
+        if(m_arg->m_optional && !m_arg->m_positional && !m_arg->m_hidden)
+            m_arg->m_optional = false;
     }
     void makeArgRequired(){
-        m_arg->m_required = true;
-        m_arg->m_optional = true;
+        if(!m_arg->m_positional) {
+            m_arg->m_required = true;
+            m_arg->m_optional = true;
+        }
     }
     void setArgChoices(std::vector<std::any> &&choices){
         m_choices = std::move(choices);
     }
 
     Argument &createArg(ArgHandleBase *handle) {
-        bool flag = m_arg->m_name.front() == '-';
-        bool starts_with_minus = flag;
+
         bool is_implicit = m_arg->m_options.empty();
 
-        if(!m_arg->m_mandatory_options && !m_arg->m_positional && !flag){
+        if(!m_arg->m_mandatory_options && !m_arg->m_positional && !m_arg->m_optional){
             throw std::invalid_argument(std::string(__func__) + ": " + m_arg->m_name + " should have at least 1 mandatory parameter");
         }
 
@@ -726,9 +652,7 @@ protected:
             handle->set_choices(std::move(m_choices));
         handle->set_nargs(m_nargs_size);
         m_arg->m_arg_handle = handle;
-        m_arg->m_optional = flag;
         m_arg->m_implicit = is_implicit;
-        m_arg->m_starts_with_minus = starts_with_minus;
 
         return m_callback(std::move(m_arg));
     }
@@ -749,10 +673,6 @@ template<
         size_t STR_PARAM_IDX,
         size_t CALLABLE_IDX,
         bool POSITIONAL,
-        bool OPTIONAL,
-        bool REQUIRED,
-        bool VARIADIC,
-        bool HIDDEN,
         typename... Types
         >
 class ArgBuilder : public ArgBuilderBase {
@@ -761,17 +681,17 @@ protected:
     std::tuple<Types...> m_components;
 
     // add new component
-    template<size_t FIRST_IDX, size_t SECOND_IDX, bool POS, bool OPT, bool REQ, bool VAR, bool HID, typename NewType>
+    template<size_t FIRST_IDX, size_t SECOND_IDX, bool POS, typename NewType>
     auto addComponent(NewType &&newComponent) {
-        return ArgBuilder<FIRST_IDX, SECOND_IDX, POS, OPT, REQ, VAR, HID, Types..., NewType>(
+        return ArgBuilder<FIRST_IDX, SECOND_IDX, POS, Types..., NewType>(
                 this, // pass current obj pointer further to create a new object with already existing data
                 std::tuple_cat(std::move(m_components), std::make_tuple(std::forward<NewType>(newComponent))
                 ));
     }
     // just forward existing state further
-    template<size_t FIRST_IDX, size_t SECOND_IDX, bool POS, bool OPT, bool REQ, bool VAR, bool HID>
+    template<size_t FIRST_IDX, size_t SECOND_IDX, bool POS>
     auto forwardComponents() {
-        return ArgBuilder<FIRST_IDX, SECOND_IDX, POS, OPT, REQ, VAR, HID, Types...>(
+        return ArgBuilder<FIRST_IDX, SECOND_IDX, POS, Types...>(
                 this,
                 std::move(m_components)
                 );
@@ -828,7 +748,7 @@ public:
         std::vector<std::string> opts = {checkOpts(strArgs)...};
         setArgOpts(std::move(opts), mandatory_opts);
 
-        return addComponent<current_size,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>(std::make_tuple(strArgs...));
+        return addComponent<current_size,CALLABLE_IDX,POSITIONAL>(std::make_tuple(strArgs...));
     }
 
     // set NArgs
@@ -836,9 +756,8 @@ public:
     auto nargs() {
         static_assert(FRO != 0 || TO != 0, "nargs cannot be zero!");
         std::string narg_name;
-        // handle variadic
-        const bool is_variadic = TO < 0;
-        auto prepareNargs = [this, &narg_name, &is_variadic](){
+        auto prepareNargs = [this, &narg_name](){
+            const bool is_variadic = TO < 0;
             int max_size = TO > int(FRO) ? TO : int(FRO);
             auto opts = std::vector<std::string>(max_size, narg_name);
             for(int i = int(FRO); i < TO; ++i) {
@@ -860,7 +779,7 @@ public:
             narg_name = param_name;
             static_assert(str_params_size < 2, "Nargs only applicable to args with 0 or 1 parameters");
             prepareNargs();
-            return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,is_variadic,HIDDEN>();
+            return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
         } else {
             // provide our own param idx
             const size_t current_size = std::tuple_size_v<decltype(m_components)>;
@@ -877,7 +796,7 @@ public:
                 }
             }
             prepareNargs();
-            return addComponent<current_size,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,is_variadic,HIDDEN>(
+            return addComponent<current_size,CALLABLE_IDX,POSITIONAL>(
                     std::make_tuple(std::make_tuple(narg_name.c_str()))
             );
         }
@@ -888,7 +807,7 @@ public:
     auto setCallable(Callable && callable, SideArgs ...sideArgs) {
         static_assert(CALLABLE_IDX == 0, "Callable already set");
         const size_t current_size = std::tuple_size_v<decltype(m_components)>;
-        return addComponent<STR_PARAM_IDX,current_size,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>(
+        return addComponent<STR_PARAM_IDX,current_size,POSITIONAL>(
                 std::make_tuple(
                 std::forward<Callable>(callable),
                 std::make_tuple(std::forward<SideArgs>(sideArgs)...))
@@ -897,24 +816,22 @@ public:
 
     auto help(const std::string &help_message) {
         setArgHelp(help_message);
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
     }
 
     auto advancedHelp(const std::string &adv_help_message) {
         setArgAdvancedHelp(adv_help_message);
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
     }
 
     auto hidden() {
-        static_assert(!POSITIONAL && OPTIONAL, "Only optional non-positional args can be hidden");
         makeArgHidden();
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,true>();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
     }
 
     auto repeatable() {
-        static_assert(!POSITIONAL && !VARIADIC, "Only non-positional non-variadic args can be repeatable");
         makeArgRepeatable();
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
     }
 
     template<typename T>
@@ -922,9 +839,8 @@ public:
         auto val = std::get<0>(m_components);
         using VType = decltype(val);
         static_assert(std::is_same_v<VType, T>, "Default value type mismatch");
-        static_assert(OPTIONAL && !POSITIONAL && !VARIADIC, "Default value can be set only for optional non-positional non-variadic args");
         setArgDefaultValue(std::forward<T>(default_val), hide_in_help);
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
     }
 
     template<typename T>
@@ -933,19 +849,17 @@ public:
         using VType = decltype(val);
         static_assert(std::is_same_v<VType, T>, "Pointer type mismatch");
         setArgGlobPtr(glob_ptr);
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
     }
 
     auto mandatory() {
-        static_assert(OPTIONAL && !POSITIONAL && !HIDDEN, "Only optional non-positional non-hidden args can be mandatory");
         makeArgMandatory();
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,false,REQUIRED,VARIADIC,HIDDEN>();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
     }
 
     auto required() {
-        static_assert(!POSITIONAL, "Positional args cannot be made required");
         makeArgRequired();
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,true,true,VARIADIC,HIDDEN>();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
     }
 
     template<typename... Choices>
@@ -954,8 +868,8 @@ public:
         using VType = decltype(val);
         static_assert(std::is_arithmetic_v<VType> || std::is_convertible_v<VType, std::string>,
                       "Choices are applicable only to arithmetic types and strings");
-        static_assert((std::is_same_v<Choices, VType> && ...),
-                      "Choices should be of the same type as the argument");
+        static_assert((std::is_convertible_v<Choices, VType> && ...),
+                      "Choices should be convertible to the type of the argument");
         auto validate_and_convert = [](auto &&choice) -> std::any {
             using T = decltype(choice);
             if constexpr (std::is_convertible_v<T, std::string>) {
@@ -965,7 +879,7 @@ public:
             }
         };
         setArgChoices({validate_and_convert(choices)...});
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
+        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
     }
 
     // finalize and get to runtime params
@@ -1088,7 +1002,7 @@ public:
             return *m_argMap[m_key];
         };
 
-        return ArgBuilder<0,0,false,false,false,false,false,T>(
+        return ArgBuilder<0,0,false,T>(
                 std::move(key),
                 std::move(aliases),
                 std::forward<decltype(callback)>(callback),
@@ -1124,7 +1038,7 @@ public:
             return *m_argMap[m_key];
         };
 
-        return ArgBuilder<0,0,true,false,false,false,false,T>(
+        return ArgBuilder<0,0,true,T>(
                 std::move(key),
                 std::vector<std::string>(),
                 std::forward<decltype(callback)>(callback),

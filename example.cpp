@@ -49,38 +49,39 @@ int main(int argc, char *argv[]) {
     // by default, the arguments are NON-REPEATABLE,
     // i.e. a call '-x -x' or '-xx' is NOT VALID and will cast an error in the following case
     parser.addArgument<int>("-x")
-            .finalize()
-            .help("int optional argument with implicit value (if set, returns 1)");
+            .help("int optional argument with implicit value (if set, returns 1)")
+            .finalize();
 
     // bool is also considered arithmetic,
     // so parser will increment it, thus setting it to true.
     // again, it's NON-REPEATABLE
     // also, it has an alias -b
     parser.addArgument<bool>("-b", "--bool")
-            .finalize()
-            .help("bool optional argument '--bool' with alias '-b' and implicit value (if set, returns true)");
+            .help("bool optional argument '--bool' with alias '-b' and implicit value (if set, returns true)")
+            .finalize();
 
     // REPEATABLE argument can be specified more than once,
     // in this case, due to implicit value, it will increment each time it's called
     // i.e. a call '-j -j -j' or '-jjj' will increment counter 3 times, starting from 5 (default value),
     // and returns 8
     parser.addArgument<int>("-j")
-            .finalize()
             .defaultValue(5)   // specify default value for argument
             .repeatable()   // make argument repeatable
             .help("int optional repeatable argument with implicit value and default value 5")
                     // advanced help message can be viewed if '--help' is called with argument's name
-            .advancedHelp("and with advanced help string (can be viewed with --help -j)");
+            .advancedHelp("and with advanced help string (can be viewed with --help -j)")
+            .finalize();
 
     // to automatically set value to 'global' variable (visible in current scope)
     // global_ptr() method is used.
     // It takes a pointer to a variable of the type which was specified for the argument
     // after such argument is parsed, that variable's value is automatically set
     // NOTE: not applicable for variadic arguments
-    parser.addArgument<int>("-i", "--int").finalize()
+    parser.addArgument<int>("-i", "--int")
             .globalPtr(&i_val) // specify global variable for argument
             .repeatable()   // make argument repeatable
-            .help("int optional repeatable argument with alias, implicit value and pointer to global variable (if set, returns 1)");
+            .help("int optional repeatable argument with alias, implicit value and pointer to global variable (if set, returns 1)")
+            .finalize();
 
     /**
      *  Arguments can be mandatory, optional, required and positional
@@ -102,13 +103,15 @@ int main(int argc, char *argv[]) {
 
     // optional arguments can be made required
     // in the following case, user should specify either '--req1' or '--req2', or both
-    parser.addArgument<int>("--req1").finalize()
+    parser.addArgument<int>("--req1")
             .required() // make optional argument required
-            .help("required argument 1 with implicit value");
+            .help("required argument 1 with implicit value")
+            .finalize();
 
-    parser.addArgument<int>("--req2").finalize()
+    parser.addArgument<int>("--req2")
             .required() // make optional argument required
-            .help("required argument 2 with implicit value");
+            .help("required argument 2 with implicit value")
+            .finalize();
 
     /**
      *  Args with parameters
@@ -139,23 +142,26 @@ int main(int argc, char *argv[]) {
     // mandatory arguments should have at least 1 mandatory parameter
     parser.addArgument<bool>("m")
             .setParameters("m_param")
-            .finalizeWithHelp("mandatory bool argument with mandatory parameter");
+            .help("mandatory bool argument with mandatory parameter")
+            .finalize();
 
     // str_value - mandatory parameter, cannot be omitted
     // i.e. calls like '-s aaa' or '--str=aaa' are VALID,
     // but '-s' or '--str' are NOT VALID and will cast an error
     parser.addArgument<const char *>("--str", "-s")
-            .setParameters("str_value").finalize()
+            .setParameters("str_value")
             .globalPtr(&s_val) // pointer to global variable
-            .help("string optional argument with mandatory parameter");
+            .help("string optional argument with mandatory parameter")
+            .finalize();
 
     // an optional argument can be made hidden,
     // so it's not shown in help message unless it's called with '-a' specifier
     // NOTE: mandatory or required arguments cannot be hidden
     parser.addArgument<int>("--hidden")
-            .setParameters("int_value").finalize()
+            .setParameters("int_value")
             .hidden() // specify argument as hidden
-            .help("hidden int argument with mandatory value (can be viewed with --help -a)");
+            .help("hidden int argument with mandatory value (can be viewed with --help -a)")
+            .finalize();
 
     // an argument can be made variadic
     // in this case, an optional number of options (but not less than 1) can be specified by the caller
@@ -165,23 +171,24 @@ int main(int argc, char *argv[]) {
     // NOTE: global_ptr() is not applicable for variadic arguments, so the only way to obtain its value is by calling parser.getValue() method
     parser.addArgument<int>("--variadic", "-var")
             .nargs<1, -1>() // make argument variadic
-            .finalize()
-            .help("nargs(1, -1) parses any number of integers. Result is std::vector<int>");
+            .help("nargs(1, -1) parses any number of integers. Result is std::vector<int>")
+            .finalize();
 
     // positional arguments can be specified by the separate method addPositional()
     // positional arguments cannot be made hidden, optional or required
     // all other properties apply
-    parser.addPositional<int>("pos").finalize()
+    parser.addPositional<int>("pos")
             .globalPtr(&pos_val) // pointer to global variable
-            .help("Positional int argument with global variable");
+            .help("Positional int argument with global variable")
+            .finalize();
 
     // positional arguments can be variadic too
     // in that case, ONLY ONE such argument can be present
     // also, variadic positional argument should be added AFTER all other positional arguments
     parser.addPositional<int>("var_pos")
             .nargs<1, -1>() // make positional argument variadic
-            .finalize()
-            .help("Variadic pos argument of type int");
+            .help("Variadic pos argument of type int")
+            .finalize();
 
     /**
      *  Custom parsing functions
@@ -216,8 +223,8 @@ int main(int argc, char *argv[]) {
     parser.addArgument<std::string>("-p")
             .setParameters("[str_value]")
             .setCallable(test)
-            .finalize()
-            .help("string optional argument with optional value and function test (if set, returns result of test())");
+            .help("string optional argument with optional value and function test (if set, returns result of test())")
+            .finalize();
 
     // function can accept not only string arguments that should be parsed,
     // but also any number of side arguments.
@@ -228,8 +235,8 @@ int main(int argc, char *argv[]) {
     parser.addArgument<int>("v", "v_int")
             .setParameters("vv")
             .setCallable(tst, 5)
-            .finalize()
-            .help("mandatory arg with mandatory value and side argument 5 for function tst()");
+            .help("mandatory arg with mandatory value and side argument 5 for function tst()")
+            .finalize();
 
     // with custom parsing function, return type can be almost any type
     // here, we create an argument with custom type CL and 2 parameters, one of which is optional,
@@ -237,9 +244,9 @@ int main(int argc, char *argv[]) {
     parser.addArgument<CL>("struct")
             .setParameters("bool", "[integer]")
             .setCallable(createStruct)
-            .finalize()
             .required() // make argument required instead of mandatory
-            .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()");
+            .help("mandatory arg with 2 parameters: mandatory and optional, returns result of function createStruct()")
+            .finalize();
 
     // lambdas can be used as parsing functions too
     // here, we create an argument with std::vector type and 2 parameters, one of which is optional
@@ -249,22 +256,22 @@ int main(int argc, char *argv[]) {
             .setCallable([](auto a1, auto a2) {
                 return std::vector<const char *>{a1, a2 == nullptr ? "null" : a2};
             })
-            .finalize()
-            .help("optional argument with 2 string values (one optional) and lambda converter");
+            .help("optional argument with 2 string values (one optional) and lambda converter")
+            .finalize();
 
     // for arguments of integral types or std::string with single parameter,
     // a list of choices can be specified inside an initializer_list:
     parser.addArgument<int>("--choices")
             .setParameters("int")
-            .finalize()
             .choices(0,1,2,3) // create list of possible valid choices for that argument
-            .help("list with choices");
+            .help("list with choices")
+            .finalize();
     // the same, but with nargs
     parser.addArgument<int>("--choices2")
             .nargs<1, 3>()
-            .finalize()
             .choices(0,1,2,3) // create list of possible valid choices for that argument
-            .help("list with choices");
+            .help("list with choices")
+            .finalize();
 
     /**
      * nargs
@@ -293,21 +300,21 @@ int main(int argc, char *argv[]) {
     ///nargs
     parser.addArgument<int>("--narg")
             .nargs<1, 3>()
-            .finalize()
-            .help("nargs(1, 3) arg with 3 values: 1 mandatory, 2 - optional");
+            .help("nargs(1, 3) arg with 3 values: 1 mandatory, 2 - optional")
+            .finalize();
 
     /// pure variadic
     parser.addArgument<int>("--vararg")
             .nargs<0, -1>() //pure variadic arg
-            .finalize()
-            .help("nargs(0, -1) pure variadic narg");
+            .help("nargs(0, -1) pure variadic narg")
+            .finalize();
 
     /// add child parser
     argParser &child = parser.addCommand("child_command", "some child command");
 
     child.addArgument<int>("--int")
-            .finalize()
-            .help("int value");
+            .help("int value")
+            .finalize();
 
     try{
         // parse arguments
