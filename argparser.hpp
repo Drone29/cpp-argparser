@@ -175,6 +175,14 @@ namespace parser_internal{
         return res;
     }
 
+    template<typename T>
+    struct hasScanHandler {
+        static constexpr bool value =
+                std::is_convertible_v<T, const char*> ||      // Convertible to const char*
+                std::is_same_v<T, std::string> ||             // std::string
+                std::is_arithmetic_v<T>;                      // arithmetic
+    };
+
     inline void validateKeyOrParam(const std::string &key, bool is_param, const char* func){
         auto isValidKeyChar = [](int c) -> bool {
             return std::isalnum(c) || c == '-' || c == '_';
@@ -874,18 +882,12 @@ public:
         const bool has_callable = CALLABLE_IDX > 0;
         /// get template type string
         const auto str_type = parser_internal::GetTypeName<VType>();
+        ///check if default parser for this type is present
+        const bool has_default_parser = parser_internal::hasScanHandler<VType>::value;
 
         ArgHandleBase *option = nullptr;
-        auto checkScan = [&, func=__func__]() {
-            ///check if default parser for this type is present
-            try{
-                parser_internal::scan<VType>(nullptr);
-            }catch(std::logic_error &e){
-                throw std::invalid_argument(std::string(func) + ": " + m_arg->getName() + " no default parser for " + str_type);
-            }catch(std::runtime_error &){
-                //do nothing
-            }
-        };
+        // either default parser or callable should be present
+        static_assert(has_default_parser || has_callable, "No default parser for this type");
         // if there are string params
         if constexpr (has_params) {
             auto str_params = std::get<STR_PARAM_IDX>(m_components); // string params
@@ -893,7 +895,6 @@ public:
             // if function not provided
             if constexpr (!has_callable) {
                 static_assert(str_params_size < 2, "A parsing function should be provided for arguments with more than 1 parameter");
-                checkScan();
                 option = createOption<VType, str_params_size>
                         (std::make_index_sequence<0>{}, std::tuple<>()); //empty tuple for no function
             } else {
@@ -906,7 +907,6 @@ public:
             // no params = implicit
             if constexpr(!has_callable) {
                 static_assert(std::is_arithmetic_v<VType>, "Function should be provided for non-arithmetic implicit arg");
-                checkScan();
                 option = createOption<VType, 0>
                         (std::make_index_sequence<0>{}, std::tuple<>()); //empty tuple for no function
             } else {

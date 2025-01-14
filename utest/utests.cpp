@@ -195,10 +195,11 @@ MYTEST(Overflow){
     EXPECT_THROW(CallParser({"-i", "70000"}), argParser::unparsed_param) << "Should throw in case of overflow";
 }
 
-MYTEST(InvalidPtr){
-    EXPECT_THROW(parser.addArgument<int *>("-i").setParameters("int_ptr").finalize(),
-        std::invalid_argument) << "Should throw as no scan provided for int*";
-}
+// now compile-time checks
+//MYTEST(InvalidPtr){
+//    EXPECT_THROW(parser.addArgument<int *>("-i").setParameters("int_ptr").finalize(),
+//        std::invalid_argument) << "Should throw as no scan provided for int*";
+//}
 
 MYTEST(NotEnoughPos){
     parser.addPositional<int>("pos").finalize();
