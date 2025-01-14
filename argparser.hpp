@@ -710,24 +710,33 @@ protected:
 };
 
 // arg builder
-template<size_t STR_PARAM_IDX, size_t CALLABLE_IDX, typename... Types>
+template<
+        size_t STR_PARAM_IDX,
+        size_t CALLABLE_IDX,
+        bool POSITIONAL,
+        bool OPTIONAL,
+        bool REQUIRED,
+        bool VARIADIC,
+        bool HIDDEN,
+        typename... Types
+        >
 class ArgBuilder : public ArgBuilderBase {
 protected:
     friend class argParser;
     std::tuple<Types...> m_components;
 
     // add new component
-    template<size_t FIRST_IDX, size_t SECOND_IDX, typename NewType>
+    template<size_t FIRST_IDX, size_t SECOND_IDX, bool POS, bool OPT, bool REQ, bool VAR, bool HID, typename NewType>
     auto addComponent(NewType &&newComponent) {
-        return ArgBuilder<FIRST_IDX, SECOND_IDX, Types..., NewType>(
+        return ArgBuilder<FIRST_IDX, SECOND_IDX, POS, OPT, REQ, VAR, HID, Types..., NewType>(
                 this, // pass current obj pointer further to create a new object with already existing data
                 std::tuple_cat(std::move(m_components), std::make_tuple(std::forward<NewType>(newComponent))
                 ));
     }
     // just forward existing state further
-    template<size_t FIRST_IDX, size_t SECOND_IDX>
+    template<size_t FIRST_IDX, size_t SECOND_IDX, bool POS, bool OPT, bool REQ, bool VAR, bool HID>
     auto forwardComponents() {
-        return ArgBuilder<FIRST_IDX, SECOND_IDX, Types...>(
+        return ArgBuilder<FIRST_IDX, SECOND_IDX, POS, OPT, REQ, VAR, HID, Types...>(
                 this,
                 std::move(m_components)
                 );
@@ -737,10 +746,9 @@ public:
     // ctor
     explicit ArgBuilder(std::string &&key,
                         std::vector<std::string> &&aliases,
-                        bool is_positional,
                         std::function<Argument&(std::unique_ptr<Argument> &&)> &&callback,
                         std::tuple<Types...> &&comps)
-            : ArgBuilderBase(std::move(key), std::move(aliases), is_positional, std::move(callback)),
+            : ArgBuilderBase(std::move(key), std::move(aliases), POSITIONAL, std::move(callback)),
               m_components(std::move(comps)){}
     // 'move' ctor
     explicit ArgBuilder(ArgBuilderBase *prev, std::tuple<Types...> &&comps)
@@ -785,7 +793,7 @@ public:
         std::vector<std::string> opts = {checkOpts(strArgs)...};
         setArgOpts(std::move(opts), mandatory_opts);
 
-        return addComponent<current_size, CALLABLE_IDX>(std::make_tuple(strArgs...));
+        return addComponent<current_size,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>(std::make_tuple(strArgs...));
     }
 
     // set NArgs
@@ -818,7 +826,7 @@ public:
             narg_name = param_name;
             static_assert(str_params_size < 2, "Nargs only applicable to args with 0 or 1 parameters");
             prepareNargs();
-            return forwardComponents<STR_PARAM_IDX, CALLABLE_IDX>();
+            return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>();
         } else {
             // provide our own param idx
             const size_t current_size = std::tuple_size_v<decltype(m_components)>;
@@ -835,7 +843,7 @@ public:
                 }
             }
             prepareNargs();
-            return addComponent<current_size, CALLABLE_IDX>(
+            return addComponent<current_size,CALLABLE_IDX,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>(
                     std::make_tuple(std::make_tuple(narg_name.c_str()))
             );
         }
@@ -846,7 +854,8 @@ public:
     auto setCallable(Callable && callable, SideArgs ...sideArgs) {
         static_assert(CALLABLE_IDX == 0, "Callable already set");
         const size_t current_size = std::tuple_size_v<decltype(m_components)>;
-        return addComponent<STR_PARAM_IDX, current_size>(std::make_tuple(
+        return addComponent<STR_PARAM_IDX,current_size,POSITIONAL,OPTIONAL,REQUIRED,VARIADIC,HIDDEN>(
+                std::make_tuple(
                 std::forward<Callable>(callable),
                 std::make_tuple(std::forward<SideArgs>(sideArgs)...))
         );
@@ -972,10 +981,9 @@ public:
             return *m_argMap[m_key];
         };
 
-        return ArgBuilder<0,0,T>(
+        return ArgBuilder<0,0,false,false,false,false,false,T>(
                 std::move(key),
                 std::move(aliases),
-                false,
                 std::forward<decltype(callback)>(callback),
                 std::make_tuple(T{})
         );
@@ -1009,10 +1017,9 @@ public:
             return *m_argMap[m_key];
         };
 
-        return ArgBuilder<0,0,T>(
+        return ArgBuilder<0,0,true,false,false,false,false,T>(
                 std::move(key),
                 std::vector<std::string>(),
-                true,
                 std::forward<decltype(callback)>(callback),
                 std::make_tuple(T{})
         ).setParameters(ckey); // set single parameter for positional (for size)
