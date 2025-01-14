@@ -33,12 +33,16 @@ It supports positional arguments, flags, and options, allowing for flexible and 
 - **Single Header**
 - **Requires C++17**
 - **Positional Arguments**: Support for positional arguments
-- **Parameterized Flags**: Optional named arguments with parameters
-- **Implicit Flags**: Optional switches
-- **Parameters**: Named arguments that can be mandatory or optional, with support for default values
-- **Variadic**: Support for variadic positionals, flags and parameters
+- **Parameterized Arguments**: Named arguments with parameters
+- **Implicit Arguments**: Optional switches (flags) with no parameters
+- **Variadic Arguments**: Support for variadic positionals, flags and parameters
+- **Repeatable Arguments**: Allows for multiple instances of the same argument
+- **Arguments With Choices**: Specify a list of valid choices for an argument
+- **Default Values**: Set default values for arguments
+- **Typo Detection**: Detects single-character typos in argument names
 - **Automatic Help Message Generation**: Provides usage information based on defined arguments
 - **Customizable Parsing Logic**: Allows for tailored argument validation and processing
+- And more...
 
 ## Basic usage
 
@@ -405,6 +409,30 @@ Passing more than 1 parameter to `parameters()` followed by `nargs()`, will resu
 
 If `parameters()` was not called before `nargs()`, a default name is provided for parameter (capitalized argument's key)
       
+### Choices
+
+Arguments of `arithmetic` or `string` types can have a list of possible valid choices which can be set with the `choices()` method
+
+If a user specifies an argument that is not in the list, an error is thrown
+
+```c++
+parser.addArgument<int>("-c")
+          .choices(1, 2, 3)
+          .help("int argument with choices 1, 2, 3")
+          .finalize();
+
+> ./app -c 1    - valid
+> ./app -c 4    - ERROR: invalid choice
+```
+
+**NOTE:** Choices are not applicable to `const char *` or similar types  
+due to the nature of `==` operator:
+```c++
+// The following results in a compilation error
+parser.addArgument<const char*>("-c")
+          .choices("a", "b", "c")
+```
+
 ### Parsing function
                                                             
 An argument can be parsed by built-in parser only if
@@ -646,28 +674,27 @@ Unknown argument: --lsit. Did you mean --list?
 A list of public parser methods:
 
 * `addPositional<T>("name")` - adds positional argument of type T
-with optional parser function and side arguments
-* `addArgument<T>("aliases",...)` - adds argument of type T
-with aliases
+* `addArgument<T>("aliases",...)` - adds argument of type T with aliases
 * `addCommand("name", "description")` - adds a child parser with a name and description.  
 Returns a reference to the child parser
-* `parameters("params",...)` - adds string parameters to an argument (not applicable to positionals)
-* `callable(callable, side_args,...)` - adds callable (function, lambda, etc) along with its side arguments
-* `nargs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
-* `finalize()` - finalizes argument definition. An argument is not considered defined until this method is called
 * `getValue<T>("name or alias")` - returns parsed value of type T of the argument
 * `scanValue<T>("string value")` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values.
 * `getLastUnparsed()` - get last unparsed argument (in case of argparser::unparsed_parameter error).
 Returns a reference to the instance of unparsed argument
-* `getSelfName()` - get executable self name, applicable only after arguments are parsed
+* `getSelfName()` - get executable self name. 
+Returns program name if it was specified upon argParser creation, otherwise parses it from argv[0]
 * `parseArgs(argc, argv)` - parse arguments from command line
-* `operator [] ("name or alias")` - provides access to const methods of argument, such as `isSet()`. Can also be used along with static cast to obtain values
+* `operator [] ("name or alias")` - provides access to const methods of argument, such as `isSet()`. 
+Can also be used along with cast operator to obtain values
     
 ### Modifiers
 
 Here's the full list of argument methods (modifiers):
 
+* `parameters("params",...)` - adds string parameters to an argument (not applicable to positionals)
+* `callable(callable, side_args,...)` - adds callable (function, lambda, etc) along with its side arguments
+* `nargs<FRO, TO>()` - specify nargs. FRO - number of mandatory params, TO - overall number of params (if TO > FRO)
 * `help("your help text")` - specify help text for the argument
 * `advancedHelp("advanced help text")` - specify advanced help text, 
 will be shown if user calls `--help your_argument_here`
@@ -685,7 +712,10 @@ Not applicable to variadic arguments
 Cannot be applied to `hidden` arguments
 * `required()` - make `optional` or `mandatory` argument `required`.
 Cannot be applied to `hidden` arguments
-* `choices(choices,...)` - adds a list of possible valid choices for the argument. Applicable only to arithmetic types and strings
+* `choices(choices,...)` - adds a list of possible valid choices for the argument. 
+Applicable only to arithmetic types and strings
+* `finalize()` - finalizes argument definition. 
+An argument is not considered defined until this method is called
 
 There are also some useful const methods for arguments:
 
