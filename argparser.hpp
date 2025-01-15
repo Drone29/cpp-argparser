@@ -1162,64 +1162,73 @@ protected:
         }
     }
 
-    std::string closestKey (const std::string &name)  {
-        auto calculateMismatch = [](const std::string &target, const std::string &candidate) {
-            // use Levenstein distance
-            auto targetLen = target.length();
-            auto candidateLen = candidate.length();
-            // distanceTable[i][j] is the minimum number of edits (Levenstein distance) required to convert
-            // the first i chars of target into the first j chars of candidate
-            std::vector<std::vector<size_t>> distanceTable(targetLen + 1, std::vector<size_t>(candidateLen + 1));
-
-            // base case - one string is empty
-            // (to convert first i chars of target into empty string requires i deletions)
-            for (auto i = 0; i <= targetLen; ++i) distanceTable[i][0] = i; // Default deletion cost
-            for (auto j = 0; j <= candidateLen; ++j) distanceTable[0][j] = j; // Default insertion cost
-
-            // populate distanceTable table
-            for (auto tIdx = 1; tIdx <= targetLen; ++tIdx) {
-                for (auto cIdx = 1; cIdx <= candidateLen; ++cIdx) {
-                    char targetChar = target[tIdx - 1];
-                    char candidateChar = candidate[cIdx - 1];
-                    if (targetChar == candidateChar) {
-                        //if chars match, no edit needed, copy previous value
-                        distanceTable[tIdx][cIdx] = distanceTable[tIdx - 1][cIdx - 1];
-                    } else {
-                        // if don't match, figure out which operation is less costly
-                        size_t insertionCost = distanceTable[tIdx][cIdx - 1] + 1;
-                        size_t deletionCost = distanceTable[tIdx - 1][cIdx] + 1;
-                        size_t substitutionCost = distanceTable[tIdx - 1][cIdx - 1] + 1;
-                        distanceTable[tIdx][cIdx] = std::min({insertionCost,deletionCost,substitutionCost});
-                    }
-                    // check transpositions (swapped adjacent chars)
-                    if (tIdx > 1 && cIdx > 1) {
-                        char prevTargetChar = target[tIdx-2];
-                        char prevCandidateChar = candidate[cIdx-2];
-                        if (targetChar == prevCandidateChar && candidateChar == prevTargetChar) {
-                            size_t transpositionCost = distanceTable[tIdx-2][cIdx-2] + 1;
-                            distanceTable[tIdx][cIdx] = std::min(distanceTable[tIdx][cIdx], transpositionCost);
-                        }
+    size_t calculateMismatch (const std::string &target, const std::string &candidate) {
+        // use Levenstein distance
+        auto targetLen = target.length();
+        auto candidateLen = candidate.length();
+        // distanceTable[i][j] is the minimum number of edits (Levenstein distance) required to convert
+        // the first i chars of target into the first j chars of candidate
+        std::vector<std::vector<size_t>> distanceTable(targetLen + 1, std::vector<size_t>(candidateLen + 1));
+        // base case - one string is empty
+        // (to convert first i chars of target into empty string requires i deletions)
+        for (auto i = 0; i <= targetLen; ++i) distanceTable[i][0] = i; // Default deletion cost
+        for (auto j = 0; j <= candidateLen; ++j) distanceTable[0][j] = j; // Default insertion cost
+        // populate distanceTable table
+        for (auto tIdx = 1; tIdx <= targetLen; ++tIdx) {
+            for (auto cIdx = 1; cIdx <= candidateLen; ++cIdx) {
+                char targetChar = target[tIdx - 1];
+                char candidateChar = candidate[cIdx - 1];
+                if (targetChar == candidateChar) {
+                    //if chars match, no edit needed, copy previous value
+                    distanceTable[tIdx][cIdx] = distanceTable[tIdx - 1][cIdx - 1];
+                } else {
+                    // if don't match, figure out which operation is less costly
+                    size_t insertionCost = distanceTable[tIdx][cIdx - 1] + 1;
+                    size_t deletionCost = distanceTable[tIdx - 1][cIdx] + 1;
+                    size_t substitutionCost = distanceTable[tIdx - 1][cIdx - 1] + 1;
+                    distanceTable[tIdx][cIdx] = std::min({insertionCost,deletionCost,substitutionCost});
+                }
+                // check transpositions (swapped adjacent chars)
+                if (tIdx > 1 && cIdx > 1) {
+                    char prevTargetChar = target[tIdx-2];
+                    char prevCandidateChar = candidate[cIdx-2];
+                    if (targetChar == prevCandidateChar && candidateChar == prevTargetChar) {
+                        size_t transpositionCost = distanceTable[tIdx-2][cIdx-2] + 1;
+                        distanceTable[tIdx][cIdx] = std::min(distanceTable[tIdx][cIdx], transpositionCost);
                     }
                 }
             }
-            // return result
-            return distanceTable[targetLen][candidateLen];
-        };
+        }
+        // return result
+        return distanceTable[targetLen][candidateLen];
+    }
 
-        auto calculateLexMismatch = [](const std::string &s1, const std::string &s2) {
-            auto minLen = std::min(s1.length(), s2.length());
-            int distance = 0;
-            for(int i = 0; i < minLen; ++i) {
-                distance += std::abs(s1[i] - s2[i]);
-            }
-            // remaining chars (if one string is longer)
-            distance += std::abs(int(s1.length() - s2.length()));
-            return distance;
-        };
+    size_t calculateLexMismatch (const std::string &s1, const std::string &s2) {
+        auto minLen = std::min(s1.length(), s2.length());
+        int distance = 0;
+        for(int i = 0; i < minLen; ++i) {
+            distance += std::abs(s1[i] - s2[i]);
+        }
+        // remaining chars (if one string is longer)
+        distance += std::abs(int(s1.length() - s2.length()));
+        return distance;
+    };
 
+    std::string closestKey (const std::string &name)  {
         std::string closestMatch;
         auto minMismatch = std::string::npos;
         auto minLexMismatch = std::string::npos;
+
+        auto findClosest = [&](size_t mismatch, size_t lexMismatch, const std::string &name) {
+            // check lexicographical distance
+            bool lex_less = mismatch == minMismatch && lexMismatch < minLexMismatch;
+            if(mismatch < minMismatch || lex_less){
+                minMismatch = mismatch;
+                minLexMismatch = lexMismatch;
+                closestMatch = name;
+            }
+            return mismatch == 0;
+        };
 
         for(const auto &it : m_argMap){
             // check mismatch for the key
@@ -1230,16 +1239,18 @@ protected:
                 mismatch = std::min(mismatch, calculateMismatch(name, al));
                 lexMismatch = std::min(lexMismatch, calculateLexMismatch(name, al));
             }
-            // check lexicographical distance
-            bool lex_less = mismatch == minMismatch && lexMismatch < minLexMismatch;
-            if(mismatch < minMismatch || lex_less){
-                minMismatch = mismatch;
-                minLexMismatch = lexMismatch;
-                closestMatch = it.first;
+            if(findClosest(mismatch, lexMismatch, it.first)){
                 // early exit for optimal match
-                if(mismatch == 0) {
-                    return closestMatch;
-                }
+                return closestMatch;
+            }
+        }
+        //check commands
+        for(const auto &it : m_commandMap){
+            auto mismatch = calculateMismatch(name, it->m_binary_name);
+            auto lexMismatch = calculateLexMismatch(name, it->m_binary_name);
+            if(findClosest(mismatch, lexMismatch, it->m_binary_name)){
+                // early exit for optimal match
+                return closestMatch;
             }
         }
         return minMismatch < 2 ? closestMatch : "";
@@ -1468,18 +1479,26 @@ protected:
 
     void checkTypos(const std::string& pName) {
         auto proposed_value = closestKey(pName);
-        if(!proposed_value.empty()){
-            const auto &prop = m_argMap.find(proposed_value)->second;
-            //if not set and positionals have not yet been parsed
-            bool before_pos = !prop->isSet() && m_positional_args_parsed == 0;
-            //if optional and no mandatory args have been parsed yet
-            bool is_arb = prop->isOptional() && !prop->isRequired() && m_parsed_mnd_args == 0;
-            //if mandatory and not all of them provided
-            bool unparsed_mnd = !prop->isOptional() && (m_parsed_mnd_args != m_mandatory_args);
-            //if required
-            bool is_req = prop->isRequired();
-            if(before_pos && (unparsed_mnd || is_arb || is_req)){
-                throw parse_error("Unknown argument: " + std::string(pName) + ". Did you mean " + proposed_value + "?");
+        if(!proposed_value.empty() && proposed_value != pName){
+            const auto &arg = m_argMap.find(proposed_value);
+            const auto cmd = findChildByName(proposed_value);
+            if (arg != m_argMap.end()) {
+                // if it's an argument
+                const auto &prop = m_argMap.find(proposed_value)->second;
+                //if not set and positionals have not yet been parsed
+                bool before_pos = !prop->isSet() && m_positional_args_parsed == 0;
+                //if optional and no mandatory args have been parsed yet
+                bool is_arb = prop->isOptional() && !prop->isRequired() && m_parsed_mnd_args == 0;
+                //if mandatory and not all of them provided
+                bool unparsed_mnd = !prop->isOptional() && (m_parsed_mnd_args != m_mandatory_args);
+                //if required
+                bool is_req = prop->isRequired();
+                if(before_pos && (unparsed_mnd || is_arb || is_req)){
+                    throw parse_error("Unknown argument: " + std::string(pName) + ". Did you mean " + proposed_value + "?");
+                }
+            }else if (cmd != nullptr) {
+                // if it's a command
+                throw parse_error("Unknown command: " + std::string(pName) + ". Did you mean " + proposed_value + "?");
             }
         }
     }

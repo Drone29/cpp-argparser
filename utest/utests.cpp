@@ -182,15 +182,20 @@ MYTEST(NumberParam){
                  std::invalid_argument);
 }
 
-MYTEST(UnknownArg){
+MYTEST(ArgWithTypo){
     parser.addArgument<int>("--int").parameters("int").finalize();
     EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "23"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
 }
 
-MYTEST(UnknownArgAfterValidArg){
+MYTEST(ArgWithTypoAfterValidArg){
     parser.addArgument<int>("--int").parameters("int").finalize();
     parser.addArgument<float>("--float").parameters("fl").finalize();
     EXPECT_THROW_WITH_MESSAGE(CallParser({"--int", "23", "--flot", "4.5"}), argParser::parse_error, "Unknown argument: --flot. Did you mean --float?");
+}
+
+MYTEST(CommandWithTypo){
+    parser.addCommand("child", "child command").addArgument<int>("--child-int").parameters("int").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"chil", "--child-int", "123"}), argParser::parse_error, "Unknown command: chil. Did you mean child?");
 }
 
 MYTEST(ArgAfterChild){
@@ -199,7 +204,7 @@ MYTEST(ArgAfterChild){
     EXPECT_THROW_WITH_MESSAGE(CallParser({"child", "--child-int", "123", "--int", "456"}), argParser::parse_error, "--int: unknown argument");
 }
 
-MYTEST(UnknownArgBeforePos){
+MYTEST(ArgWithTypoBeforePos){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").parameters("int").finalize();
     EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "23", "456"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
