@@ -215,6 +215,20 @@ MYTEST(UnknownArgAfterPos){
     EXPECT_THROW_WITH_MESSAGE(CallParser({"123", "--int"}), argParser::parse_error, "--int: unknown argument");
 }
 
+MYTEST(PosValueWithSameName){
+    parser.addPositional<std::string>("pos").finalize();
+    EXPECT_NO_THROW(CallParser({"pos"}));
+    EXPECT_EQ(parser.getValue<std::string>("pos"), "pos") << "Should not treat value as argument";
+}
+
+MYTEST(PosWithSimilarName){
+    parser.addArgument<int>("int").parameters("int").finalize();
+    parser.addPositional<std::string>("inf").finalize();
+    EXPECT_NO_THROW(CallParser({"int", "123", "inf"}));
+    EXPECT_EQ(parser.getValue<int>("int"), 123) << "Should parse int argument correctly";
+    EXPECT_EQ(parser.getValue<std::string>("inf"), "inf") << "Should parse string positional correctly";
+}
+
 MYTEST(TrailingArgAfterPos){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").parameters("int").finalize();

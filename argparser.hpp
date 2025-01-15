@@ -1376,11 +1376,11 @@ protected:
         }
         m_positional_cnt += opts_cnt;
         index += parseSingleArgument(pos_name, index, index+opts_cnt);
-        return --index;
+        return index;
     }
 
     [[nodiscard]] int parseHandleChildAndPositional(int index) {
-        for(; index < m_argVec.size(); ++index){
+        while(index < m_argVec.size()){
             /// Parse children
             auto child = findChildByName(m_argVec[index]);
             if(child != nullptr){
@@ -1401,6 +1401,9 @@ protected:
     }
 
     int parseHandleKnownArg(int index, const std::string &pName) {
+        if(m_argMap[pName]->m_positional){
+            return parseHandlePositional(index) - 1;
+        }
         ///If non-repeatable and occurred again, throw error
         if(m_argMap[pName]->m_set
            && !m_argMap[pName]->m_repeatable){
@@ -1558,6 +1561,7 @@ protected:
         parsePreprocessArgVec();
         /// Main parser loop
         int index = 0;
+        //todo: while?
         for(;index < m_argVec.size();++index){
             const auto &pName = m_argVec[index];
             const auto &pValue = index+1 >= m_argVec.size() ? "" : m_argVec[index + 1];
