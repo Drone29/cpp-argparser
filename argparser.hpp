@@ -1590,15 +1590,14 @@ protected:
         if (choices.empty()){
             return "";
         }
-        std::string opt = "{";
+        std::string opt = arg->m_positional ? "{" : arg->m_optional ? "[" : "<";
         for(auto i = 0; i < choices.size(); ++i){
             if(i > 0){
-                opt += ",";
+                opt += "|";
             }
             opt += choices[i];
         }
-        opt += "}";
-        return opt;
+        return opt += arg->m_positional ? "}" : arg->m_optional ? "]" : ">";
     }
 
     static std::string formatAliases(const std::unique_ptr<Argument> &arg) {
@@ -1620,7 +1619,7 @@ protected:
             auto formatted = [&choices_str, &option](){
                 bool is_mandatory = parser_internal::isOptMandatory(option);
                 if (!choices_str.empty()) {
-                    return is_mandatory ? choices_str : ("[" + choices_str + "]");
+                    return choices_str;
                 }
                 return is_mandatory ? ("<" + option + ">") : option;
             }();

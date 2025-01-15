@@ -251,6 +251,32 @@ MYTEST(helpCommonOption){
     EXPECT_EQ(lines[4], "\ti <int> : ");
 }
 
+MYTEST(helpCommonOptionMndParamWithChoices){
+    parser.addArgument<int>("i")
+            .parameters("int")
+            .choices(1, 2, 3)
+            .finalize();
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 5);
+    EXPECT_EQ(lines[0], "Usage:  [flags...] parameters...");
+    EXPECT_EQ(lines[3], "Parameters (mandatory):");
+    EXPECT_EQ(lines[4], "\ti <1|2|3> : ");
+}
+
+MYTEST(helpCommonOptionOptParamWithChoices){
+    parser.addArgument<int>("-i")
+            .parameters("[int]")
+            .choices(1, 2, 3)
+            .finalize();
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 4);
+    EXPECT_EQ(lines[0], "Usage:  [flags...]");
+    EXPECT_EQ(lines[1], "Flags (optional):");
+    EXPECT_EQ(lines[3], "\t-i [1|2|3] : ");
+}
+
 MYTEST(helpCommonNargVariadicOption){
     parser.addArgument<int>("i")
             .nargs<1, -1>()
@@ -313,7 +339,7 @@ MYTEST(helpCommonPositionalWithChoices){
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
     EXPECT_EQ(lines[0], "Usage:  [flags...] pos");
-    EXPECT_EQ(lines[2], "\tpos {1,2,3} : ");
+    EXPECT_EQ(lines[2], "\tpos {1|2|3} : ");
 }
 
 MYTEST(helpCommonVariadicPositionalWithChoices){
@@ -325,7 +351,7 @@ MYTEST(helpCommonVariadicPositionalWithChoices){
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
     EXPECT_EQ(lines[0], "Usage:  [flags...] [pos...]");
-    EXPECT_EQ(lines[2], "\tpos {1,2,3} : ");
+    EXPECT_EQ(lines[2], "\tpos {1|2|3} : ");
 }
 
 MYTEST(helpRepeatable) {
