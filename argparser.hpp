@@ -672,14 +672,6 @@ protected:
                 std::tuple_cat(std::move(m_components), std::make_tuple(std::forward<NewType>(newComponent))
                 ));
     }
-    // just forward existing state further
-    template<size_t FIRST_IDX, size_t SECOND_IDX, bool POS>
-    auto forwardComponents() {
-        return ArgBuilder<FIRST_IDX, SECOND_IDX, POS, Types...>(
-                this,
-                std::move(m_components)
-                );
-    }
 
 public:
     // ctor
@@ -697,7 +689,7 @@ public:
 
     // add arguments
     template<typename... Params>
-    auto parameters(Params ...strArgs) {
+    decltype(auto) parameters(Params ...strArgs) {
         if constexpr (sizeof...(strArgs) > 0) {
             static_assert((std::is_same_v<Params, const char*> && ...), "Params must be strings");
         }
@@ -737,7 +729,7 @@ public:
 
     // set NArgs
     template<unsigned int FRO, int TO = 0>
-    auto nargs() {
+    decltype(auto) nargs() {
         static_assert(FRO != 0 || TO != 0, "nargs cannot be zero!");
         std::string narg_name;
         auto prepareNargs = [this, &narg_name](){
@@ -763,7 +755,7 @@ public:
             narg_name = param_name;
             static_assert(str_params_size < 2, "Nargs only applicable to args with 0 or 1 parameters");
             prepareNargs();
-            return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
+            return (*this);
         } else {
             // provide our own param idx
             const size_t current_size = std::tuple_size_v<decltype(m_components)>;
@@ -788,7 +780,7 @@ public:
 
     // add callable and side args (if any)
     template<typename Callable, typename... SideArgs>
-    auto callable(Callable && clbl, SideArgs ...sideArgs) {
+    decltype(auto) callable(Callable && clbl, SideArgs ...sideArgs) {
         static_assert(CALLABLE_IDX == 0, "Callable already set");
         const size_t current_size = std::tuple_size_v<decltype(m_components)>;
         return addComponent<STR_PARAM_IDX,current_size,POSITIONAL>(
@@ -798,56 +790,56 @@ public:
         );
     }
 
-    auto help(const std::string &help_message) {
+    decltype(auto) help(const std::string &help_message) {
         setArgHelp(help_message);
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
+        return (*this);
     }
 
-    auto advancedHelp(const std::string &adv_help_message) {
+    decltype(auto) advancedHelp(const std::string &adv_help_message) {
         setArgAdvancedHelp(adv_help_message);
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
+        return (*this);
     }
 
-    auto hidden() {
+    decltype(auto) hidden() {
         makeArgHidden();
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
+        return (*this);
     }
 
-    auto repeatable() {
+    decltype(auto) repeatable() {
         makeArgRepeatable();
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
+        return (*this);
     }
 
     template<typename T>
-    auto defaultValue(T &&default_val, bool hide_in_help = false) {
+    decltype(auto) defaultValue(T &&default_val, bool hide_in_help = false) {
         auto val = std::get<0>(m_components);
         using VType = decltype(val);
         static_assert(std::is_same_v<VType, T>, "Default value type mismatch");
         setArgDefaultValue(std::forward<T>(default_val), hide_in_help);
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
+        return (*this);
     }
 
     template<typename T>
-    auto globalPtr(T *glob_ptr) {
+    decltype(auto) globalPtr(T *glob_ptr) {
         auto val = std::get<0>(m_components);
         using VType = decltype(val);
         static_assert(std::is_same_v<VType, T>, "Pointer type mismatch");
         setArgGlobPtr(glob_ptr);
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
+        return (*this);
     }
 
-    auto mandatory() {
+    decltype(auto) mandatory() {
         makeArgMandatory();
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
+        return (*this);
     }
 
-    auto required() {
+    decltype(auto) required() {
         makeArgRequired();
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
+        return (*this);
     }
 
     template<typename... Choices>
-    auto choices(Choices ...choices){
+    decltype(auto) choices(Choices ...choices){
         auto val = std::get<0>(m_components);
         auto str_params = std::get<STR_PARAM_IDX>(m_components); // string params
         using VType = decltype(val);
@@ -865,7 +857,7 @@ public:
             return VType(std::forward<T>(choice));
         };
         setArgChoices({validate_and_convert(choices)...});
-        return forwardComponents<STR_PARAM_IDX,CALLABLE_IDX,POSITIONAL>();
+        return (*this);
     }
 
     // finalize argument declaration
