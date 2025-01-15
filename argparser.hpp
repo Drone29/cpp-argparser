@@ -1354,21 +1354,21 @@ protected:
 
     [[nodiscard]] int parseHandlePositional(int index) {
         const auto &pos_name = m_posMap[m_positional_args_parsed++];
+        const auto &pos_arg = m_argMap[pos_name];
         int opts_cnt = 0;
-        auto nargs = m_argMap[pos_name]->getNargs();
-        bool variadic = m_argMap[pos_name]->isVariadic();
+        auto nargs = pos_arg->getNargs();
+        bool variadic = pos_arg->isVariadic();
         if(nargs > 0 || variadic){
             auto cnt = index-1;
             while(++cnt < m_argVec.size()){
-                if(findChildByName(m_argVec[cnt]) != nullptr){
-                    break;
-                }
-                if(nargs > 0 && opts_cnt >= nargs && !variadic){
+                bool found_command = findChildByName(m_argVec[cnt]) != nullptr;
+                bool nargs_handled = nargs > 0 && opts_cnt >= nargs && !variadic;
+                if(found_command || nargs_handled){
                     break;
                 }
                 ++opts_cnt;
             }
-            if(opts_cnt < m_argMap[pos_name]->m_mandatory_options){
+            if(opts_cnt < pos_arg->m_mandatory_options){
                 throw parse_error(m_binary_name + ": not enough " + pos_name + " arguments");
             }
         }else{
@@ -1384,16 +1384,15 @@ protected:
             /// Parse children
             auto child = findChildByName(m_argVec[index]);
             if(child != nullptr){
-                index += child->parseArgs({m_argVec.begin() + index + 1, m_argVec.end()});
-                ++index; //skip child itself
+                ++index; //skip command name itself
+                index += child->parseArgs({m_argVec.begin() + index, m_argVec.end()});
                 m_command_parsed = true;
                 break;
             }
             ///Try parsing positional args
             if(m_positional_args_parsed < m_posMap.size()){
                 index = parseHandlePositional(index);
-            }
-            else {
+            } else {
                 break;
             }
         }
@@ -1401,46 +1400,43 @@ protected:
     }
 
     int parseHandleKnownArg(int index, const std::string &pName) {
-        if(m_argMap[pName]->m_positional){
-            return parseHandlePositional(index) - 1;
+        const auto &arg = m_argMap[pName];
+        if(arg->m_positional){
+            return parseHandlePositional(index);
         }
         ///If non-repeatable and occurred again, throw error
-        if(m_argMap[pName]->m_set
-           && !m_argMap[pName]->m_repeatable){
+        if(arg->m_set && !arg->m_repeatable){
             throw parse_error("Error: redefinition of non-repeatable arg " + std::string(pName));
         }
 
         int opts_cnt = 0;
         auto cnt = index;
-        bool infinite_opts = m_argMap[pName]->isVariadic();
 
         while(++cnt < m_argVec.size()){
+            bool all_params_found = !arg->isVariadic() && opts_cnt >= arg->m_options.size();
+            bool infinite_or_all_mandatory_found = arg->isVariadic() || opts_cnt == arg->m_mandatory_options;
+            bool next_is_key = m_argMap.find(m_argVec[cnt]) != m_argMap.end();
+            auto reserved_for_positionals = m_argVec.size() - cnt - m_command_offset;
             // if all options found, break
-            if(!infinite_opts && opts_cnt >= m_argMap[pName]->m_options.size()){
+            if(all_params_found)
                 break;
-            }
             // leave space for positionals
-            auto left = m_argVec.size() - cnt - m_command_offset;
-            if((infinite_opts || opts_cnt == m_argMap[pName]->m_mandatory_options)
-               && left <= m_positional_places){
+            if(infinite_or_all_mandatory_found && reserved_for_positionals <= m_positional_places)
                 break;
-            }
-            //check if next value is also a key
-            bool next_is_key = (m_argMap.find(m_argVec[cnt]) != m_argMap.end());
-            if(next_is_key){
+            // check if next value is also a key
+            if(next_is_key)
                 break;
-            }
+
             ++opts_cnt;
         }
 
-        if(opts_cnt < m_argMap[pName]->m_mandatory_options){
+        if(opts_cnt < arg->m_mandatory_options){
             throw parse_error(std::string(pName) + " requires "
-                              + std::to_string(m_argMap[pName]->m_mandatory_options) + " parameters, but " + std::to_string(opts_cnt) + " were provided");
+                              + std::to_string(arg->m_mandatory_options) + " parameters, but " + std::to_string(opts_cnt) + " were provided");
         }
 
-        parseSingleArgument(pName, index + 1, index + 1 + opts_cnt);
-
-        index += opts_cnt;
+        ++index; //skip current key
+        index += parseSingleArgument(pName, index, index + opts_cnt);
         return index;
     }
 
@@ -1562,7 +1558,7 @@ protected:
         /// Main parser loop
         int index = 0;
         //todo: while?
-        for(;index < m_argVec.size();++index){
+        while(index < m_argVec.size()){
             const auto &pName = m_argVec[index];
             const auto &pValue = index+1 >= m_argVec.size() ? "" : m_argVec[index + 1];
             ///If found unknown key
