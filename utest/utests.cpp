@@ -187,16 +187,33 @@ MYTEST(UnknownArg){
     EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "23"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
 }
 
+MYTEST(UnknownArgAfterValidArg){
+    parser.addArgument<int>("--int").parameters("int").finalize();
+    parser.addArgument<float>("--float").parameters("fl").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"--int", "23", "--flot", "4.5"}), argParser::parse_error, "Unknown argument: --flot. Did you mean --float?");
+}
+
+MYTEST(ArgAfterChild){
+    parser.addArgument<int>("--int").parameters("int").finalize();
+    parser.addCommand("child", "child command").addArgument<int>("--child-int").parameters("int").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"child", "--child-int", "123", "--int", "456"}), argParser::parse_error, "--int: unknown argument");
+}
+
 MYTEST(UnknownArgBeforePos){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").parameters("int").finalize();
     EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "23", "456"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
 }
-//todo: allow for known args after positionals?
+
+MYTEST(UnknownArgAfterPos){
+    parser.addPositional<int>("pos").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"123", "--int"}), argParser::parse_error, "--int: unknown argument");
+}
+
 MYTEST(TrailingArgAfterPos){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").parameters("int").finalize();
-    EXPECT_THROW_WITH_MESSAGE(CallParser({"456","--int", "23"}), argParser::parse_error, "Error: trailing argument after positionals: --int");
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"456","--int", "23"}), argParser::parse_error, "--int: unknown argument");
 }
 
 MYTEST(NegativeInt){
@@ -799,8 +816,7 @@ MYTEST(NargsTotalLessThanFromButGreaterThanZero){
     parser.addArgument<int>("-i")
             .nargs<3, 1>()
             .finalize();
-    EXPECT_THROW(CallParser({"-i", "1", "2", "3", "4"}), argParser::parse_error)
-        << "Should ignore second narg param if less than first but > 0";
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"-i", "1", "2", "3", "4"}), argParser::parse_error, "4: unknown argument");
 }
 
 MYTEST(NargsSinglePosOptional){
@@ -1152,11 +1168,6 @@ MYTEST(NotProvidedMandatoryWithChild){
     auto &child = parser.addCommand("child", "child descr");
     child.addArgument<int>("--int").parameters("int_val").finalize();
     EXPECT_THROW(CallParser({"child", "--int=54"}), argParser::parse_error) << "Should throw error if mandatory arg not provided before child";
-}
-
-MYTEST(TrailingArgsAfterPosThrow){
-    parser.addPositional<int>("pos").finalize();
-    EXPECT_THROW(CallParser({"123", "--int"}), argParser::parse_error) << "Should throw error if found trailing args after positional";
 }
 
 

@@ -1335,7 +1335,7 @@ protected:
                 index += m_argMap[pName]->m_mandatory_options;
             }
             if(pName == HELP_NAME){
-                // if found help m_key, break
+                // if found help key, break
                 break;
             }
         }
@@ -1373,16 +1373,17 @@ protected:
             /// Parse children
             auto child = findChildByName(m_argVec[index]);
             if(child != nullptr){
-                child->parseArgs({m_argVec.begin() + index + 1, m_argVec.end()});
+                index += child->parseArgs({m_argVec.begin() + index + 1, m_argVec.end()});
+                ++index; //skip child itself
                 m_command_parsed = true;
                 break;
             }
             ///Try parsing positional args
             if(m_positional_args_parsed < m_posMap.size()){
                 index = parseHandlePositional(index);
-            } //todo: do not throw?
-            else if(!m_posMap.empty()){
-                throw parse_error("Error: trailing argument after positionals: " + m_argVec[index]);
+            }
+            else {
+                break;
             }
         }
         return index;
@@ -1465,9 +1466,8 @@ protected:
         }
     }
 
-    std::string checkTypos(const std::string& pName) {
+    void checkTypos(const std::string& pName) {
         auto proposed_value = closestKey(pName);
-        //todo: clunky, rework
         if(!proposed_value.empty()){
             const auto &prop = m_argMap.find(proposed_value)->second;
             //if not set and positionals have not yet been parsed
@@ -1482,7 +1482,6 @@ protected:
                 throw parse_error("Unknown argument: " + std::string(pName) + ". Did you mean " + proposed_value + "?");
             }
         }
-        return proposed_value;
     }
 
     void setParseCounters() {
@@ -1539,28 +1538,17 @@ protected:
         /// Preprocess argVec (handle '=', aliases, combined args, etc)
         parsePreprocessArgVec();
         /// Main parser loop
-        for(int index = 0; index < m_argVec.size(); ++index){
+        int index = 0;
+        for(;index < m_argVec.size();++index){
             const auto &pName = m_argVec[index];
             const auto &pValue = index+1 >= m_argVec.size() ? "" : m_argVec[index + 1];
             ///If found unknown key
             if(m_argMap.find(pName) == m_argMap.end()){
-                //todo: rework this
                 ///Check if it's an arg with a typo
-                auto proposed_value = checkTypos(pName);
+                checkTypos(pName);
                 /// Handle positional args and child parsers
                 index = parseHandleChildAndPositional(index);
-                if(m_command_parsed){
-                    break;
-                }
-                if(!m_posMap.empty() && m_positional_args_parsed == m_posMap.size()){
-                    break;
-                }
-                std::string thrError = "Unknown argument: " + std::string(pName);
-                dummyFunc();
-                if(!proposed_value.empty()){
-                    thrError += ". Did you mean " + proposed_value + "?";
-                }
-                throw parse_error(thrError);
+                break;
             }
             ///Show help
             if(m_argMap.at(pName)->m_type_str == ARG_TYPE_HELP){
@@ -1581,8 +1569,11 @@ protected:
         if(!m_commandMap.empty() && !m_command_parsed){
             throw parse_error(m_binary_name + ": no command provided");
         }
+        if(index < m_argVec.size()){
+            throw parse_error(m_argVec[index] + ": unknown argument");
+        }
         m_args_parsed = true;
-        return 0;
+        return index;
     }
 
     static std::string formatChoices(const std::unique_ptr<Argument> &arg) {
@@ -1590,14 +1581,14 @@ protected:
         if (choices.empty()){
             return "";
         }
-        std::string opt = arg->m_positional ? "{" : arg->m_optional ? "[" : "<";
+        std::string opt;
         for(auto i = 0; i < choices.size(); ++i){
             if(i > 0){
                 opt += "|";
             }
             opt += choices[i];
         }
-        return opt += arg->m_positional ? "}" : arg->m_optional ? "]" : ">";
+        return opt;
     }
 
     static std::string formatAliases(const std::unique_ptr<Argument> &arg) {
@@ -1619,7 +1610,7 @@ protected:
             auto formatted = [&choices_str, &option](){
                 bool is_mandatory = parser_internal::isOptMandatory(option);
                 if (!choices_str.empty()) {
-                    return choices_str;
+                    return is_mandatory ? ("<" + choices_str + ">") : ("[" + choices_str + "]");
                 }
                 return is_mandatory ? ("<" + option + ">") : option;
             }();
@@ -1635,7 +1626,7 @@ protected:
 
     static std::string formatPositionalOptions(const std::unique_ptr<Argument> &arg) {
         std::string choices_str = formatChoices(arg);
-        return choices_str.empty() ? "" : " " + choices_str;
+        return choices_str.empty() ? "" : " {" + choices_str + "}";
     }
 
     [[nodiscard]] std::string getPositionalArgsUsage() const {

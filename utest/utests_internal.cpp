@@ -354,6 +354,24 @@ MYTEST(helpCommonVariadicPositionalWithChoices){
     EXPECT_EQ(lines[2], "\tpos {1|2|3} : ");
 }
 
+MYTEST(helpCommonVariadicWithChoices) {
+    parser.addArgument<int>("--choices")
+            .parameters("int")
+            .choices(0,1,2,3) // create list of possible valid choices for that argument
+            .finalize();
+    // the same, but with nargs
+    parser.addArgument<int>("--choices2")
+            .nargs<1, 3>()
+            .choices(0,1,2,3) // create list of possible valid choices for that argument
+            .finalize();
+    parser.printHelpCommonTest(false);
+    auto lines = GetOutLines();
+    ASSERT_EQ(lines.size(), 5);
+    EXPECT_EQ(lines[0], "Usage:  [flags...]");
+    EXPECT_EQ(lines[2], "\t--choices <0|1|2|3> : ");
+    EXPECT_EQ(lines[3], "\t--choices2 <0|1|2|3> [0|1|2|3] [0|1|2|3] : ");
+}
+
 MYTEST(helpRepeatable) {
     parser.addArgument<int>("-i")
             .repeatable()
