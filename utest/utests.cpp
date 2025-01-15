@@ -3,6 +3,15 @@
 
 #define FIXTURE Utest
 #define MYTEST(NAME) TEST_F(FIXTURE, NAME)
+#define EXPECT_THROW_WITH_MESSAGE(stmt, ex_type, expected_msg)         \
+    try {                                                              \
+        stmt;                                                          \
+        FAIL() << "Expected " #ex_type " but no exception was thrown."; \
+    } catch (const ex_type& e) {                                       \
+        EXPECT_EQ(e.what(), std::string(expected_msg));                \
+    } catch (...) {                                                    \
+        FAIL() << "Expected " #ex_type " but a different exception was thrown."; \
+    }
 
 // Create a test fixture
 class FIXTURE : public testing::Test {
@@ -175,7 +184,19 @@ MYTEST(NumberParam){
 
 MYTEST(UnknownArg){
     parser.addArgument<int>("--int").parameters("int").finalize();
-    EXPECT_THROW(CallParser({"--inf", "23"}), argParser::parse_error) << "Should throw error if found unknown arg";
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "23"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
+}
+
+MYTEST(UnknownArgBeforePos){
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("--int").parameters("int").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "23", "456"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
+}
+//todo: allow for known args after positionals?
+MYTEST(TrailingArgAfterPos){
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("--int").parameters("int").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"456","--int", "23"}), argParser::parse_error, "Error: trailing argument after positionals: --int");
 }
 
 MYTEST(NegativeInt){

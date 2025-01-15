@@ -1380,7 +1380,8 @@ protected:
             ///Try parsing positional args
             if(m_positional_args_parsed < m_posMap.size()){
                 index = parseHandlePositional(index);
-            }else if(!m_posMap.empty()){  //if(!posMap.empty())
+            } //todo: do not throw?
+            else if(!m_posMap.empty()){
                 throw parse_error("Error: trailing argument after positionals: " + m_argVec[index]);
             }
         }
@@ -1466,6 +1467,7 @@ protected:
 
     std::string checkTypos(const std::string& pName) {
         auto proposed_value = closestKey(pName);
+        //todo: clunky, rework
         if(!proposed_value.empty()){
             const auto &prop = m_argMap.find(proposed_value)->second;
             //if not set and positionals have not yet been parsed
@@ -1542,6 +1544,7 @@ protected:
             const auto &pValue = index+1 >= m_argVec.size() ? "" : m_argVec[index + 1];
             ///If found unknown key
             if(m_argMap.find(pName) == m_argMap.end()){
+                //todo: rework this
                 ///Check if it's an arg with a typo
                 auto proposed_value = checkTypos(pName);
                 /// Handle positional args and child parsers
