@@ -1479,16 +1479,10 @@ protected:
             if (arg != m_argMap.end()) {
                 // if it's an argument
                 const auto &prop = arg->second;
-                //todo: simplify
-                //if not set and positionals have not yet been parsed
-                bool before_pos = m_positional_args_parsed == 0; //!prop->isSet() && ;
-                //if optional and no mandatory args have been parsed yet
-                bool is_arb = prop->isOptional() && !prop->isRequired();// && m_parsed_mnd_args == 0;
-                //if mandatory and not all of them provided
-                bool unparsed_mnd = !prop->isOptional() && (m_parsed_mnd_args != m_mandatory_args);
-                //if required
-                bool is_req = prop->isRequired();
-                if(before_pos && (unparsed_mnd || is_arb || is_req)){
+                bool unparsed_mnd_or_req = !prop->isOptional() &&
+                        m_parsed_mnd_args < m_mandatory_args ||
+                        prop->isRequired();
+                if(!prop->m_positional && (prop->m_starts_with_minus || unparsed_mnd_or_req)) {
                     throw parse_error("Unknown argument: " + std::string(pName) + ". Did you mean " + proposed_value + "?");
                 }
             }else if (cmd != nullptr) {
@@ -1530,17 +1524,18 @@ protected:
                 }
             }
             const std::string *ptr = nullptr;
+            auto &arg = m_argMap[key];
             // preserve out of range vector error
             if(start < m_argVec.size()){
                 // save raw cli parameters
-                m_argMap[key]->m_cli_params = {m_argVec.begin() + start, m_argVec.begin() + end};
+                arg->m_cli_params = {m_argVec.begin() + start, m_argVec.begin() + end};
                 // set pointer to start
                 ptr = &m_argVec.at(start);
             }
-            m_argMap[key]->m_arg_handle->action(ptr, end - start);
+            arg->m_arg_handle->action(ptr, end - start);
         }catch(std::exception &e){
             //save last unparsed arg
-            m_last_unparsed_arg = m_argMap[key].get();
+            m_last_unparsed_arg = m_argMap.at(key).get();
             throw unparsed_param(key + " : " + e.what());
         }
         return end-start;

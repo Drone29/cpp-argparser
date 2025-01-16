@@ -228,6 +228,19 @@ MYTEST(ReqArgWithTypoBeforePos){
     EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "23", "456"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
 }
 
+MYTEST(ReqNonMinusArgWithTypoBeforePos){
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("int").parameters("int").required().finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"inf", "23", "456"}), argParser::parse_error, "Unknown argument: inf. Did you mean int?");
+}
+
+MYTEST(TypoFalsePositiveForPositional){
+    parser.addPositional<int>("aaa").finalize();
+    parser.addArgument<int>("bbb").parameters("int").required().finalize();
+    // aab resolves to aaa which is positional, it shouldn't throw proposed value but treat aab as positional value
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"aab", "23", "456"}), argParser::unparsed_param, "aaa : scan_number: could not convert aab to int");
+}
+
 MYTEST(OptArgWithTypoAfterMndBeforePos){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("int").parameters("int").finalize();
@@ -239,6 +252,12 @@ MYTEST(RepeatedArgWithTypoBeforePos){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").parameters("--int").finalize();
     EXPECT_THROW_WITH_MESSAGE(CallParser({"--int", "23", "--inf", "23", "456"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
+}
+
+MYTEST(RepeatedMndArgWithTypoBeforePos){
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("int").parameters("int").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"int", "12", "inf", "23", "456"}), argParser::unparsed_param, "pos : scan_number: could not convert inf to int");
 }
 
 MYTEST(UnknownArgAfterPos){
