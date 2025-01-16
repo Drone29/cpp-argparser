@@ -298,6 +298,34 @@ MYTEST(TrailingArgAfterPosBeforeChild){
     EXPECT_THROW_WITH_MESSAGE(CallParser({"456", "--int", "child", "--child-int", "123"}), argParser::parse_error, "--int: unknown argument");
 }
 
+MYTEST(ArgPosAndChild){
+    auto &child = parser.addCommand("child", "child command");
+    child.addArgument<int>("--child-int").parameters("int").finalize();
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<std::string>("--str").parameters("str").finalize();
+
+    EXPECT_NO_THROW(CallParser({"--str", "strarg", "123", "child", "--child-int", "123"}));
+    EXPECT_EQ(parser.getValue<std::string>("--str"), "strarg");
+    EXPECT_EQ(parser.getValue<int>("pos"), 123);
+    EXPECT_EQ(child.getValue<int>("--child-int"), 123);
+}
+
+MYTEST(ArgAndChild){
+    auto &child = parser.addCommand("child", "child command");
+    child.addArgument<int>("--child-int").parameters("int").finalize();
+    parser.addArgument<std::string>("--str").parameters("str").finalize();
+    // should detect that child is a command
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"--str", "child", "--child-int", "123"}),
+                              argParser::parse_error, "--str requires 1 parameters, but 0 were provided");
+}
+
+MYTEST(ArgAndPosWithConfusingName){
+    parser.addArgument<std::string>("--str").parameters("str").finalize();
+    parser.addPositional<int>("pos").finalize();
+    // should detect that pos is not a command  but a value
+    EXPECT_NO_THROW(CallParser({"--str", "pos", "123"}));
+}
+
 MYTEST(NegativeInt){
     parser.addArgument<int>("-i").parameters("int_value").finalize();
     CallParser({"-i", "-123"});

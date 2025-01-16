@@ -1408,9 +1408,11 @@ protected:
         auto cnt = index;
 
         while(++cnt < m_argVec.size()){
+            const auto &next_arg = m_argMap.find(m_argVec[cnt]);
             bool all_params_found = !arg->isVariadic() && opts_cnt >= arg->m_options.size();
             bool infinite_or_all_mandatory_found = arg->isVariadic() || opts_cnt == arg->m_mandatory_options;
-            bool next_is_key = m_argMap.find(m_argVec[cnt]) != m_argMap.end();
+            bool next_is_arg = next_arg != m_argMap.end() && !next_arg->second->m_positional;
+            bool next_is_command = findChildByName(m_argVec[cnt]) != nullptr;
             auto reserved_for_positionals = m_argVec.size() - cnt - m_command_offset;
             // if all options found, break
             if(all_params_found)
@@ -1419,7 +1421,7 @@ protected:
             if(infinite_or_all_mandatory_found && reserved_for_positionals <= m_positional_places)
                 break;
             // check if next value is also a key
-            if(next_is_key)
+            if(next_is_arg || next_is_command)
                 break;
 
             ++opts_cnt;
