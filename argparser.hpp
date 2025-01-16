@@ -731,8 +731,7 @@ public:
     template<unsigned int FRO, int TO = 0>
     decltype(auto) nargs() {
         static_assert(FRO != 0 || TO != 0, "nargs cannot be zero!");
-        std::string narg_name;
-        auto prepareNargs = [this, &narg_name](){
+        auto prepareNargs = [this](const std::string &narg_name){
             const bool is_variadic = TO < 0;
             int max_size = TO > int(FRO) ? TO : int(FRO);
             auto opts = std::vector<std::string>(max_size, narg_name);
@@ -752,26 +751,23 @@ public:
             if (!parser_internal::isOptMandatory(param_name)) {
                 throw std::invalid_argument(std::string(__func__) + ": " + m_arg->getName() + " ambiguity detected: optional param used along with nargs");
             }
-            narg_name = param_name;
             static_assert(str_params_size < 2, "Nargs only applicable to args with 0 or 1 parameters");
-            prepareNargs();
+            prepareNargs(param_name);
             return (*this);
         } else {
             // provide our own param idx
             const size_t current_size = std::tuple_size_v<decltype(m_components)>;
-            narg_name = m_arg->getName();
+            auto narg_name = m_arg->getName();
             // convert non-positional to upper case
             if(!m_arg->isPositional()){
                 //remove --
-                while(parser_internal::starts_with("-", narg_name)){
-                    narg_name.erase(0, 1);
-                }
+                narg_name = narg_name.substr(narg_name.find_first_not_of('-'));
                 //convert to upper case
                 for(auto &elem : narg_name) {
                     elem = char(std::toupper(elem));
                 }
             }
-            prepareNargs();
+            prepareNargs(narg_name);
             return addComponent<current_size,CALLABLE_IDX,POSITIONAL>(
                     std::make_tuple(std::make_tuple(narg_name.c_str()))
             );
@@ -1309,8 +1305,9 @@ protected:
     }
 
     void parsePreprocessArgVec() {
+
         for(auto index = 0; index < m_argVec.size(); ++index){
-            auto insertKeyValue = [this, &index](const std::string &key, const std::string &val){
+            auto insertKeyValue = [this, &index](const auto &key, const auto &val){
                 m_argVec[index] = key;
                 m_argVec.insert(m_argVec.begin() + index + 1, val);
             };
@@ -1557,7 +1554,6 @@ protected:
         parsePreprocessArgVec();
         /// Main parser loop
         int index = 0;
-        //todo: while?
         while(index < m_argVec.size()){
             const auto &pName = m_argVec[index];
             const auto &pValue = index+1 >= m_argVec.size() ? "" : m_argVec[index + 1];
