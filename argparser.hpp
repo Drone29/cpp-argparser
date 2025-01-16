@@ -39,8 +39,6 @@ constexpr const char* HELP_ALIAS = "-h";
 constexpr const char* ARG_TYPE_HELP = "HELP";
 
 namespace parser_internal{
-    template <typename T, typename ...Ts>
-    struct areSameType : std::conjunction<std::is_same<T,Ts>...> {};
 
     namespace internal
     {
@@ -1480,11 +1478,12 @@ protected:
             const auto cmd = findChildByName(proposed_value);
             if (arg != m_argMap.end()) {
                 // if it's an argument
-                const auto &prop = m_argMap.find(proposed_value)->second;
+                const auto &prop = arg->second;
+                //todo: simplify
                 //if not set and positionals have not yet been parsed
-                bool before_pos = !prop->isSet() && m_positional_args_parsed == 0;
+                bool before_pos = m_positional_args_parsed == 0; //!prop->isSet() && ;
                 //if optional and no mandatory args have been parsed yet
-                bool is_arb = prop->isOptional() && !prop->isRequired() && m_parsed_mnd_args == 0;
+                bool is_arb = prop->isOptional() && !prop->isRequired();// && m_parsed_mnd_args == 0;
                 //if mandatory and not all of them provided
                 bool unparsed_mnd = !prop->isOptional() && (m_parsed_mnd_args != m_mandatory_args);
                 //if required
@@ -1578,15 +1577,16 @@ protected:
         }
 
         checkParsedNonPos();
+        if(index < m_argVec.size()){
+            throw parse_error(m_argVec[index] + ": unknown argument");
+        }
         if(m_positional_cnt < m_positional_places){
             throw parse_error(m_binary_name + ": not enough positional arguments provided");
         }
         if(!m_commandMap.empty() && !m_command_parsed){
             throw parse_error(m_binary_name + ": no command provided");
         }
-        if(index < m_argVec.size()){
-            throw parse_error(m_argVec[index] + ": unknown argument");
-        }
+
         m_args_parsed = true;
         return index;
     }

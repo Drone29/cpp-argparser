@@ -198,6 +198,12 @@ MYTEST(CommandWithTypo){
     EXPECT_THROW_WITH_MESSAGE(CallParser({"chil", "--child-int", "123"}), argParser::parse_error, "Unknown command: chil. Did you mean child?");
 }
 
+MYTEST(ArgWithTypoBeforeChild){
+    parser.addArgument<int>("--int").parameters("int").finalize();
+    parser.addCommand("child", "child command").addArgument<int>("--child-int").parameters("int").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "456", "child", "--child-int", "123"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
+}
+
 MYTEST(ArgAfterChild){
     parser.addArgument<int>("--int").parameters("int").finalize();
     parser.addCommand("child", "child command").addArgument<int>("--child-int").parameters("int").finalize();
@@ -208,6 +214,31 @@ MYTEST(ArgWithTypoBeforePos){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").parameters("int").finalize();
     EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "23", "456"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
+}
+
+MYTEST(MndArgWithTypoBeforePos){
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("int").parameters("int").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"inf", "23", "456"}), argParser::parse_error, "Unknown argument: inf. Did you mean int?");
+}
+
+MYTEST(ReqArgWithTypoBeforePos){
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("--int").parameters("--int").required().finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "23", "456"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
+}
+
+MYTEST(OptArgWithTypoAfterMndBeforePos){
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("int").parameters("int").finalize();
+    parser.addArgument<int>("--int").parameters("--int").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"int", "123", "--inf", "23", "456"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
+}
+
+MYTEST(RepeatedArgWithTypoBeforePos){
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("--int").parameters("--int").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"--int", "23", "--inf", "23", "456"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
 }
 
 MYTEST(UnknownArgAfterPos){
@@ -233,6 +264,19 @@ MYTEST(TrailingArgAfterPos){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").parameters("int").finalize();
     EXPECT_THROW_WITH_MESSAGE(CallParser({"456","--int", "23"}), argParser::parse_error, "--int: unknown argument");
+}
+
+MYTEST(TrailingArgWithTypoAfterPos){
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("--int").parameters("int").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"456","--inf", "23"}), argParser::parse_error, "--inf: unknown argument");
+}
+
+MYTEST(TrailingArgAfterPosBeforeChild){
+    parser.addCommand("child", "child command").addArgument<int>("--child-int").parameters("int").finalize();
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("--int").finalize();
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"456", "--int", "child", "--child-int", "123"}), argParser::parse_error, "--int: unknown argument");
 }
 
 MYTEST(NegativeInt){
