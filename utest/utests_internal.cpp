@@ -130,9 +130,9 @@ MYTEST(helpEmpty) {
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 3);
-    EXPECT_EQ(lines[0], "Usage:  [flags...]");
+    EXPECT_EQ(lines[0], "Usage:  [flags]...");
     EXPECT_EQ(lines[1], "Flags (optional):");
-    EXPECT_EQ(lines[2], "\t-h, --help [arg] : Show this message and exit. 'arg' to get help about certain arg");
+    EXPECT_EQ(lines[2], "\t-h,--help [arg] : Show this message and exit. 'arg' to get help about certain arg");
 }
 
 MYTEST(helpCommonImplicitFlagWithHelp) {
@@ -151,7 +151,7 @@ MYTEST(helpCommonImplicitFlagWithAlias) {
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
-    EXPECT_EQ(lines[3], "\t-i, --int : ");
+    EXPECT_EQ(lines[3], "\t-i,--int : ");
 }
 
 MYTEST(helpCommonSingleParamFlag) {
@@ -236,7 +236,7 @@ MYTEST(helpCommonNArgPureVariadicFlag) {
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
-    EXPECT_EQ(lines[3], "\t-i [I...] : ");
+    EXPECT_EQ(lines[3], "\t-i [I]... : ");
 }
 
 MYTEST(helpCommonOption){
@@ -246,7 +246,7 @@ MYTEST(helpCommonOption){
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
-    EXPECT_EQ(lines[0], "Usage:  [flags...] parameters...");
+    EXPECT_EQ(lines[0], "Usage:  [flags]... parameters...");
     EXPECT_EQ(lines[3], "Parameters (mandatory):");
     EXPECT_EQ(lines[4], "\ti <int> : ");
 }
@@ -259,7 +259,7 @@ MYTEST(helpCommonOptionMndParamWithChoices){
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
-    EXPECT_EQ(lines[0], "Usage:  [flags...] parameters...");
+    EXPECT_EQ(lines[0], "Usage:  [flags]... parameters...");
     EXPECT_EQ(lines[3], "Parameters (mandatory):");
     EXPECT_EQ(lines[4], "\ti <1|2|3> : ");
 }
@@ -272,7 +272,7 @@ MYTEST(helpCommonOptionOptParamWithChoices){
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 4);
-    EXPECT_EQ(lines[0], "Usage:  [flags...]");
+    EXPECT_EQ(lines[0], "Usage:  [flags]...");
     EXPECT_EQ(lines[1], "Flags (optional):");
     EXPECT_EQ(lines[3], "\t-i [1|2|3] : ");
 }
@@ -284,7 +284,7 @@ MYTEST(helpCommonNargVariadicOption){
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
-    EXPECT_EQ(lines[4], "\ti <I> [I...] : ");
+    EXPECT_EQ(lines[4], "\ti <I> [I]... : ");
 }
 
 MYTEST(helpCommonPositional){
@@ -293,7 +293,7 @@ MYTEST(helpCommonPositional){
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
-    EXPECT_EQ(lines[0], "Usage:  [flags...] pos");
+    EXPECT_EQ(lines[0], "Usage:  [flags]... pos");
     EXPECT_EQ(lines[1], "Positional arguments:");
     EXPECT_EQ(lines[2], "\tpos : ");
 }
@@ -305,7 +305,7 @@ MYTEST(helpCommonNargPositional){
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
-    EXPECT_EQ(lines[0], "Usage:  [flags...] pos pos pos");
+    EXPECT_EQ(lines[0], "Usage:  [flags]... pos pos pos");
     EXPECT_EQ(lines[2], "\tpos : ");
 }
 
@@ -316,7 +316,7 @@ MYTEST(helpCommonNargVariadicPositional){
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
-    EXPECT_EQ(lines[0], "Usage:  [flags...] pos [pos] [pos]");
+    EXPECT_EQ(lines[0], "Usage:  [flags]... pos [pos] [pos]");
     EXPECT_EQ(lines[2], "\tpos : ");
 }
 
@@ -327,7 +327,7 @@ MYTEST(helpCommonNargPureVariadicPositional){
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
-    EXPECT_EQ(lines[0], "Usage:  [flags...] [pos...]");
+    EXPECT_EQ(lines[0], "Usage:  [flags]... [pos]...");
     EXPECT_EQ(lines[2], "\tpos : ");
 }
 
@@ -338,7 +338,7 @@ MYTEST(helpCommonPositionalWithChoices){
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
-    EXPECT_EQ(lines[0], "Usage:  [flags...] pos");
+    EXPECT_EQ(lines[0], "Usage:  [flags]... pos");
     EXPECT_EQ(lines[2], "\tpos {1|2|3} : ");
 }
 
@@ -350,26 +350,36 @@ MYTEST(helpCommonVariadicPositionalWithChoices){
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
     ASSERT_EQ(lines.size(), 5);
-    EXPECT_EQ(lines[0], "Usage:  [flags...] [pos...]");
+    EXPECT_EQ(lines[0], "Usage:  [flags]... [pos]...");
     EXPECT_EQ(lines[2], "\tpos {1|2|3} : ");
 }
 
 MYTEST(helpCommonVariadicWithChoices) {
     parser.addArgument<int>("--choices")
             .parameters("int")
-            .choices(0,1,2,3) // create list of possible valid choices for that argument
+            .choices(0,1,2,3)
             .finalize();
     // the same, but with nargs
     parser.addArgument<int>("--choices2")
             .nargs<1, 3>()
-            .choices(0,1,2,3) // create list of possible valid choices for that argument
+            .choices(0,1,2,3)
+            .finalize();
+    parser.addArgument<int>("--choices3")
+            .nargs<0,-1>()
+            .choices(0,1,2,3)
+            .finalize();
+    parser.addArgument<int>("--choices4")
+            .nargs<1,-1>()
+            .choices(0,1,2,3)
             .finalize();
     parser.printHelpCommonTest(false);
     auto lines = GetOutLines();
-    ASSERT_EQ(lines.size(), 5);
-    EXPECT_EQ(lines[0], "Usage:  [flags...]");
+    ASSERT_EQ(lines.size(), 7);
+    EXPECT_EQ(lines[0], "Usage:  [flags]...");
     EXPECT_EQ(lines[2], "\t--choices <0|1|2|3> : ");
     EXPECT_EQ(lines[3], "\t--choices2 <0|1|2|3> [0|1|2|3] [0|1|2|3] : ");
+    EXPECT_EQ(lines[4], "\t--choices3 [0|1|2|3]... : ");
+    EXPECT_EQ(lines[5], "\t--choices4 <0|1|2|3> [0|1|2|3]... : ");
 }
 
 MYTEST(helpRepeatable) {

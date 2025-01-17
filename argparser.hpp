@@ -1521,8 +1521,8 @@ protected:
             // end not included
             // remove spaces added while preparing
             for(auto it = m_argVec.begin() + start; it != m_argVec.begin() + end; ++it){
-                if((*it).front() == ' '){
-                    *it = (*it).substr(1);
+                if(!it->empty() && it->front() == ' '){
+                    *it = it->substr(1);
                 }
             }
             const std::string *ptr = nullptr;
@@ -1606,13 +1606,13 @@ protected:
     static std::string formatAliases(const std::unique_ptr<Argument> &arg) {
         std::string aliases;
         for(const auto &alias : arg->m_aliases){
-            aliases += alias + ", ";
+            aliases += alias + ",";
         }
         return aliases;
     }
 
     static std::string formatVariadic(const std::string &opt) {
-        return "[" + opt + "...]";
+        return "[" + opt + "]...";
     }
 
     static std::string formatOptions(const std::unique_ptr<Argument> &arg) {
@@ -1706,7 +1706,7 @@ protected:
             std::cout << m_description << std::endl;
         }
         std::cout << "Usage: " << m_binary_name
-                  << (hasFlags() ? " [flags...]" : "")
+                  << (hasFlags() ? " [flags]..." : "")
                   << (hasMandatoryParameters() ? " parameters..." : "")
                   << getPositionalArgsUsage()
                   << (hasCommands() ? " command [<args>]" : "")
