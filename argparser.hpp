@@ -1292,8 +1292,8 @@ protected:
                 return true;
             }
                 //check if it's a contiguous keyValue or aliasValue pair (-k123 or k123 style)
-                //only for args with 1 option
-            else if(x->m_options.size() == 1){
+                //only for non-pos args with 1 option
+            else if(!x->m_positional && x->m_options.size() == 1){
                 pValue = " " + pName.substr(startsWith.length()); //treat as value
                 pName = name;
                 return true;

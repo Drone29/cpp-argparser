@@ -326,6 +326,13 @@ MYTEST(ArgAndPosWithConfusingName){
     EXPECT_NO_THROW(CallParser({"--str", "pos", "123"}));
 }
 
+MYTEST(ShortPosWithConfusingName){
+    parser.addPositional<std::string>("p").finalize();
+    EXPECT_NO_THROW(CallParser({"p123"}));
+    // should parse positional correctly
+    EXPECT_EQ(parser.getValue<std::string>("p"), "p123");
+}
+
 MYTEST(NegativeInt){
     parser.addArgument<int>("-i").parameters("int_value").finalize();
     CallParser({"-i", "-123"});
