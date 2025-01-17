@@ -109,11 +109,11 @@ argParser generates help message automatically if invoked with `--help` or `-h` 
    ```text
    >./app -h
    this program does some useful stuff
-   Usage: program_name [flags...] parameters... positional
+   Usage: program_name [flags]... parameters... positional
    Positional arguments:
        positional : positional argument
    Flags (optional):
-       -h, --help [arg] : Show this message and exit. 'arg' to get help about certain arg
+       -h,--help [arg] : Show this message and exit. 'arg' to get help about certain arg
        -optional : int optional argument (flag) with implicit value
        -optional-with-multiple-params <mandatory_param> [optional_param] : flag with multiple params
        -optional-with-param <mandatory_param> : flag with single mandatory param
