@@ -1294,7 +1294,8 @@ protected:
                 //check if it's a contiguous keyValue or aliasValue pair (-k123 or k123 style)
                 //only for non-pos args with 1 option
             else if(!x->m_positional && x->m_options.size() == 1){
-                pValue = " " + pName.substr(startsWith.length()); //treat as value
+                //mark with space so it wouldn't be parsed as a key
+                pValue = " " + pName.substr(startsWith.length());
                 pName = name;
                 return true;
             }
@@ -1335,7 +1336,7 @@ protected:
                 } else if (parseHandleContiguousAndCombinedArgs(pName, pValue, name)) {
                     ///check contiguous or combined arguments
                     insertKeyValue(name, pValue);
-                }//if name.empty()
+                }
             } else{
                 // if found in argMap, skip mandatory opts
                 index += m_argMap[pName]->m_mandatory_options;
@@ -1406,22 +1407,33 @@ protected:
 
         int opts_cnt = 0;
         auto cnt = index;
+        ++index; //skip current key
+
+        auto next_arg_or_cmd_idx = [this, index](){
+            for(size_t i = index; i < m_argVec.size(); ++i) {
+                const auto &arg = m_argMap.find(m_argVec[i]);
+                if(arg != m_argMap.end() && !arg->second->m_positional){
+                    return i;
+                }
+                if(findChildByName(m_argVec[i]) != nullptr){
+                    return i;
+                }
+            }
+            return m_argVec.size();
+        }();
 
         while(++cnt < m_argVec.size()){
-            const auto &next_arg = m_argMap.find(m_argVec[cnt]);
             bool all_params_found = !arg->isVariadic() && opts_cnt >= arg->m_options.size();
-            bool infinite_or_all_mandatory_found = arg->isVariadic() || opts_cnt == arg->m_mandatory_options;
-            bool next_is_arg = next_arg != m_argMap.end() && !next_arg->second->m_positional;
-            bool next_is_command = findChildByName(m_argVec[cnt]) != nullptr;
+            bool variadic_or_all_mandatory_found = arg->isVariadic() || opts_cnt == arg->m_mandatory_options;
             auto reserved_for_positionals = m_argVec.size() - cnt - m_command_offset;
             // if all options found, break
             if(all_params_found)
                 break;
             // leave space for positionals
-            if(infinite_or_all_mandatory_found && reserved_for_positionals <= m_positional_places)
+            if(variadic_or_all_mandatory_found && reserved_for_positionals <= m_positional_places)
                 break;
-            // check if next value is also a key
-            if(next_is_arg || next_is_command)
+            // check if next value is an arg or command key
+            if(cnt >= next_arg_or_cmd_idx)
                 break;
 
             ++opts_cnt;
@@ -1432,7 +1444,6 @@ protected:
                               + std::to_string(arg->m_mandatory_options) + " parameters, but " + std::to_string(opts_cnt) + " were provided");
         }
 
-        ++index; //skip current key
         index += parseSingleArgument(pName, index, index + opts_cnt);
         return index;
     }
