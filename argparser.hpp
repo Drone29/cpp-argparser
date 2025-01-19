@@ -1409,23 +1409,22 @@ protected:
         auto cnt = index;
         ++index; //skip current key
 
-        auto next_arg_or_cmd_idx = [this, index](){
+        const auto next_arg_idx = [this, index](){
             for(size_t i = index; i < m_argVec.size(); ++i) {
                 const auto &arg = m_argMap.find(m_argVec[i]);
                 if(arg != m_argMap.end() && !arg->second->m_positional){
                     return i;
                 }
-                if(findChildByName(m_argVec[i]) != nullptr){
-                    return i;
-                }
             }
             return m_argVec.size();
         }();
+        const auto next_cmd_idx = m_argVec.size() - m_command_offset;
 
         while(++cnt < m_argVec.size()){
             bool all_params_found = !arg->isVariadic() && opts_cnt >= arg->m_options.size();
             bool variadic_or_all_mandatory_found = arg->isVariadic() || opts_cnt == arg->m_mandatory_options;
-            auto reserved_for_positionals = m_argVec.size() - cnt - m_command_offset;
+            bool all_mandatory_found_and_next_key = opts_cnt >= arg->m_mandatory_options && (cnt >= next_arg_idx || cnt >= next_cmd_idx);
+            auto reserved_for_positionals = next_cmd_idx - cnt;
             // if all options found, break
             if(all_params_found)
                 break;
@@ -1433,7 +1432,7 @@ protected:
             if(variadic_or_all_mandatory_found && reserved_for_positionals <= m_positional_places)
                 break;
             // check if next value is an arg or command key
-            if(cnt >= next_arg_or_cmd_idx)
+            if(all_mandatory_found_and_next_key)
                 break;
 
             ++opts_cnt;

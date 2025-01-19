@@ -314,9 +314,44 @@ MYTEST(ArgAndChild){
     auto &child = parser.addCommand("child", "child command");
     child.addArgument<int>("--child-int").parameters("int").finalize();
     parser.addArgument<std::string>("--str").parameters("str").finalize();
-    // should detect that child is a command
+    // treat child as value for --str as it's mandatory
     EXPECT_THROW_WITH_MESSAGE(CallParser({"--str", "child", "--child-int", "123"}),
-                              argParser::parse_error, "--str requires 1 parameters, but 0 were provided");
+                              argParser::parse_error, "--child-int: unknown argument");
+}
+
+MYTEST(OptArgAndChild){
+    auto &child = parser.addCommand("child", "child command");
+    child.addArgument<int>("--child-int").parameters("int").finalize();
+    parser.addArgument<std::string>("--str").parameters("[str]").finalize();
+    // treat child as command as --str has optional parameter
+    EXPECT_NO_THROW(CallParser({"--str", "child", "--child-int", "123"}));
+    EXPECT_EQ(parser.getValue<std::string>("--str"), "");
+    EXPECT_EQ(child.getValue<int>("--child-int"), 123);
+}
+
+MYTEST(OptArgAndArg){
+    parser.addArgument<std::string>("str").parameters("str").finalize();
+    parser.addArgument<std::string>("--str").parameters("[str]").finalize();
+    // should treat first --str as a value
+    EXPECT_NO_THROW(CallParser({"str", "--str", "--str", "abcde"}));
+    EXPECT_EQ(parser.getValue<std::string>("str"), "--str");
+    EXPECT_EQ(parser.getValue<std::string>("--str"), "abcde");
+}
+
+MYTEST(MndArgAndPos){
+    parser.addArgument<std::string>("str").parameters("str").finalize();
+    parser.addPositional<std::string>("pos").finalize();
+    // should treat string_val as str parameter
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"str", "string_val"}), argParser::parse_error, "binary_name: not enough positional arguments provided");
+}
+
+MYTEST(OptArgAndPos){
+    parser.addArgument<std::string>("--str").parameters("[str]").finalize();
+    parser.addPositional<std::string>("pos").finalize();
+    // should treat string_val as pos
+    EXPECT_NO_THROW(CallParser({"--str", "string_val"}));
+    EXPECT_EQ(parser.getValue<std::string>("--str"), "");
+    EXPECT_EQ(parser.getValue<std::string>("pos"), "string_val");
 }
 
 MYTEST(ArgAndPosWithConfusingName){
