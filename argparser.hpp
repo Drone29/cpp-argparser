@@ -1049,8 +1049,9 @@ public:
         if(!parser_internal::isOptMandatory(name)){
             throw std::invalid_argument(std::string(__func__) + ": " + name + " child command cannot be optional");
         }
-        m_commandMap.push_back(std::make_unique<argParser>(name, descr));
-        return *m_commandMap.back();
+        m_commandMap[name] = std::make_unique<argParser>(name, descr);
+//        m_commandMap.push_back(std::make_unique<argParser>(name, descr));
+        return *m_commandMap.at(name);
     }
 
     /// Parse arguments
@@ -1091,7 +1092,7 @@ protected:
     };
 
     std::map<std::string, std::unique_ptr<Argument>> m_argMap;
-    std::vector<std::unique_ptr<argParser>> m_commandMap;
+    std::map<std::string, std::unique_ptr<argParser>> m_commandMap;
     std::vector<std::string> m_posMap;
     std::vector<std::string> m_argVec;
 
@@ -1240,9 +1241,9 @@ protected:
         }
         //check commands
         for(const auto &it : m_commandMap){
-            auto mismatch = calculateMismatch(name, it->m_binary_name);
-            auto lexMismatch = calculateLexMismatch(name, it->m_binary_name);
-            if(findClosest(mismatch, lexMismatch, it->m_binary_name)){
+            auto mismatch = calculateMismatch(name, it.first);
+            auto lexMismatch = calculateLexMismatch(name, it.first);
+            if(findClosest(mismatch, lexMismatch, it.first)){
                 // early exit for optimal match
                 return closestMatch;
             }
@@ -1256,10 +1257,9 @@ protected:
     }
 
     [[nodiscard]] argParser* findChildByName (const std::string &key) const {
-            for(const auto &child : m_commandMap){
-                if(child->m_binary_name == key){
-                    return child.get();
-                }
+            const auto &it = m_commandMap.find(key);
+            if (it != m_commandMap.end()) {
+                return it->second.get();
             }
             return nullptr;
     }
@@ -1451,6 +1451,9 @@ protected:
 
     std::string findKeyByAlias(const std::string &key) {
         for(const auto &x : m_argMap){
+            if(x.first == key){
+                return key;
+            }
             for(const auto &el : x.second->m_aliases){
                 if(el == key){
                     return x.first;
@@ -1729,7 +1732,7 @@ protected:
         if(hasCommands()){
             std::cout << "Commands:" << std::endl;
             for(const auto &child : m_commandMap){
-                std::cout << "\t" << child->m_binary_name << " : " << child->m_description << std::endl;
+                std::cout << "\t" << child.first << " : " << child.second->m_description << std::endl;
             }
         }
     }
