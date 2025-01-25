@@ -414,7 +414,7 @@ If `parameters()` was not called before `nargs()`, a default name is provided fo
 
 Arguments of `arithmetic` or `string` types can have a list of possible valid choices which can be set with the `choices()` method
 
-If a user specifies an argument that is not in the list, an error is thrown
+If a user specifies an argument that is not on the list, an error is thrown
 
 ```c++
 parser.addArgument<int>("-c")
@@ -426,8 +426,7 @@ parser.addArgument<int>("-c")
 > ./app -c 4    - ERROR: invalid choice
 ```
 
-**NOTE:** Choices are not applicable to `const char *` or similar types  
-due to the nature of `==` operator:
+**NOTE:** Choices are not applicable to `const char *` or similar types due to the nature of `==` operator:
 ```c++
 // The following results in a compilation error
 parser.addArgument<const char*>("-c")
