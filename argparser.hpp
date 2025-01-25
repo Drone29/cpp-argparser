@@ -1209,41 +1209,41 @@ protected:
         return distance;
     };
 
-    std::string closestKey (const std::string &name)  {
+    std::string closestKey (const std::string &name) {
         std::string closestMatch;
         auto minMismatch = std::string::npos;
         auto minLexMismatch = std::string::npos;
 
-        auto findClosest = [&](size_t mismatch, size_t lexMismatch, const std::string &name) {
+        auto findClosest = [&](size_t mismatch, size_t lexMismatch, const std::string &candidate) {
             // check lexicographical distance
             bool lex_less = mismatch == minMismatch && lexMismatch < minLexMismatch;
             if(mismatch < minMismatch || lex_less){
                 minMismatch = mismatch;
                 minLexMismatch = lexMismatch;
-                closestMatch = name;
+                closestMatch = candidate;
             }
             return mismatch == 0;
         };
 
-        for(const auto &it : m_argMap){
-            // check mismatch for the key
-            auto mismatch = calculateMismatch(name, it.first);
-            auto lexMismatch = calculateLexMismatch(name, it.first);
-            //check aliases as well
-            for(const auto &al : it.second->m_aliases){
+        auto processEntry = [&](const std::string &key, const std::vector<std::string> &aliases) {
+            auto mismatch = calculateMismatch(name, key);
+            auto lexMismatch = calculateLexMismatch(name, key);
+            for(const auto &al : aliases){
                 mismatch = std::min(mismatch, calculateMismatch(name, al));
                 lexMismatch = std::min(lexMismatch, calculateLexMismatch(name, al));
             }
-            if(findClosest(mismatch, lexMismatch, it.first)){
+            return findClosest(mismatch, lexMismatch, key);
+        };
+        // check arguments
+        for(const auto &it : m_argMap){
+            if(processEntry(it.first, it.second->m_aliases)){
                 // early exit for optimal match
                 return closestMatch;
             }
         }
         //check commands
         for(const auto &it : m_commandMap){
-            auto mismatch = calculateMismatch(name, it.first);
-            auto lexMismatch = calculateLexMismatch(name, it.first);
-            if(findClosest(mismatch, lexMismatch, it.first)){
+            if(processEntry(it.first, {})) {
                 // early exit for optimal match
                 return closestMatch;
             }
@@ -1459,35 +1459,36 @@ protected:
     }
 
     void setArgument(const std::string &pName) {
-        m_argMap[pName]->m_set = true;
+        auto &arg = m_argMap[pName];
+        arg->m_set = true;
         //count mandatory/required options
-        if(!m_argMap[pName]->m_optional){
+        if(!arg->m_optional){
             m_parsed_mnd_args++;
-        }else if(m_argMap[pName]->m_required){
+        }else if(arg->m_required){
             m_parsed_required_args++;
         }
     }
 
     void checkParsedNonPos() {
-        if(m_mandatory_option){
-            if(m_parsed_mnd_args != m_mandatory_args){
-                for(const auto &x : m_argMap){
-                    if(!x.second->m_optional && !x.second->m_positional && !x.second->m_set){
-                        throw parse_error(x.first + " not specified");
-                    }
+        if(!m_mandatory_option){
+            return;
+        }
+        if(m_parsed_mnd_args != m_mandatory_args){
+            for(const auto &arg : m_argMap){
+                if(!arg.second->m_optional && !arg.second->m_positional && !arg.second->m_set){
+                    throw parse_error(arg.first + " not specified");
                 }
             }
-            if(m_required_args > 0 && m_parsed_required_args < 1){
-                throw parse_error(m_binary_name + ": missing required option " + std::string(REQUIRED_OPTION_SIGN));
-            }
+        }
+        if(m_required_args > 0 && m_parsed_required_args < 1){
+            throw parse_error(m_binary_name + ": missing required option " + std::string(REQUIRED_OPTION_SIGN));
         }
     }
 
     void checkTypos(const std::string& pName) {
-        auto proposed_value = closestKey(pName);
-        if(!proposed_value.empty() && proposed_value != pName){
-            const auto &arg = m_argMap.find(proposed_value);
-            const auto cmd = findChildByName(proposed_value);
+        auto candidate = closestKey(pName);
+        if(!candidate.empty() && candidate != pName){
+            const auto &arg = m_argMap.find(candidate);
             if (arg != m_argMap.end()) {
                 // if it's an argument
                 const auto &prop = arg->second;
@@ -1495,11 +1496,11 @@ protected:
                         m_parsed_mnd_args < m_mandatory_args ||
                         prop->isRequired();
                 if(!prop->m_positional && (prop->m_starts_with_minus || unparsed_mnd_or_req)) {
-                    throw parse_error("Unknown argument: " + std::string(pName) + ". Did you mean " + proposed_value + "?");
+                    throw parse_error("Unknown argument: " + std::string(pName) + ". Did you mean " + candidate + "?");
                 }
-            }else if (cmd != nullptr) {
+            } else if(findChildByName(candidate)) {
                 // if it's a command
-                throw parse_error("Unknown command: " + std::string(pName) + ". Did you mean " + proposed_value + "?");
+                throw parse_error("Unknown command: " + std::string(pName) + ". Did you mean " + candidate + "?");
             }
         }
     }
