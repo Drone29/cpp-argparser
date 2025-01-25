@@ -1317,8 +1317,6 @@ protected:
             if (parseHandleEqualsSign(pName, pValue)) {
                 //change current m_key and insert value to vector
                 insertKeyValue(pName, pValue);
-                // check arg name on the next iteration
-                continue;
             }
             if(m_argMap.find(pName) == m_argMap.end()){
                 ///Find alias
@@ -1420,21 +1418,19 @@ protected:
         const auto next_cmd_idx = m_argVec.size() - m_command_offset;
 
         while(++cnt < m_argVec.size()){
-            bool all_params_found = !arg->isVariadic()
-                    && opts_cnt >= arg->m_options.size();
-            bool variadic_or_all_mandatory_found = arg->isVariadic()
-                    || opts_cnt >= arg->m_mandatory_options;
-            bool all_mandatory_found_and_next_key = opts_cnt >= arg->m_mandatory_options
-                    && (cnt >= next_arg_idx || cnt >= next_cmd_idx);
-            auto reserved_for_positionals = next_cmd_idx - cnt;
+            bool all_params_found = opts_cnt >= arg->m_options.size();
+            bool all_mandatory_found = opts_cnt >= arg->m_mandatory_options;
+            bool variadic_or_all_mandatory_found = arg->isVariadic() || all_mandatory_found;
+            bool is_next_key = (cnt >= next_arg_idx || cnt >= next_cmd_idx);
+            bool will_be_insufficient_for_positionals = (next_cmd_idx - cnt) <= m_positional_places;
             // if all options found, break
-            if(all_params_found)
+            if(!arg->isVariadic() && all_params_found)
                 break;
             // leave space for positionals
-            if(variadic_or_all_mandatory_found && reserved_for_positionals <= m_positional_places)
+            if(variadic_or_all_mandatory_found && will_be_insufficient_for_positionals)
                 break;
             // check if next value is an arg or command key
-            if(all_mandatory_found_and_next_key)
+            if(all_mandatory_found && is_next_key)
                 break;
 
             ++opts_cnt;
