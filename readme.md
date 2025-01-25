@@ -724,8 +724,6 @@ There are also some useful const methods for arguments:
 * `isImplicit()` - returns `true` if argument is implicit
 * `isRepeatable()` - returns `true` if argument is repeatable
 * `isVariadic()`   - returns `true` if argument is variadic
-* `getCliParams()` - returns an `std::vector<std::string>` of parameters passed by the caller.
-Applicable only after parseArgs is called
 * `getName()` - returns `std::string` argument's name without aliases
  
 ### Exceptions
