@@ -17,6 +17,7 @@ It supports positional arguments, flags, and options, allowing for flexible and 
   * [Parameters](#parameters)
   * [Implicit arguments](#implicit-arguments)
   * [nargs](#nargs)
+  * [Choices](#choices)
   * [Parsing function](#parsing-function)
   * [Parsing logic](#parsing-logic)
   * [Obtaining parsed values](#obtaining-parsed-values)
