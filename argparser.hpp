@@ -1492,10 +1492,9 @@ protected:
             if (arg != m_argMap.end()) {
                 // if it's an argument
                 const auto &prop = arg->second;
-                bool unparsed_mnd_or_req = !prop->isOptional() &&
-                        m_parsed_mnd_args < m_mandatory_args ||
-                        prop->isRequired();
-                if(!prop->m_positional && (prop->m_starts_with_minus || unparsed_mnd_or_req)) {
+                bool is_unparsed_mnd = !prop->isOptional() && m_parsed_mnd_args < m_mandatory_args;
+                bool is_unparsed_required = prop->isRequired() && m_parsed_required_args < m_required_args;
+                if(!prop->m_positional && (prop->m_starts_with_minus || is_unparsed_mnd || is_unparsed_required)) {
                     throw parse_error("Unknown argument: " + std::string(pName) + ". Did you mean " + candidate + "?");
                 }
             } else if(findChildByName(candidate)) {
