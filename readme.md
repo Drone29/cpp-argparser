@@ -680,8 +680,6 @@ Returns a reference to the child parser
 * `getValue<T>("name or alias")` - returns parsed value of type T of the argument
 * `scanValue<T>("string value")` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values.
-* `getLastUnparsed()` - get last unparsed argument (in case of argparser::unparsed_parameter error).
-Returns a reference to the instance of unparsed argument
 * `getSelfName()` - get executable self name. 
 Returns program name if it was specified upon argParser creation, otherwise parses it from argv[0]
 * `parseArgs(argc, argv)` - parse arguments from command line
@@ -726,7 +724,6 @@ There are also some useful const methods for arguments:
 * `isImplicit()` - returns `true` if argument is implicit
 * `isRepeatable()` - returns `true` if argument is repeatable
 * `isVariadic()`   - returns `true` if argument is variadic
-* `optionsSize()` - returns `size_t` size of argument parameters
 * `getCliParams()` - returns an `std::vector<std::string>` of parameters passed by the caller.
 Applicable only after parseArgs is called
 * `getName()` - returns `std::string` argument's name without aliases
@@ -754,19 +751,16 @@ try{
     parser.parseArgs(argc, argv);
 }catch(argParser::unparsed_param &e){
     //catch argument parsing error
-    std::cout << "Caught error: " << e.what() << std::endl;
+    std::cout << "Caught error: " + std::string(e.what()) << std::endl;
     // check unparsed argument
-    auto &last_unparsed = parser.getLastUnparsed();
-    std::cout << "Last unparsed arg: " << last_unparsed.getName() << std::endl;
-    // get list of parameters that were provided by the caller
+    std::cout << "Last unparsed arg: " << e.name() << std::endl;
+    // get list of parameters that were provided along with that argument by the caller
     std::cout << "Passed parameters:";
-    auto raw_params = last_unparsed.getCliParams();
-    for(auto &el : raw_params){
+    for(auto &el : e.cli()){
         std::cout << " " + el;
     }
     std::cout << std::endl;
     return -1;
-    
 }catch(argParser::parse_error &e){
     // catch other exceptions
     std::cout << "Caught error: " << e.what() << std::endl;

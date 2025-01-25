@@ -479,13 +479,6 @@ struct Argument{
     [[nodiscard]] bool isVariadic() const{
         return m_arg_handle->is_variadic();
     };
-    [[nodiscard]] auto optionsSize() const{
-        return m_options.size();
-    }
-    // get raw string parameters passed from cli
-    [[nodiscard]] std::vector<std::string> getCliParams() const{
-        return m_cli_params;
-    }
     [[nodiscard]] std::string getName() const{
         return m_name;
     }
@@ -518,8 +511,6 @@ private:
     bool m_hidden = false;
     //list of options
     std::vector<std::string> m_options;
-    //raw cli parameters
-    std::vector<std::string> m_cli_params;
     //stringified type
     std::string m_type_str;
     //Option/flag
@@ -1031,12 +1022,6 @@ public:
         return parser_internal::scan<T>(value);
     }
 
-    /// Get last unparsed argument
-    [[nodiscard]] const Argument &getLastUnparsed() const{
-        static Argument dummy("");
-        return m_last_unparsed_arg == nullptr ? dummy : *m_last_unparsed_arg;
-    }
-
     /// Self exec name
     auto getSelfName(){
         parsedCheck(__func__);
@@ -1050,7 +1035,6 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + name + " child command cannot be optional");
         }
         m_commandMap[name] = std::make_unique<argParser>(name, descr);
-//        m_commandMap.push_back(std::make_unique<argParser>(name, descr));
         return *m_commandMap.at(name);
     }
 
@@ -1072,9 +1056,15 @@ public:
 
     /// Custom exception class (unparsed parameters)
     class unparsed_param : public std::runtime_error{
+        std::string key;
+        std::vector<std::string> cli_params{};
     public:
-        explicit unparsed_param(const char *msg) : std::runtime_error(msg) {}
-        explicit unparsed_param(const std::string& s) : std::runtime_error(s){}
+        explicit unparsed_param(std::string _name, const std::string& msg, std::vector<std::string> _cli_params)
+                : std::runtime_error(_name + " : " + msg),
+                  key(std::move(_name)),
+                  cli_params(std::move(_cli_params)) {}
+        [[nodiscard]] const std::string &name() const noexcept { return key; }
+        [[nodiscard]] const std::vector<std::string> &cli() const noexcept { return cli_params; }
     };
     /// Custom exception class (other parse errors)
     class parse_error : public std::runtime_error{
@@ -1110,7 +1100,6 @@ protected:
     int m_command_offset = 0;
     int m_parsed_mnd_args = 0;
     int m_parsed_required_args = 0;
-    Argument *m_last_unparsed_arg = nullptr;
 
     [[nodiscard]] Argument &getArg(const std::string &key) const {
         auto it = m_argMap.find(key);
@@ -1528,27 +1517,17 @@ protected:
 
     int parseSingleArgument(const std::string &key, int start, int end) {
         try{
-            // end not included
             // remove \0 added while preparing
-            for(auto it = m_argVec.begin() + start; it != m_argVec.begin() + end; ++it){
-                if(!it->empty() && it->front() == '\0'){
-                    it->erase(0,1);
+            for(int i = start; i < end && i < m_argVec.size(); ++i){
+                if(!m_argVec[i].empty() && m_argVec[i].front() == '\0'){
+                    m_argVec[i].erase(0,1);
                 }
             }
-            const std::string *ptr = nullptr;
+            const std::string *ptr = start < m_argVec.size() ? &m_argVec.at(start) : nullptr;
             auto &arg = m_argMap[key];
-            // preserve out of range vector error
-            if(start < m_argVec.size()){
-                // save raw cli parameters
-                arg->m_cli_params = {m_argVec.begin() + start, m_argVec.begin() + end};
-                // set pointer to start
-                ptr = &m_argVec.at(start);
-            }
             arg->m_arg_handle->action(ptr, end - start);
         }catch(std::exception &e){
-            //save last unparsed arg
-            m_last_unparsed_arg = m_argMap.at(key).get();
-            throw unparsed_param(key + " : " + e.what());
+            throw unparsed_param(key, e.what(), {m_argVec.begin() + start, m_argVec.begin() + end});
         }
         return end-start;
     }

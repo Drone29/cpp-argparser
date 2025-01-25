@@ -329,12 +329,10 @@ int main(int argc, char *argv[]) {
         //catch argument parsing error
         std::cout << "Caught error: " + std::string(e.what()) << std::endl;
         // check unparsed argument
-        auto &last_unparsed = parser.getLastUnparsed();
-        std::cout << "Last unparsed arg: " << last_unparsed.getName() << std::endl;
+        std::cout << "Last unparsed arg: " << e.name() << std::endl;
         // get list of parameters that were provided along with that argument by the caller
         std::cout << "Passed parameters:";
-        auto raw_params = last_unparsed.getCliParams();
-        for(auto &el : raw_params){
+        for(auto &el : e.cli()){
             std::cout << " " + el;
         }
         std::cout << std::endl;
