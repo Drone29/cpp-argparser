@@ -741,7 +741,7 @@ Some methods may throw exceptions on the stage where arguments are added if some
 `parseArgs()` can throw 2 types of errors:
 * `argParser::unparsed_param` - if a certain argument could not be parsed.
 in that case, `name()`, `cli()`, and `what()` methods can be called to retrieve some info about that argument
-* `argParser::parse_error` - if case of unknown arguments and other errors
+* `argParser::parse_error` - in case of unknown arguments and other errors
 
 Here's an example:
 
@@ -751,7 +751,7 @@ try{
     parser.parseArgs(argc, argv);
 }catch(argParser::unparsed_param &e){
     //catch argument parsing error
-    std::cout << "Caught error: " + std::string(e.what()) << std::endl;
+    std::cout << "Caught error: " << e.what() << std::endl;
     // check unparsed argument
     std::cout << "Last unparsed arg: " << e.name() << std::endl;
     // get list of parameters that were provided along with that argument by the caller
