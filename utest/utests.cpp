@@ -298,6 +298,12 @@ MYTEST(TrailingArgAfterPosBeforeChild){
     EXPECT_THROW_WITH_MESSAGE(CallParser({"456", "--int", "child", "--child-int", "123"}), argParser::parse_error, "--int: unknown argument");
 }
 
+MYTEST(StringWithSpaces) {
+    parser.addArgument<std::string>("--str").parameters("str").finalize();
+    EXPECT_NO_THROW(CallParser({"--str", " str arg "}));
+    EXPECT_EQ(parser.getValue<std::string>("--str"), " str arg ");
+}
+
 MYTEST(ArgPosAndChild){
     auto &child = parser.addCommand("child", "child command");
     child.addArgument<int>("--child-int").parameters("int").finalize();

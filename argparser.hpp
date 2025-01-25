@@ -1267,7 +1267,8 @@ protected:
     static bool parseHandleEqualsSign(std::string &pName, std::string &pValue) {
         auto c = pName.find('=');
         if(c != std::string::npos){
-            pValue = " " + pName.substr(c+1); //treat string after '=' as value anyway
+            pValue = pName.substr(c+1);
+            pValue.insert(0, 1, '\0'); //add null to mark as value
             pName = pName.substr(0, c);
             return true;
         }
@@ -1284,18 +1285,17 @@ protected:
         }
         if(!name.empty()){
             const auto &x = m_argMap.at(name);
-            // implicit contiguous (-vvv/-it or vvv/it style) argument
             if(x->m_implicit){
+                // implicit contiguous (-vvv/-it or vvv/it style) argument
                 //set '-' to other portion to extract it later
                 pValue = x->m_starts_with_minus ? "-" : "";
                 pValue += pName.substr(startsWith.length());
                 return true;
-            }
+            } else if(!x->m_positional && x->m_options.size() == 1){
                 //check if it's a contiguous keyValue or aliasValue pair (-k123 or k123 style)
                 //only for non-pos args with 1 option
-            else if(!x->m_positional && x->m_options.size() == 1){
-                //mark with space so it wouldn't be parsed as a key
-                pValue = " " + pName.substr(startsWith.length());
+                pValue = pName.substr(startsWith.length());
+                pValue.insert(0, 1, '\0'); //add null to mark as value
                 pName = name;
                 return true;
             }
@@ -1529,10 +1529,10 @@ protected:
     int parseSingleArgument(const std::string &key, int start, int end) {
         try{
             // end not included
-            // remove spaces added while preparing
+            // remove \0 added while preparing
             for(auto it = m_argVec.begin() + start; it != m_argVec.begin() + end; ++it){
-                if(!it->empty() && it->front() == ' '){
-                    *it = it->substr(1);
+                if(!it->empty() && it->front() == '\0'){
+                    it->erase(0,1);
                 }
             }
             const std::string *ptr = nullptr;
