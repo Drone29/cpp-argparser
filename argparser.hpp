@@ -1318,7 +1318,6 @@ protected:
                 //change current m_key and insert value to vector
                 insertKeyValue(pName, pValue);
                 // check arg name on the next iteration
-                index--;
                 continue;
             }
             if(m_argMap.find(pName) == m_argMap.end()){
@@ -1421,9 +1420,12 @@ protected:
         const auto next_cmd_idx = m_argVec.size() - m_command_offset;
 
         while(++cnt < m_argVec.size()){
-            bool all_params_found = !arg->isVariadic() && opts_cnt >= arg->m_options.size();
-            bool variadic_or_all_mandatory_found = arg->isVariadic() || opts_cnt == arg->m_mandatory_options;
-            bool all_mandatory_found_and_next_key = opts_cnt >= arg->m_mandatory_options && (cnt >= next_arg_idx || cnt >= next_cmd_idx);
+            bool all_params_found = !arg->isVariadic()
+                    && opts_cnt >= arg->m_options.size();
+            bool variadic_or_all_mandatory_found = arg->isVariadic()
+                    || opts_cnt >= arg->m_mandatory_options;
+            bool all_mandatory_found_and_next_key = opts_cnt >= arg->m_mandatory_options
+                    && (cnt >= next_arg_idx || cnt >= next_cmd_idx);
             auto reserved_for_positionals = next_cmd_idx - cnt;
             // if all options found, break
             if(all_params_found)
