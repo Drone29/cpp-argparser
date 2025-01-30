@@ -279,7 +279,7 @@ MYTEST(PosWithSimilarName){
     EXPECT_EQ(parser.getValue<std::string>("inf"), "inf") << "Should parse string positional correctly";
 }
 
-MYTEST(FlagsAfterPositional){
+MYTEST(ArgAfterPositional){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").parameters("int").finalize();
     EXPECT_NO_THROW(CallParser({"123", "--int", "456"})) << "Should parse positional and flag correctly";
@@ -320,6 +320,15 @@ MYTEST(NonMinusArgAfterPositional){
     EXPECT_NO_THROW(CallParser({"123", "int", "456"})) << "Should parse positional and non-minus argument correctly";
     EXPECT_EQ(parser.getValue<int>("pos"), 123);
     EXPECT_EQ(parser.getValue<int>("int"), 456);
+}
+
+MYTEST(ArgAfterVariadicPos){
+    parser.addPositional<int>("pos").nargs<0, -1>().finalize();
+    parser.addArgument<int>("--int").parameters("int").finalize();
+    EXPECT_NO_THROW(CallParser({"123", "456", "--int", "789"})) << "Should parse variadic positional and flag correctly";
+    bool check = parser.getValue<std::vector<int>>("pos") == std::vector<int>{123, 456};
+    EXPECT_EQ(check, true);
+    EXPECT_EQ(parser.getValue<int>("--int"), 789);
 }
 
 MYTEST(StringWithSpaces) {
@@ -1119,6 +1128,14 @@ MYTEST(NargsPosNotEnough){
             .nargs<3>()
             .finalize();
     EXPECT_THROW(CallParser({"1", "2"}), argParser::parse_error) << "Should throw if not enough args were provided";                
+}
+
+MYTEST(NargsPosNotEnough2){
+    parser.addPositional<int>("pos")
+            .nargs<3>()
+            .finalize();
+    parser.addPositional<int>("pos2").finalize();
+    EXPECT_THROW(CallParser({"1", "2", "345"}), argParser::parse_error) << "Should throw if not enough args were provided";
 }
 
 MYTEST(NargsPosWithRegularPos){

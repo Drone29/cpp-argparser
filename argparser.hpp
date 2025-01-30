@@ -1339,12 +1339,15 @@ protected:
         int opts_cnt = 0;
         auto nargs = pos_arg->getNargs();
         bool variadic = pos_arg->isVariadic();
+        const auto next_cmd_idx = m_argVec.size() - m_command_offset;
+        const auto next_arg_idx = findNextArg(index);
         if(nargs > 0 || variadic){
             auto cnt = index-1;
             while(++cnt < m_argVec.size()){
-                bool found_command = findChildByName(m_argVec[cnt]) != nullptr;
+                bool found_command = cnt >= next_cmd_idx;
+                bool found_next_arg = cnt >= next_arg_idx;
                 bool nargs_handled = nargs > 0 && opts_cnt >= nargs && !variadic;
-                if(found_command || nargs_handled){
+                if(found_command || found_next_arg || nargs_handled){
                     break;
                 }
                 ++opts_cnt;
@@ -1355,10 +1358,14 @@ protected:
         }else{
             opts_cnt = 1;
         }
-        m_unparsed_mandatory_positionals -= opts_cnt;
+        m_unparsed_mandatory_positionals = std::max(0, m_unparsed_mandatory_positionals - opts_cnt);
         m_positional_args_parsed++;
         index += parseSingleArgument(pos_name, index, index+opts_cnt);
         return index;
+    }
+
+    [[nodiscard]] bool positionalsParsed() const {
+        return m_positional_args_parsed == m_posMap.size();
     }
 
     [[nodiscard]] int parseHandleChildAndPositional(int index) {
@@ -1372,13 +1379,23 @@ protected:
                 break;
             }
             ///Try parsing positional args
-            if(m_positional_args_parsed < m_posMap.size()){
+            if(!positionalsParsed()){
                 index = parseHandlePositional(index);
             } else {
                 break;
             }
         }
         return index;
+    }
+
+    int findNextArg(int index) {
+        for(auto i = index; i < m_argVec.size(); ++i) {
+            const auto &arg = m_argMap.find(m_argVec[i]);
+            if(arg != m_argMap.end() && !arg->second->m_positional){
+                return i;
+            }
+        }
+        return m_argVec.size();
     }
 
     int parseHandleKnownArg(int index, const std::string &pName) {
@@ -1395,15 +1412,7 @@ protected:
         auto cnt = index;
         ++index; //skip current key
 
-        const auto next_arg_idx = [this, index](){
-            for(size_t i = index; i < m_argVec.size(); ++i) {
-                const auto &arg = m_argMap.find(m_argVec[i]);
-                if(arg != m_argMap.end() && !arg->second->m_positional){
-                    return i;
-                }
-            }
-            return m_argVec.size();
-        }();
+        const auto next_arg_idx = findNextArg(index);
         const auto next_cmd_idx = m_argVec.size() - m_command_offset;
 
         while(++cnt < m_argVec.size()){
@@ -1550,7 +1559,7 @@ protected:
                 const auto before_pos = index;
                 index = parseHandleChildAndPositional(before_pos);
                 /// If we just parsed all positional args, continue
-                if (index - before_pos > 0 && m_positional_args_parsed == m_posMap.size()){
+                if (index - before_pos > 0 && positionalsParsed()){
                     continue;
                 }
                 break;
