@@ -908,6 +908,8 @@ public:
 
         m_binary_name = name;
         m_description = descr;
+
+        m_callback = []{}; // default callback
     }
     ~argParser(){
         m_argMap.clear();
@@ -992,6 +994,13 @@ public:
                 std::forward<decltype(callback)>(callback),
                 std::make_tuple(T{})
         ).parameters(ckey); // set single parameter for positional (for size)
+    }
+
+    template <typename C>
+    argParser &setCallback(C &&callback){
+        static_assert(std::is_invocable_r_v<void, C>, "Callback must be void()");
+        m_callback = std::forward<C>(callback);
+        return *this;
     }
 
     template <typename T>
@@ -1083,6 +1092,7 @@ protected:
     std::map<std::string, std::unique_ptr<argParser>> m_commandMap;
     std::vector<std::string> m_posMap;
     std::vector<std::string> m_argVec;
+    std::function<void()> m_callback;
 
     std::string m_binary_name;
     std::string m_description;
@@ -1586,6 +1596,7 @@ protected:
         }
 
         m_args_parsed = true;
+        m_callback(); //run callback
         return index;
     }
 

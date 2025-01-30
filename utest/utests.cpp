@@ -1369,4 +1369,11 @@ MYTEST(NotProvidedMandatoryWithChild){
     EXPECT_THROW(CallParser({"child", "--int=54"}), argParser::parse_error) << "Should throw error if mandatory arg not provided before child";
 }
 
+MYTEST(ChildWithCallback){
+    int val = 0;
+    auto &child = parser.addCommand("child", "child descr")
+            .setCallback([&val]{val = 555;});
+    EXPECT_NO_THROW(CallParser({"child"}));
+    ASSERT_EQ(val, 555);
+}
 

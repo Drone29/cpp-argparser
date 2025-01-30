@@ -677,6 +677,8 @@ A list of public parser methods:
 * `addArgument<T>("aliases",...)` - adds argument of type T with aliases
 * `addCommand("name", "description")` - adds a child parser with a name and description.  
 Returns a reference to the child parser
+* `setCallback(callback)` - sets a callback function to be called after parsing.  
+The callback should be a `void` function or lambda with no parameters
 * `getValue<T>("name or alias")` - returns parsed value of type T of the argument
 * `scanValue<T>("string value")` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values.
