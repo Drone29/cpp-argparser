@@ -1092,8 +1092,7 @@ protected:
     bool m_mandatory_option = false;
     bool m_command_parsed = false;
     int m_positional_args_parsed = 0;
-    int m_positional_cnt = 0;
-    int m_positional_places = 0;
+    int m_unparsed_mandatory_positionals = 0;
     int m_mandatory_args = 0;
     int m_required_args = 0;
     int m_hidden_args = 0;
@@ -1335,7 +1334,7 @@ protected:
     }
 
     [[nodiscard]] int parseHandlePositional(int index) {
-        const auto &pos_name = m_posMap[m_positional_args_parsed++];
+        const auto &pos_name = m_posMap[m_positional_args_parsed];
         const auto &pos_arg = m_argMap[pos_name];
         int opts_cnt = 0;
         auto nargs = pos_arg->getNargs();
@@ -1356,7 +1355,8 @@ protected:
         }else{
             opts_cnt = 1;
         }
-        m_positional_cnt += opts_cnt;
+        m_unparsed_mandatory_positionals -= opts_cnt;
+        m_positional_args_parsed++;
         index += parseSingleArgument(pos_name, index, index+opts_cnt);
         return index;
     }
@@ -1410,7 +1410,7 @@ protected:
             bool all_params_found = opts_cnt >= arg->m_options.size();
             bool all_mandatory_found_or_variadic = (opts_cnt >= arg->m_mandatory_options) || arg->isVariadic();
             bool is_next_key = (cnt >= next_arg_idx || cnt >= next_cmd_idx);
-            bool will_be_insufficient_for_positionals = (next_cmd_idx - cnt) <= m_positional_places;
+            bool will_be_insufficient_for_positionals = (next_cmd_idx - cnt) <= m_unparsed_mandatory_positionals;
             // if all options found, break
             if(!arg->isVariadic() && all_params_found)
                 break;
@@ -1509,7 +1509,7 @@ protected:
         }
         for(const auto &x : m_posMap){
             const auto &arg = m_argMap.at(x);
-            m_positional_places += arg->m_mandatory_options;
+            m_unparsed_mandatory_positionals += arg->m_mandatory_options;
         }
 
         m_mandatory_option = m_mandatory_args || m_required_args;
@@ -1566,7 +1566,7 @@ protected:
         if(index < m_argVec.size()){
             throw parse_error(m_argVec[index] + ": unknown argument");
         }
-        if(m_positional_cnt < m_positional_places){
+        if(m_unparsed_mandatory_positionals > 0){
             throw parse_error(m_binary_name + ": not enough positional arguments provided");
         }
         if(!m_commandMap.empty() && !m_command_parsed){
