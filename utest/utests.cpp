@@ -216,22 +216,10 @@ MYTEST(ArgWithTypoBeforePos){
     EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "23", "456"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
 }
 
-MYTEST(MndArgWithTypoBeforePos){
-    parser.addPositional<int>("pos").finalize();
-    parser.addArgument<int>("int").parameters("int").finalize();
-    EXPECT_THROW_WITH_MESSAGE(CallParser({"inf", "23", "456"}), argParser::parse_error, "Unknown argument: inf. Did you mean int?");
-}
-
 MYTEST(ReqArgWithTypoBeforePos){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").parameters("--int").required().finalize();
     EXPECT_THROW_WITH_MESSAGE(CallParser({"--inf", "23", "456"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
-}
-
-MYTEST(ReqNonMinusArgWithTypoBeforePos){
-    parser.addPositional<int>("pos").finalize();
-    parser.addArgument<int>("int").parameters("int").required().finalize();
-    EXPECT_THROW_WITH_MESSAGE(CallParser({"inf", "23", "456"}), argParser::parse_error, "Unknown argument: inf. Did you mean int?");
 }
 
 MYTEST(TypoFalsePositiveForPositional){
@@ -405,6 +393,15 @@ MYTEST(ShortPosWithConfusingName){
     EXPECT_NO_THROW(CallParser({"p123"}));
     // should parse positional correctly
     EXPECT_EQ(parser.getValue<std::string>("p"), "p123");
+}
+
+MYTEST(PosWithConfusingValue){
+    parser.addArgument<int>("int").parameters("int").finalize();
+    parser.addPositional<std::string>("pos").finalize();
+    // should treat pos as value
+    EXPECT_NO_THROW(CallParser({"inf", "int", "456"})) << "Shouldn't treat inf as a typo";
+    EXPECT_EQ(parser.getValue<std::string>("pos"), "inf");
+    EXPECT_EQ(parser.getValue<int>("int"), 456);
 }
 
 MYTEST(NegativeInt){
@@ -1303,6 +1300,14 @@ MYTEST(PosWithChild){
     ASSERT_EQ(child.getValue<int>("--int"), 54);
 }
 
+MYTEST(PosWithChildNoArgs){
+    parser.addPositional<int>("pos").nargs<0,1>().finalize();
+    auto &child = parser.addCommand("child", "child descr");
+    EXPECT_NO_THROW(CallParser({"123","child"}));
+    ASSERT_EQ(parser.getValue<int>("pos"), 123);
+    ASSERT_EQ(child.parsed(), true);
+}
+
 MYTEST(VariadicArgWithChild){
     parser.addArgument<int>("--var")
             .nargs<1, -1>()
@@ -1376,4 +1381,6 @@ MYTEST(ChildWithCallback){
     EXPECT_NO_THROW(CallParser({"child"}));
     ASSERT_EQ(val, 555);
 }
+
+
 

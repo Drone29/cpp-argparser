@@ -669,6 +669,8 @@ Output:
 Unknown argument: --lsit. Did you mean --list?
 ```
 
+**NOTE:** Typo detection is only applicable to arguments starting with a `-` or commands
+
 ### Public parser methods
 
 A list of public parser methods:
@@ -685,6 +687,8 @@ Applicable to `arithmetic` or `string` values.
 * `getSelfName()` - get executable self name. 
 Returns program name if it was specified upon argParser creation, otherwise parses it from argv[0]
 * `parseArgs(argc, argv)` - parse arguments from command line
+* `parsed()` - returns `true` if arguments were parsed. 
+Useful for checking if a command was called 
 * `operator [] ("name or alias")` - provides access to const methods of argument, such as `isSet()`. 
 Can also be used along with cast operator to obtain values
     

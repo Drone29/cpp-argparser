@@ -1059,6 +1059,11 @@ public:
         return parseArgs({argv + 1, argv + argc});
     }
 
+    /// Returns true if arguments were fully parsed
+    [[nodiscard]] bool parsed() const noexcept {
+        return m_args_parsed;
+    }
+
     const Argument &operator [] (const std::string &key) const { return getArg(key); }
 
     /// Custom exception class (unparsed parameters)
@@ -1496,11 +1501,8 @@ protected:
         if(!candidate.empty() && candidate != pName){
             const auto &arg = m_argMap.find(candidate);
             if (arg != m_argMap.end()) {
-                // if it's an argument
-                const auto &prop = arg->second;
-                bool is_unparsed_mnd = !prop->isOptional() && m_parsed_mnd_args < m_mandatory_args;
-                bool is_unparsed_required = prop->isRequired() && m_parsed_required_args < m_required_args;
-                if(!prop->m_positional && (prop->m_starts_with_minus || is_unparsed_mnd || is_unparsed_required)) {
+                // if it's a minus argument
+                if(arg->second->m_starts_with_minus) {
                     throw parse_error("Unknown argument: " + std::string(pName) + ". Did you mean " + candidate + "?");
                 }
             } else if(findChildByName(candidate)) {
