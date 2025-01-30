@@ -279,23 +279,47 @@ MYTEST(PosWithSimilarName){
     EXPECT_EQ(parser.getValue<std::string>("inf"), "inf") << "Should parse string positional correctly";
 }
 
-MYTEST(TrailingArgAfterPos){
+MYTEST(FlagsAfterPositional){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").parameters("int").finalize();
-    EXPECT_THROW_WITH_MESSAGE(CallParser({"456","--int", "23"}), argParser::parse_error, "--int: unknown argument");
+    EXPECT_NO_THROW(CallParser({"123", "--int", "456"})) << "Should parse positional and flag correctly";
+    EXPECT_EQ(parser.getValue<int>("pos"), 123);
+    EXPECT_EQ(parser.getValue<int>("--int"), 456);
 }
 
-MYTEST(TrailingArgWithTypoAfterPos){
+MYTEST(ArgWithTypoAfterPos){
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").parameters("int").finalize();
-    EXPECT_THROW_WITH_MESSAGE(CallParser({"456","--inf", "23"}), argParser::parse_error, "--inf: unknown argument");
+    EXPECT_THROW_WITH_MESSAGE(CallParser({"456","--inf", "23"}), argParser::parse_error, "Unknown argument: --inf. Did you mean --int?");
 }
 
-MYTEST(TrailingArgAfterPosBeforeChild){
-    parser.addCommand("child", "child command").addArgument<int>("--child-int").parameters("int").finalize();
+MYTEST(ArgAfterPosBeforeChild){
+    auto & child = parser.addCommand("child", "child command");
+    child.addArgument<int>("--child-int").parameters("int").finalize();
     parser.addPositional<int>("pos").finalize();
     parser.addArgument<int>("--int").finalize();
-    EXPECT_THROW_WITH_MESSAGE(CallParser({"456", "--int", "child", "--child-int", "123"}), argParser::parse_error, "--int: unknown argument");
+    EXPECT_NO_THROW(CallParser({"456", "--int", "child", "--child-int", "123"})) << "Should parse positional, flag and child correctly";
+    EXPECT_EQ(parser.getValue<int>("pos"), 456);
+    EXPECT_EQ(parser.getValue<int>("--int"), 1);
+    EXPECT_EQ(child.getValue<int>("--child-int"), 123);
+}
+
+MYTEST(ArgsBeforeAndAfterPositional){
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("--int").parameters("int").finalize();
+    parser.addArgument<int>("--int2").parameters("int").finalize();
+    EXPECT_NO_THROW(CallParser({"--int", "123", "456", "--int2", "789"})) << "Should parse positional and flags correctly";
+    EXPECT_EQ(parser.getValue<int>("pos"), 456);
+    EXPECT_EQ(parser.getValue<int>("--int"), 123);
+    EXPECT_EQ(parser.getValue<int>("--int2"), 789);
+}
+
+MYTEST(NonMinusArgAfterPositional){
+    parser.addPositional<int>("pos").finalize();
+    parser.addArgument<int>("int").parameters("int").finalize();
+    EXPECT_NO_THROW(CallParser({"123", "int", "456"})) << "Should parse positional and non-minus argument correctly";
+    EXPECT_EQ(parser.getValue<int>("pos"), 123);
+    EXPECT_EQ(parser.getValue<int>("int"), 456);
 }
 
 MYTEST(StringWithSpaces) {

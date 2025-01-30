@@ -1547,7 +1547,12 @@ protected:
                 ///Check if it's an arg with a typo
                 checkTypos(pName);
                 /// Handle positional args and child parsers
-                index = parseHandleChildAndPositional(index);
+                const auto before_pos = index;
+                index = parseHandleChildAndPositional(before_pos);
+                /// If we just parsed all positional args, continue
+                if (index - before_pos > 0 && m_positional_args_parsed == m_posMap.size()){
+                    continue;
+                }
                 break;
             }
             ///Show help
