@@ -548,13 +548,13 @@ private:
     std::any m_global_ptr;
     std::vector<std::any> m_choices;
 protected:
-    std::function<Argument&(std::unique_ptr<Argument> &&)> m_callback;
+    std::function<void(std::unique_ptr<Argument> &&)> m_callback;
     std::unique_ptr<Argument> m_arg;
 
     ArgBuilderBase(const std::string &key,
                    std::vector<std::string> &&aliases,
                    bool is_positional,
-                   std::function<Argument&(std::unique_ptr<Argument> &&)> &&callback)
+                   std::function<void(std::unique_ptr<Argument> &&)> &&callback)
                         : m_callback(std::move(callback)) {
         m_arg.reset(new Argument(key));
         m_arg->m_positional = is_positional;
@@ -612,7 +612,7 @@ protected:
         m_choices = std::move(choices);
     }
 
-    Argument &createArg(ArgHandleBase *handle) {
+    void createArg(ArgHandleBase *handle) {
 
         bool is_implicit = m_arg->m_options.empty();
 
@@ -632,7 +632,7 @@ protected:
         m_arg->m_arg_handle = handle;
         m_arg->m_implicit = is_implicit;
 
-        return m_callback(std::move(m_arg));
+        m_callback(std::move(m_arg));
     }
 
     // Helper function to forward all types in the tuple
@@ -666,7 +666,7 @@ public:
     // ctor
     explicit ArgBuilder(std::string &&key,
                         std::vector<std::string> &&aliases,
-                        std::function<Argument&(std::unique_ptr<Argument> &&)> &&callback,
+                        std::function<void(std::unique_ptr<Argument> &&)> &&callback,
                         std::tuple<Types...> &&comps)
             : ArgBuilderBase(std::move(key), std::move(aliases), POSITIONAL, std::move(callback)),
               m_components(std::move(comps)){}
@@ -846,7 +846,7 @@ public:
     }
 
     // finalize argument declaration
-    Argument &finalize() {
+    void finalize() {
         auto val = std::get<0>(m_components);
         using VType = decltype(val);
         const size_t comp_size = std::tuple_size_v<decltype(m_components)>;
@@ -890,7 +890,7 @@ public:
             }
         }
         setArgStrType(str_type);
-        return createArg(option);
+        createArg(option);
     }
 };
 
@@ -947,9 +947,8 @@ public:
             }
         }
 
-        auto callback = [this,m_key=key](std::unique_ptr<Argument> &&arg) -> Argument& {
+        auto callback = [this,m_key=key](std::unique_ptr<Argument> &&arg) {
             m_argMap[m_key] = std::move(arg);
-            return *m_argMap[m_key];
         };
 
         return ArgBuilder<0,0,false,T>(
@@ -982,10 +981,9 @@ public:
             throw std::invalid_argument(std::string(__func__) + ": " + key + " positional argument cannot start with '-'");
         }
 
-        auto callback = [this,m_key=key](std::unique_ptr<Argument> &&arg) -> Argument& {
+        auto callback = [this,m_key=key](std::unique_ptr<Argument> &&arg) {
             m_argMap[m_key] = std::move(arg);
             m_posMap.push_back(m_key);
-            return *m_argMap[m_key];
         };
 
         return ArgBuilder<0,0,true,T>(
