@@ -15,16 +15,11 @@
 #include <algorithm>
 #include <functional>
 
-/// bool parsable strings
-constexpr const char* BOOL_POSITIVES[] = {"true", "1", "yes", "on", "enable"};
-constexpr const char* BOOL_NEGATIVES[] = {"false", "0", "no", "off", "disable"};
-///// help key
-constexpr const char* HELP_NAME = "--help";
-constexpr const char* HELP_ALIAS = "-h";
-///// help argument identifier
-constexpr const char* ARG_TYPE_HELP = "HELP";
-
 namespace parser_internal{
+
+    /// bool parsable strings
+    constexpr const char* BOOL_POSITIVES[] = {"true", "1", "yes", "on", "enable"};
+    constexpr const char* BOOL_NEGATIVES[] = {"false", "0", "no", "off", "disable"};
 
     namespace internal
     {
@@ -885,13 +880,12 @@ class argParser
 {
 public:
     explicit argParser(const std::string &name = "", const std::string &descr = ""){
-        m_argMap[HELP_NAME] = std::unique_ptr<Argument>(new Argument(HELP_NAME));
-        m_argMap[HELP_NAME]->m_type_str = ARG_TYPE_HELP;
-        m_argMap[HELP_NAME]->m_help = "Show this message and exit. 'arg' to get help about certain argument";
-        m_argMap[HELP_NAME]->m_options = {"[arg]"};
-        m_argMap[HELP_NAME]->m_optional = true;
-        m_argMap[HELP_NAME]->m_arg_handle = std::unique_ptr<ArgHandleBase>(new ArgHandleBase());
-        m_argMap[HELP_NAME]->m_aliases = {HELP_ALIAS};
+        m_argMap[help_key] = std::unique_ptr<Argument>(new Argument(help_key));
+        m_argMap[help_key]->m_help = "Show this message and exit. 'arg' to get help about certain argument";
+        m_argMap[help_key]->m_options = {"[arg]"};
+        m_argMap[help_key]->m_optional = true;
+        m_argMap[help_key]->m_arg_handle = std::unique_ptr<ArgHandleBase>(new ArgHandleBase());
+        m_argMap[help_key]->m_aliases = {help_alias};
 
         m_binary_name = name;
         m_description = descr;
@@ -1045,9 +1039,16 @@ public:
         ///Retrieve binary self-name
         if(m_binary_name.empty()){
             std::string self_name = std::string(argv[0]);
-            m_binary_name = self_name.substr(self_name.find_last_of('/') + 1);
+            size_t pos = self_name.find_last_of("/\\"); // Handles both Windows and UNIX
+            m_binary_name = (pos == std::string::npos) ? self_name : self_name.substr(pos + 1);
         }
-        return parseArgs({argv + 1, argv + argc});
+        try{
+            return parseArgs({argv + 1, argv + argc});
+        }catch(const parse_error &e){
+            std::cout << e.what() << std::endl;
+            std::cout << "Try '" << help_key << "' for more information" << std::endl;
+            throw;
+        }
     }
 
     /// Returns true if arguments were fully parsed
@@ -1093,6 +1094,8 @@ protected:
     std::string m_binary_name;
     std::string m_description;
     inline static std::string help_hidden_secret;
+    inline static const std::string help_key = "--help";
+    inline static const std::string help_alias = "-h";
     bool m_args_parsed = false;
     bool m_mandatory_option = false;
     bool m_command_parsed = false;
@@ -1244,11 +1247,6 @@ protected:
         return minMismatch < 2 ? closestMatch : "";
     };
 
-    //dummy function
-    static void dummyFunc(){
-        std::cout << "Use '" + std::string(HELP_NAME) + "' for list of available options" << std::endl;
-    }
-
     [[nodiscard]] argParser* findChildByName (const std::string &key) const {
             const auto &it = m_commandMap.find(key);
             if (it != m_commandMap.end()) {
@@ -1331,7 +1329,7 @@ protected:
                 // if found in argMap, skip mandatory opts
                 index += m_argMap[pName]->m_mandatory_options;
             }
-            if(pName == HELP_NAME){
+            if(pName == help_key){
                 // if found help key, break
                 break;
             }
@@ -1539,6 +1537,8 @@ protected:
             arg->m_arg_handle->action(ptr, end - start);
         }catch(std::exception &e){
             throw unparsed_param(key, e.what(), {m_argVec.begin() + start, m_argVec.begin() + end});
+        }catch(...){
+            throw unparsed_param(key, "unknown error", {m_argVec.begin() + start, m_argVec.begin() + end});
         }
         return end-start;
     }
@@ -1567,7 +1567,7 @@ protected:
                 break;
             }
             ///Show help
-            if(m_argMap.at(pName)->m_type_str == ARG_TYPE_HELP){
+            else if(pName == help_key){
                 printHelp(pValue);
                 exit(0);
             }
