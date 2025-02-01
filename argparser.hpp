@@ -15,18 +15,6 @@
 #include <algorithm>
 #include <functional>
 
-/// advanced help option (show hidden)
-#define HELP_HIDDEN_OPT "-h"
-/// help param name
-#define HELP_PARAM_NAME "arg"
-/// arg explanation
-#define HELP_PARAM_EXPLANATION "'" HELP_PARAM_NAME "' to get help about certain arg"
-/// braced help option
-#define HELP_OPT_BRACED "[" HELP_PARAM_NAME "]"
-#define HELP_ADVANCED_OPT_BRACED "[" HELP_PARAM_NAME " | " HELP_HIDDEN_OPT "]"
-/// help self-explanation
-#define HELP_GENERIC_MESSAGE \
-    "Show this message and exit. " HELP_PARAM_EXPLANATION
 /// bool parsable strings
 constexpr const char* BOOL_POSITIVES[] = {"true", "1", "yes", "on", "enable"};
 constexpr const char* BOOL_NEGATIVES[] = {"false", "0", "no", "off", "disable"};
@@ -900,8 +888,8 @@ public:
     explicit argParser(const std::string &name = "", const std::string &descr = ""){
         m_argMap[HELP_NAME] = std::unique_ptr<Argument>(new Argument(HELP_NAME));
         m_argMap[HELP_NAME]->m_type_str = ARG_TYPE_HELP;
-        m_argMap[HELP_NAME]->m_help = std::string(HELP_GENERIC_MESSAGE);
-        m_argMap[HELP_NAME]->m_options = {HELP_OPT_BRACED};
+        m_argMap[HELP_NAME]->m_help = "Show this message and exit. 'arg' to get help about certain argument";
+        m_argMap[HELP_NAME]->m_options = {"[arg]"};
         m_argMap[HELP_NAME]->m_optional = true;
         m_argMap[HELP_NAME]->m_arg_handle = new ArgHandleBase();
         m_argMap[HELP_NAME]->m_aliases = {HELP_ALIAS};
@@ -1003,6 +991,10 @@ public:
         return *this;
     }
 
+    static void hiddenSecret(const std::string &secret){
+        help_hidden_secret = secret;
+    }
+
     template <typename T>
     T getValue(const std::string &key){
         parsedCheck(__func__);
@@ -1101,6 +1093,7 @@ protected:
 
     std::string m_binary_name;
     std::string m_description;
+    inline static std::string help_hidden_secret;
     bool m_args_parsed = false;
     bool m_mandatory_option = false;
     bool m_command_parsed = false;
@@ -1831,11 +1824,8 @@ protected:
     }
 
     void printHelp(const std::string &param = "") {
-        if(m_hidden_args > 0){
-            m_argMap[HELP_NAME]->m_options = {HELP_ADVANCED_OPT_BRACED};
-            m_argMap[HELP_NAME]->m_help += ", '" + std::string(HELP_HIDDEN_OPT) + "' to list hidden args as well";
-        }
-        if(param == HELP_HIDDEN_OPT){
+        if(!help_hidden_secret.empty() && param == help_hidden_secret){
+            // show hidden arguments
             printHelpCommon(/*advanced=*/true);
         } else if(!param.empty()) {
             printHelpForParameter(param);

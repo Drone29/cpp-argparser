@@ -681,6 +681,7 @@ A list of public parser methods:
 Returns a reference to the child parser
 * `setCallback(callback)` - sets a callback function to be called after parsing.  
 The callback should be a `void` function or lambda with no parameters
+* `hiddenSecret("secret")` - sets a secret that reveals hidden arguments in help message if specified
 * `getValue<T>("name or alias")` - returns parsed value of type T of the argument
 * `scanValue<T>("string value")` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values.
@@ -702,8 +703,9 @@ Here's the full list of argument methods (modifiers):
 * `help("your help text")` - specify help text for the argument
 * `advancedHelp("advanced help text")` - specify advanced help text, 
 will be shown if user calls `--help your_argument_here`
-* `hidden()` - make argument `hidden` from generic help message 
-(can still be displayed with advanced help call `--help -h`). Only for `optional` arguments
+* `hidden()` - make argument `hidden` from generic help message.  
+If the secret was set with `hiddenSecret()`, such arguments can be displayed with call to `--help secret`.  
+Only for `optional` arguments
 * `repeatable()` - make argument `repeatable`. Only for non-positional arguments
 * `defaultValue(defaultValue, hide_in_help=false)` - specify default 
 (the one that will be assigned if not set by user) 

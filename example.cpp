@@ -27,7 +27,7 @@ CL createStruct(const char *bl, const char *itgr = nullptr){
 int main(int argc, char *argv[]) {
 
     argParser parser("program_name", "this program does some pretty useful stuff");
-
+    argParser::hiddenSecret("show-hidden");
     int pos_val = 0;
     int i_val;
     const char *s_val = nullptr;
