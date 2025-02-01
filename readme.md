@@ -681,7 +681,7 @@ A list of public parser methods:
 Returns a reference to the child parser
 * `setCallback(callback)` - sets a callback function to be called after parsing.  
 The callback should be a `void` function or lambda with no parameters
-* `hiddenSecret("secret")` - sets a secret that reveals hidden arguments in help message if specified
+* `hiddenSecret("secret")` - static method, sets a secret that reveals hidden arguments in help message if specified
 * `getValue<T>("name or alias")` - returns parsed value of type T of the argument
 * `scanValue<T>("string value")` - static method to parse some value from string using built-in parser.
 Applicable to `arithmetic` or `string` values.

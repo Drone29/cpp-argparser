@@ -18,12 +18,10 @@
 /// bool parsable strings
 constexpr const char* BOOL_POSITIVES[] = {"true", "1", "yes", "on", "enable"};
 constexpr const char* BOOL_NEGATIVES[] = {"false", "0", "no", "off", "disable"};
-/// mark for required options
-constexpr const char* REQUIRED_OPTION_SIGN  = "(*)";
-/// help m_key
+///// help key
 constexpr const char* HELP_NAME = "--help";
 constexpr const char* HELP_ALIAS = "-h";
-/// help argument identifier
+///// help argument identifier
 constexpr const char* ARG_TYPE_HELP = "HELP";
 
 namespace parser_internal{
@@ -1485,7 +1483,7 @@ protected:
             }
         }
         if(m_required_args > 0 && m_parsed_required_args < 1){
-            throw parse_error(m_binary_name + ": missing required option " + std::string(REQUIRED_OPTION_SIGN));
+            throw parse_error(m_binary_name + ": missing required option (*)");
         }
     }
 
@@ -1775,7 +1773,7 @@ protected:
             std::string default_str = arg->m_show_default ? arg->m_arg_handle->get_str_val() : "";
             default_str = !default_str.empty() ? " (default " + default_str + ")" : "";
             std::string repeatable_str = arg->m_repeatable ? " [repeatable]" : "";
-            std::string required_str = arg->m_required ? (m_required_args > 1 ? " " + std::string(REQUIRED_OPTION_SIGN) : "") : "";
+            std::string required_str = arg->m_required ? (m_required_args > 1 ? " (*)" : "") : "";
 
             std::cout << " : ";
             std::cout << arg->m_help;
@@ -1833,7 +1831,7 @@ protected:
             printHelpCommon(/*advanced=*/false);
         }
         if(m_required_args > 1){
-            std::cout << "For options marked with " + std::string(REQUIRED_OPTION_SIGN) + ": at least one such option should be provided" << std::endl;
+            std::cout << "For options marked with (*): at least one such option should be provided" << std::endl;
         }
     }
 };
