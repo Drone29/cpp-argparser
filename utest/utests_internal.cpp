@@ -132,7 +132,7 @@ MYTEST(helpEmpty) {
     ASSERT_EQ(lines.size(), 3);
     EXPECT_EQ(lines[0], "Usage:  [flags]...");
     EXPECT_EQ(lines[1], "Flags (optional):");
-    EXPECT_EQ(lines[2], "\t-h,--help [arg] : Show this message and exit. 'arg' to get help about certain arg");
+    EXPECT_EQ(lines[2], "\t-h,--help [arg] : Show this message and exit. 'arg' to get help about certain argument");
 }
 
 MYTEST(helpCommonImplicitFlagWithHelp) {

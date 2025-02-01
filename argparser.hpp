@@ -198,7 +198,7 @@ protected:
     friend struct Argument;
     friend class ArgBuilderBase;
     ArgHandleBase() = default;
-    virtual ~ArgHandleBase() = default;
+
     virtual void action (const std::string *args, int size) {}
     virtual void set_value(const std::any &x) {}
     virtual std::string get_str_val() const {return "";}
@@ -210,6 +210,9 @@ protected:
     virtual void set_nargs(unsigned int n) {}
     virtual unsigned int get_nargs() {return 0;}
     virtual std::any get_any_val() const {return {};}
+
+public:
+    virtual ~ArgHandleBase() = default;
 };
 
 template <typename T, size_t STR_ARGS, typename...Targs>
@@ -479,9 +482,7 @@ struct Argument{
         return std::any_cast<T>(m_arg_handle->get_any_val());
     }
 
-    ~Argument() {
-        delete m_arg_handle;
-    }
+    ~Argument() = default;
 private:
 
     explicit Argument(std::string name) noexcept
@@ -500,7 +501,7 @@ private:
     //stringified type
     std::string m_type_str;
     //Option/flag
-    ArgHandleBase* m_arg_handle = nullptr;
+    std::unique_ptr<ArgHandleBase> m_arg_handle;
     //in use
     bool m_set = false;
     //alias
@@ -615,7 +616,7 @@ protected:
         if (!m_choices.empty())
             handle->set_choices(std::move(m_choices));
         handle->set_nargs(m_nargs_size);
-        m_arg->m_arg_handle = handle;
+        m_arg->m_arg_handle = std::unique_ptr<ArgHandleBase>(handle);
         m_arg->m_implicit = is_implicit;
 
         m_callback(std::move(m_arg));
@@ -889,7 +890,7 @@ public:
         m_argMap[HELP_NAME]->m_help = "Show this message and exit. 'arg' to get help about certain argument";
         m_argMap[HELP_NAME]->m_options = {"[arg]"};
         m_argMap[HELP_NAME]->m_optional = true;
-        m_argMap[HELP_NAME]->m_arg_handle = new ArgHandleBase();
+        m_argMap[HELP_NAME]->m_arg_handle = std::unique_ptr<ArgHandleBase>(new ArgHandleBase());
         m_argMap[HELP_NAME]->m_aliases = {HELP_ALIAS};
 
         m_binary_name = name;
